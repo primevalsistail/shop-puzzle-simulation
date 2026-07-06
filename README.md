@@ -42,7 +42,3 @@ npm run dev      # 開発サーバー起動
 npm run build    # プロダクションビルド
 npm test         # テスト実行
 ```
-
-## ライセンス
-
-MIT
