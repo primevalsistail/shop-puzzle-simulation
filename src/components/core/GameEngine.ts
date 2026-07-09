@@ -11,14 +11,18 @@ export class GameEngine {
   constructor() {
     this.game = new Phaser.Game({
       type: Phaser.AUTO,
-      width: GAME_WIDTH,
-      height: GAME_HEIGHT,
       backgroundColor: '#2d2d44',
       scene: [BootScene, GameScene],
       physics: { default: 'arcade' },
-      render: {
-        antialias: true,
-        pixelArt: false,
+      // pixelArt: true は antialias=false + roundPixels=true に加え
+      // canvas に image-rendering: pixelated CSS を付与する。
+      // Scale.FIT でキャンバスが CSS 拡大される際のにじみを防ぐ唯一確実な方法。
+      pixelArt: true,
+      scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: GAME_WIDTH,
+        height: GAME_HEIGHT,
       },
     })
   }

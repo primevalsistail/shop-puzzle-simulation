@@ -19,6 +19,8 @@ import { HUD } from '../ui/HUD.js'
 import { PurchaseMenu } from '../ui/PurchaseMenu.js'
 import { Tutorial } from '../ui/Tutorial.js'
 import { SaveLoadMenu } from '../ui/SaveLoadMenu.js'
+import { CharacterStrip } from '../ui/CharacterStrip.js'
+import { MessageLog } from '../ui/MessageLog.js'
 import { EventBus } from '../services/EventBus.js'
 import { GameEvents } from '../types/index.js'
 import type { DisplaySlot, GameTime, GridCell, Rotation } from '../types/index.js'
@@ -67,10 +69,11 @@ export class GameScene extends Phaser.Scene {
   private hud!: HUD
   private purchaseMenu!: PurchaseMenu
   private tutorial!: Tutorial
+  private characterStrip!: CharacterStrip
+  private messageLog!: MessageLog
 
   private advanceBtnBg!: Phaser.GameObjects.Rectangle
   private advanceBtnLabel!: Phaser.GameObjects.Text
-  private statusText!: Phaser.GameObjects.Text
   private tooltip!: Phaser.GameObjects.Text
 
   private selectedItemId: string | null = null
@@ -113,6 +116,10 @@ export class GameScene extends Phaser.Scene {
     this.inventoryPanel = new InventoryPanel(this)
     this.hud = new HUD(this)
     this.tutorial = new Tutorial(this)
+    this.characterStrip = new CharacterStrip(this)
+    this.characterStrip.create()
+    this.messageLog = new MessageLog(this)
+    this.messageLog.create()
 
     this.craftMenu = new CraftMenu(
       this,
@@ -207,51 +214,50 @@ export class GameScene extends Phaser.Scene {
   private setupBackground(): void {
     // 全体背景
     this.add.rectangle(640, 360, 1280, 720, 0x1a1a2e)
-    // 左パネル
+    // 左パネル (x=0〜220, 全高)
     this.add.rectangle(110, 360, 220, 720, 0x16213e)
-    // グリッドエリア下地 (GRID_ORIGIN_X=240, グリッド6×5 → 384×320px)
+    // グリッドエリア下地 (CELL_SIZE は FloorRenderer 定数から自動計算)
     const gw = INITIAL_GRID.width * CELL_SIZE
     const gh = INITIAL_GRID.height * CELL_SIZE
     this.add.rectangle(
       GRID_ORIGIN_X + gw / 2,
       GRID_ORIGIN_Y + gh / 2,
-      gw + 20,
-      gh + 20,
+      gw + 10,
+      gh + 4,   // bottom = 5+300+302 = 607 < 610 (メッセージ境界に収める)
       0x0d2340,
     )
+    // 右パネル (x=1090〜1280)
+    this.add.rectangle(1185, 305, 190, 610, 0x13122a)
+      .setStrokeStyle(1, 0x2a2a4a)
+    // キャラ絵プレースホルダー（HUD下〜ボタン上: y=135〜355）
+    this.add.rectangle(1185, 245, 170, 220, 0x0d1530)
+      .setStrokeStyle(1, 0x223355).setDepth(1)
+    this.add.text(1185, 245, 'キャラ絵\n(準備中)', {
+      fontSize: '13px', color: '#445577', align: 'center',
+    }).setOrigin(0.5).setDepth(2)
+    // メッセージウィンドウ区切り（グリッド+キャラ+右パネルのみ。左パネルはアイテムリストが続く）
+    const divGfx = this.add.graphics()
+    divGfx.lineStyle(1, 0x334455, 0.6)
+    divGfx.lineBetween(220, 609, 1280, 609)
   }
 
   private setupUI(): void {
-    const { width, height } = this.scale
-
-    this.add.text(width / 2, 30, 'Shop Puzzle Sim', {
-      fontSize: '22px',
-      color: '#ffffff',
-      fontStyle: 'bold',
-    }).setOrigin(0.5)
-
-    this.statusText = this.add.text(240, height - 16, '', {
-      fontSize: '14px',
-      color: '#cccccc',
-    }).setOrigin(0, 1)
-
     this.setupButtonPanel()
   }
 
   private setupButtonPanel(): void {
-    const { width, height } = this.scale
     const DEPTH = 10
 
-    // Panel geometry
-    const R = width - 12         // panel right edge
+    // Panel geometry — 右パネル (x=1090, width=190) 下段
+    const R = 1278               // panel right edge
     const PW = 176               // panel width
-    const L = R - PW             // panel left
+    const L = R - PW             // panel left (= 1102)
     const IW = 40, IH = 38      // icon button size
     const AH = 42                // action button height
     const GAP = 5
 
-    // Y positions (built from bottom up)
-    const yAdv   = height - 16 - AH / 2
+    // Y positions (built from bottom up, within main area y=0〜609)
+    const yAdv   = 609 - 16 - AH / 2
     const yCraft = yAdv   - AH / 2 - GAP - AH / 2
     const yPurch = yCraft - AH / 2 - GAP - AH / 2
     const yIcon  = yPurch - AH / 2 - GAP - IH / 2
@@ -266,7 +272,7 @@ export class GameScene extends Phaser.Scene {
 
     const showTip = (x: number, y: number, text: string) => {
       this.tooltip.setText(text)
-      const tx = Phaser.Math.Clamp(x - this.tooltip.width / 2, 4, width - this.tooltip.width - 4)
+      const tx = Phaser.Math.Clamp(x - this.tooltip.width / 2, 4, 1280 - this.tooltip.width - 4)
       this.tooltip.setPosition(tx, y - IH / 2 - this.tooltip.height - 6)
       this.tooltip.setVisible(true)
     }
@@ -340,7 +346,7 @@ export class GameScene extends Phaser.Scene {
         const inZone = this.isOverDiscardZone(pointer.x, pointer.y)
         this.floorRenderer.drawDiscardZone(inZone)
         if (inZone) {
-          this.statusText.setText('離すとリストへ返します')
+          this.messageLog.addMessage('離すとリストへ返します', 'info')
           this.floorRenderer.clearPreview()
           return
         }
@@ -515,12 +521,14 @@ export class GameScene extends Phaser.Scene {
       if (slot) {
         this.floorRenderer.refreshSlot(slot)
         this.showSalePopup(s.revenue, slot)
+        const item = this.registry_.getItem(slot.itemId)
+        this.messageLog.addMessage(`${item.name}が売れた！ +¥${s.revenue}`, 'sale')
       }
     })
 
     EventBus.on(GameEvents.CRAFTING_COMPLETED, (recipeId: unknown) => {
       const recipe = this.registry_.getRecipe(recipeId as string)
-      this.updateStatus(`${recipe.name} 完了! ${recipe.outputQuantity}個入手`)
+      this.messageLog.addMessage(`${recipe.name} 完了！ ${recipe.outputQuantity}個入手`, 'event')
       this.refreshInventoryPanel()
     })
 
@@ -698,22 +706,20 @@ export class GameScene extends Phaser.Scene {
 
   private updateStatus(msg?: string): void {
     if (msg) {
-      this.statusText.setText(msg)
-      this.time.delayedCall(2500, () => this.updateStatus())
+      this.messageLog.addMessage(msg, 'info')
       return
     }
     if (this.craftingSystem.isActive()) {
-      this.statusText.setText(`クラフト中… ${Math.floor(this.craftingSystem.getProgress() * 100)}%`)
+      this.messageLog.addMessage(`クラフト中… ${Math.floor(this.craftingSystem.getProgress() * 100)}%`, 'event')
       return
     }
     if (this.selectedItemId) {
       const item = this.registry_.getItem(this.selectedItemId)
       const rotLabels = ['↑', '→', '↓', '←']
-      this.statusText.setText(
-        `つかんでいる: ${item.name}  [${rotLabels[this.currentRotation]}]  右クリックで回転 → グリッド上でボタンを離して配置`,
+      this.messageLog.addMessage(
+        `つかんでいる: ${item.name}  [${rotLabels[this.currentRotation]}]  右クリックで回転`,
+        'info',
       )
-    } else {
-      this.statusText.setText('左パネルのアイテムを左クリックでつかんでグリッドへドロップ | 空スロットをクリックで補充/撤去')
     }
   }
 }

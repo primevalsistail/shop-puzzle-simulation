@@ -2,9 +2,11 @@ import Phaser from 'phaser'
 import type { DisplaySlot, GridCell, GridSize, Rotation } from '../types/index.js'
 import type { ItemRegistry } from '../components/items/ItemRegistry.js'
 
-export const CELL_SIZE = 64
-export const GRID_ORIGIN_X = 240
-export const GRID_ORIGIN_Y = 80
+// 13×10 最終グリッドから逆算: min(floor(760/13), floor(610/10)) = 58
+export const CELL_SIZE = 58
+// グリッドを左上に寄せる（拡張時に右・下に伸びる余地を確保）
+export const GRID_ORIGIN_X = 228  // 左パネル右端(220) + 8px
+export const GRID_ORIGIN_Y = 8    // 上端から 8px
 export const DISCARD_MARGIN = 56  // px from screen edge that counts as the discard zone
 
 // Small rendering depth constants

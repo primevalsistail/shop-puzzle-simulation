@@ -1,7 +1,7 @@
 import Phaser from 'phaser'
 
 const GOAL_AMOUNT = 1_000_000
-const PW = 224  // panel width
+const PW = 174  // panel width (右パネル 190px - 余白 16px)
 const PH = 108  // panel height
 
 export class HUD {
