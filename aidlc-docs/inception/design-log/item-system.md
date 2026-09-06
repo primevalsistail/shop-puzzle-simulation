@@ -228,4 +228,4 @@ item = {
 
 本件は実質「新しい Unit」なので、Phase 0-2 を Requirements、Phase 3-4 を Construction として
 既存の AI-DLC ワークフロー（[aidlc-state.md](../../aidlc-state.md)）に載せる選択肢がある。
-Cycle 3 として起票する形。
+**Cycle 4 として起票する形**（Cycle 3 は世界観として消化済み）。

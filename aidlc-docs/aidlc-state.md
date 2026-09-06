@@ -11,7 +11,7 @@
 ## Current Status
 - **Current Phase**: INCEPTION（**Cycle 3 完了** / Cycle 4 未起票）
 - **Current Stage**: Cycle 3（世界観）完了 — 世界観・主人公・主人公以外の人物すべて確定
-- **Next Stage**: Cycle 4（アイテム体系）。**前提として「島ごとの産物と需要」を決める**
+- **Next Stage**: Cycle 4（アイテム体系）の起票。まず設計アプローチを決める（→ [item-system.md](inception/design-log/item-system.md) §7）
 - **Note**: Cycle 2（UI/UX全面リニューアル）はコミット b078be6 で完了済み。
 
 ## Cycle 1 — 初期実装（完了）
@@ -85,8 +85,13 @@
 - 主人公の年齢を **23歳 → 21歳**
 - 検討記録: [design-log/character-motive.md](inception/design-log/character-motive.md)（外部検討には渡さない内部記録）
 
-## Cycle 4（予定）— アイテム体系の再設計
+## Cycle 4（未起票）— アイテム体系の再設計
 
-Cycle 3 で世界観が固まってから着手。構造（item-system.md §2 の確定事項10件）は
-既に合意済みで、残るのは各軸の語彙と実装。
+**Cycle 3 完了により着手可能。**構造（[item-system.md](inception/design-log/item-system.md) §2 の
+確定事項10件）は既に合意済みで、残るのは各軸の語彙と実装。
+
+- **最初の判断**: §7 の Phase 0〜4 で進めるか、AI-DLC ワークフローに載せるか（Phase 0-2 を
+  Requirements、Phase 3-4 を Construction として起票）
+- **世界観側の未決「島ごとの産物と需要」は、着手の前提ではない。**
+  Phase 0〜2（構造と語彙）には不要で、実アイテムを入れる Phase 3 で必要になる
 
