@@ -9,9 +9,9 @@
 - **Last Updated**: 2026-09-06
 
 ## Current Status
-- **Current Phase**: INCEPTION（**Cycle 3 完了** / Cycle 4 未起票）
-- **Current Stage**: Cycle 3（世界観）完了 — 世界観・主人公・主人公以外の人物すべて確定
-- **Next Stage**: Cycle 4（アイテム体系）の起票。まず設計アプローチを決める（→ [item-system.md](inception/design-log/item-system.md) §7）
+- **Current Phase**: INCEPTION（**Cycle 4: アイテム体系** — 進行中）
+- **Current Stage**: Requirements Analysis — Phase 0（不変条件）／Phase 1（問いを軸へ割り当て）
+- **Next Stage**: Application Design — Phase 2（各軸の定義）→ **Phase 2 が終わったらコードへ**
 - **Note**: Cycle 2（UI/UX全面リニューアル）はコミット b078be6 で完了済み。
 
 ## Cycle 1 — 初期実装（完了）
@@ -85,13 +85,42 @@
 - 主人公の年齢を **23歳 → 21歳**
 - 検討記録: [design-log/character-motive.md](inception/design-log/character-motive.md)（外部検討には渡さない内部記録）
 
-## Cycle 4（未起票）— アイテム体系の再設計
+## Cycle 4 — アイテム体系の再設計（進行中）
 
-**Cycle 3 完了により着手可能。**構造（[item-system.md](inception/design-log/item-system.md) §2 の
-確定事項10件）は既に合意済みで、残るのは各軸の語彙と実装。
+**起票**: 2026-09-06
+**設計ログ**: [design-log/item-system.md](inception/design-log/item-system.md)
+　構造は §2 で確定済み（10件）。**§3 の却下案と得られた原則は着手前に必読。**
+**進め方**: item-system.md §7 の **Phase 0〜4 を、AI-DLC ステージの中身として回す。**
+　§7 の肝は各フェーズで「**決めないこと**」を明示する点。汎用ステージには無い機能なので捨てない。
 
-- **最初の判断**: §7 の Phase 0〜4 で進めるか、AI-DLC ワークフローに載せるか（Phase 0-2 を
-  Requirements、Phase 3-4 を Construction として起票）
-- **世界観側の未決「島ごとの産物と需要」は、着手の前提ではない。**
-  Phase 0〜2（構造と語彙）には不要で、実アイテムを入れる Phase 3 で必要になる
+### スコープ
+
+| | |
+|---|---|
+| **含む** | 軸の確定と語彙／規則の条件言語（DSL）／取り合わせの2層化／最小実装と拡張ストレステスト |
+| **含まない** | **利幅の数値バランス調整**（本が2.5倍/10分など。item-system.md §5 に「要調整・別件」と明記）。混ぜると「数値を早く出しすぎる」失敗を繰り返す |
+| **前提ではない** | 世界観側の未決「島ごとの産物と需要」。Phase 0〜2 には不要で、実アイテムを入れる Phase 3 で必要になる |
+
+### INCEPTION PHASE
+- [x] Workspace Detection - COMPLETED（Cycle 3 完了時点で確認済み）
+- [x] Reverse Engineering - SKIPPED（現行13品の実測は item-system.md §5 に記録済み）
+- [ ] **Requirements Analysis** — **Phase 0**（不変条件を判定可能な形で）＋ **Phase 1**（アイテム体系が
+      答えるべき問いを列挙し、各問いをちょうど1つの軸に割り当てる。ここで軸の本数が決まる）
+      **草案あり**: 不変条件4本は §7、問い5つは §3「根本原因」
+      **ここで決めない**: 軸の数（Phase 0）／各軸の値（Phase 1）
+- [x] User Stories - SKIPPED（新ペルソナなし）
+- [x] Workflow Planning - SKIPPED（§7 の Phase 0〜4 が計画そのもの）
+- [ ] **Application Design** — **Phase 2**（各軸の定義を1行で。「tier とは加工の深さである」レベル）
+      **ここで決めない**: 語彙・数値
+- [x] Units Generation - SKIPPED（単一ユニット）
+
+### CONSTRUCTION PHASE（単一ユニット: Item Taxonomy）
+- [x] Functional Design - SKIPPED（Phase 2 が代替）
+- [x] NFR Requirements - SKIPPED（スタック確定済み）
+- [x] NFR Design - SKIPPED（同上）
+- [x] Infrastructure Design - SKIPPED（静的ホスティング変更なし）
+- [ ] **Code Generation** — **Phase 3**（型定義＋実アイテム20品＋規則評価器を書いて動かす。
+      **ここで初めて具体値を入れる**）
+- [ ] **Build and Test** — **Phase 4**（新品30個・新レシピ10本を投げ込み、Phase 0 の不変条件が
+      破れるか確認。**破れたら Phase 1 に戻る**）
 
