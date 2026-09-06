@@ -6,12 +6,12 @@
 - **Tech Stack**: TypeScript + Phaser.js 3 + Vite
 - **Platform**: Webブラウザ
 - **Started**: 2026-07-05T02:00:00Z
-- **Last Updated**: 2026-09-04
+- **Last Updated**: 2026-09-06
 
 ## Current Status
-- **Current Phase**: INCEPTION（Cycle 3: 世界観 — 進行中）
-- **Current Stage**: 世界観 確定 / 主人公 確定 / **主人公以外の人物 未着手**
-- **Next Stage**: 主人公以外の人物を char.md から導き直す → Cycle 4（アイテム体系）
+- **Current Phase**: INCEPTION（**Cycle 3 完了** / Cycle 4 未起票）
+- **Current Stage**: Cycle 3（世界観）完了 — 世界観・主人公・主人公以外の人物すべて確定
+- **Next Stage**: Cycle 4（アイテム体系）。**前提として「島ごとの産物と需要」を決める**
 - **Note**: Cycle 2（UI/UX全面リニューアル）はコミット b078be6 で完了済み。
 
 ## Cycle 1 — 初期実装（完了）
@@ -36,7 +36,7 @@
 ### OPERATIONS PHASE
 - [ ] Operations - PLACEHOLDER
 
-## Cycle 2 — UI/UX 全面リニューアル（進行中）
+## Cycle 2 — UI/UX 全面リニューアル（完了）
 
 ### INCEPTION PHASE
 - [x] Workspace Detection - COMPLETED（既存コード確認済み）
@@ -55,7 +55,7 @@
 - [x] Code Generation - COMPLETED (2026-07-09T10:20:00Z)
 - [x] Build and Test - COMPLETED (101テストパス, ビルド成功)
 
-## Cycle 3 — 世界観（進行中）
+## Cycle 3 — 世界観（完了）
 
 **2026-08-23**: 世界観の検討文書は**全削除**。一から考え直す。
 
@@ -71,8 +71,12 @@
 - [x] 主人公を確定 (2026-09-04)
       → [worldbuilding/char.md](inception/worldbuilding/char.md) — ノエラ・キア／表層「見立て好き」
       深層要求「自分が持ってきたものが、その土地で喜ばれる瞬間を作り続けたい」
-- [ ] **主人公以外の人物を char.md から導き直す**
-      → [worldbuilding/characters.md](inception/worldbuilding/characters.md)（主人公節のみ更新済み。他は未着手）
+- [x] 主人公以外の人物を確定 (2026-09-06)
+      → [worldbuilding/characters.md](inception/worldbuilding/characters.md) — 案B「淡々と取引する」を採用。
+      伯母テレナ・キア／権限の持ち主「航路・荷預かり係」／猫ネム／行商人バレン／
+      各島の商人4人／客の類型4種。経緯は [design-log/cast.md](inception/design-log/cast.md)
+
+**Cycle 3 で残った未決事項**（world.md §8）: 島ごとの産物と需要（Cycle 4 の前提）／10日周期の妥当性（未検証）
 
 ### 2026-09-04 に変更した確定事項
 - **店＝船倉。**荷を納めた船倉がそのまま売り場になる。「棚を組む」工程を廃止（造作の仕事は発生しない）
