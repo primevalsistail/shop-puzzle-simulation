@@ -326,3 +326,99 @@ Requirements Analysis（= Phase 0・Phase 1）完了。成果物3件を確定版
 
 ---
 
+## Session Resume / Cycle 4 Phase 2
+**Timestamp**: 2026-09-06T05:40:00Z
+**User Input**: "AIDLCしたい"
+**AI Response**: aidlc-state.md を読み、Cycle 4（アイテム体系の再設計）の再開と判定。
+Requirements Analysis（Phase 0・Phase 1）が完了済みで、次ステージは Application Design（= item-system.md §7 の Phase 2）。
+前ステージ成果物を読み込み（cycle4-phase0-invariants.md / cycle4-phase1-axes.md / cycle4-phase01-questions.md /
+design-log/item-system.md）、セッション再開の質問票 cycle4-phase2-resume-questions.md を作成した。
+**Context**: Session Continuity / 次ステージ = Application Design（Phase 2: 各軸の定義・面の本数 N の確定）
+
+---
+
+## Application Design (Cycle 4 / Phase 2) — 草案提示
+**Timestamp**: 2026-09-06T06:10:00Z
+**User Input**: "回答しました"（cycle4-phase2-resume-questions.md: Q1=A / Q2=A / Q3=A / Q4=A）
+**AI Response**: Q1=A（Phase 2 を実行）/ Q2=A（草案先出し）/ Q3=A（3項目一気に）/ Q4=A（Phase 2 確定でコミットし停止）
+として受領。矛盾・曖昧さの検査 → なし。
+
+**PR-3 に従い、アイテムより先に「書きたい規則」を列挙してから語彙を逆算した。**その結果:
+1. **面の候補「客層」が落ちた** — characters.md の確定「客の類型は取引行動で分ける（感情や見立てで分けない）」
+   により、客側に `子供` `大人` のような属性が存在しない。品側に `子供向け` を置いても照合相手が居ない
+   （§8「中身の無い箱」）。**世界観側の確定が分類設計を落とした**形
+2. **面の候補「保存」が落ちた** — Phase 1 で問いごと取り下げた「傷むか」の入れ直しになる。
+   時間劣化の機構が無いため `生鮮` の定義文が書けない（PR-1）
+3. **代わりに面②「消耗（使い切る／残る）」を新設** — 客の類型 C2/C4 が参照できる唯一の軸。
+   回転率の差を贅沢さとは独立に作る
+4. **主種類に `原料` を置かない** — 「用途の不在」で切っており、他の値（用途）と切り方が混ざる。
+   §3 で却下した「書物」と同型。INV-2b の検査で落ちた
+5. **主種類は「最終的に何になるか」で決めない** — レシピを足すと値が動き INV-1 違反。
+   「その品そのものを人がどう扱うか」で決める
+
+**草案の結論**: **N = 2。軸は 3 + 2 = 5 本**（主種類・tier・産地・贅沢さ・消耗）。
+条件言語はアイテム述語＋状態述語の2種で、どちらも ItemId を書かない（INV-4 維持）。
+
+**成果物（いずれも草案・未確定）**:
+- inception/plans/cycle4-phase2-plan.md（実行計画・手順1〜10 完了）
+- inception/application-design/cycle4-phase2-axes.md（軸の定義草案・INV/PR 検算つき）
+- inception/application-design/cycle4-phase2-questions.md（確認事項5件）
+
+**Context**: Application Design / Cycle 4 Phase 2 / 回答待ち
+
+---
+
+## Application Design (Cycle 4 / Phase 2) — 追加確認・客モデルの調査
+**Timestamp**: 2026-09-06T06:40:00Z
+**User Input**: "characters.mdはいわゆる「キャラとして定義するべき人間」を決めていて「モブ」等の話はしてなかったと思います。これは別途定義する必要があると思いますが、どうなっていますか？"
+**AI Response**: 指摘は正確。調査結果:
+- characters.md 末尾に「客の類型」節は**ある**が、4類型と縛り2件（個人を作らない／取引行動で分ける）だけ
+- **来訪モデル**（何人来るか／島で変わるか／何を見て選ぶか）は**どこにも定義がない**。world.md §8 の未決にも未掲載
+- requirements.md にあるのは UI プレースホルダーのみ（FR-UI-02-10 / FR-UI-04-3）
+- components.md L129 は「顧客の好みを考慮」と書くが**未実装**（文書とコードの乖離）
+- **CustomerSimulator.ts に客という実体も類型も存在しない。**毎分30%で来店判定し全スロットを独立に購買判定するだけ。
+  購買率は品ごとの固定値 baseSaleProb。**4類型は未実装**
+→ 「客層はいる」を成立させるには**客のモデルの新規定義**が要り、これは Cycle 4 のスコープ外。
+　置き場所の選択を **FQ0** として追加（cycle4-phase2-clarification-questions.md の FQ1 の前に挿入）。
+**Context**: Application Design / Cycle 4 Phase 2 / 追加確認・回答待ち
+
+---
+
+## Application Design (Cycle 4 / Phase 2) — 完了
+**Timestamp**: 2026-09-06T07:30:00Z
+
+**この対話での回答（すべて会話で受領、質問票に転記済み）**:
+- Q1「鮮度は面倒。客層はいる」/ Q2=D（主種類4値）/ Q3=A（贅沢さに順序）/ Q4=A＋店全体のボーナス / Q5=B（距離は使わない）
+- FQ0=A（客のモデルは Cycle 4 で定義しない）/ FQ1=C / FQ2=A（客層の面は置かない）/ FQ3=B（消耗も置かない）
+- FQ4=A（効き目 = 種類3 × 範囲2）/ FQ5=B（品が `向く土地` を持ち、4行の需要表が島と結ぶ）
+
+**ユーザーの指摘で設計が変わった点（3件。いずれも AI 側の草案の誤りを正した）**:
+1. **「characters.md はキャラを決めていてモブの話はしていない」** → 調査の結果、客の**来訪モデルは
+   どこにも定義がなく、コードに客の実体も類型も存在しない**ことが判明。Cycle 4 のスコープ外と判断し、
+   **Cycle 5「客と需要」として切り出した**
+2. **「商品が客に売れやすい／客が商品を買いやすい、どちらで考えるべきか」** → **向きが逆だった**。
+   「誰に売れやすいか」は品の事実ではなく意味づけ（§2#9）。品側に `客層` を置くと
+   **客を1種増やすたびに既存の全品を書き換える**ことになる。**規則側に置く**と決定
+3. **「客について『同じ客』という判定をそもそもしない」** → 面「消耗」の根拠だった
+   「同じ客が繰り返し買う」は**この世界に存在しない事象**だった。消耗を却下
+
+**結果 — 軸は 5 本（N=2）**:
+主種類（食料・飲みもの・衣類・道具）／ tier（導出）／ 産地（四島＋なし）／
+贅沢さ（日用<上等<贅沢・順序あり）／ 向く土地（寒い・暑い・温暖・実り・どこでも）
+
+**PR-3 の効果**: アイテムより先に規則を列挙して逆算した結果、
+**Phase 1 が候補に挙げていた面が3本とも落ちた**（保存・客層・消耗）。
+アイテムを先に挙げていたら3本とも「それらしいから」で残っていた。
+
+**成果物**:
+- inception/application-design/cycle4-phase2-axes.md（確定版・INV/PR 全件検算済み）
+- inception/application-design/cycle4-phase2-questions.md ／ -clarification-questions.md（回答転記済み）
+- inception/plans/cycle4-phase2-plan.md（手順1〜13 完了）
+- inception/design-log/item-system.md（§2 に #16〜#20、§3 に却下4件、§4 の A/B/C を決着、§5 を改訂、§9 更新）
+- aidlc-state.md（Application Design 完了 ／ Phase 3 の入力を明記 ／ **Cycle 5 を新設**）
+
+**次**: Phase 3（型定義＋実アイテム20品＋規則評価器）。**ユーザー判断（Q4=A）により別セッションで行う。**
+**Context**: Application Design / Cycle 4 Phase 2 完了
+
+---
+
