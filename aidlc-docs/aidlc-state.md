@@ -10,8 +10,9 @@
 
 ## Current Status
 - **Current Phase**: INCEPTION（**Cycle 4: アイテム体系** — 進行中）
-- **Current Stage**: Requirements Analysis — Phase 0（不変条件）／Phase 1（問いを軸へ割り当て）
-- **Next Stage**: Application Design — Phase 2（各軸の定義）→ **Phase 2 が終わったらコードへ**
+- **Current Stage**: Requirements Analysis — **完了（2026-09-06）**。Phase 0・Phase 1 の成果物あり
+- **Next Stage**: Application Design — **Phase 2（各軸の定義・面の本数 N の確定）。別セッションで行う**
+  → **Phase 2 が終わったらコードへ**
 - **Note**: Cycle 2（UI/UX全面リニューアル）はコミット b078be6 で完了済み。
 
 ## Cycle 1 — 初期実装（完了）
@@ -93,6 +94,19 @@
 **進め方**: item-system.md §7 の **Phase 0〜4 を、AI-DLC ステージの中身として回す。**
 　§7 の肝は各フェーズで「**決めないこと**」を明示する点。汎用ステージには無い機能なので捨てない。
 
+### 2026-09-06 に決まった主要事項（詳細は [Phase 1 §5](inception/requirements/cycle4-phase1-axes.md)）
+
+- **要素は面（facet）に分ける。**平らなタグ袋は保存性と客層を混ぜており INV-2b 違反（「書物」と同型）
+- **産地を面として持ち、値に「なし」を含む。**産地なしの品が島の個性のコントラストと詰み回避を担う
+- **placeable は廃止。全品売れる。**全品が「今売るか、材料にするか」の選択になる
+- **売値は積み上げ式。**tier1 のみ手書き、tier2以上は `Σ材料の売値 × 加工倍率`
+- **中間品は「その品を100個売る」と買えるようになる**（ただし買う方が高い＝時間を金で買う）
+- **採らなかった案**: 他島でも割高（1.0〜1.3倍）で買えるようにする
+  → characters.md:92 のバレンの制約（10種10個を超えると島を巡る必要がなくなる）と矛盾する
+- **有力案（Phase 3 で検証）**: 産地から**遠い島で売るほど高く売れる**（同じ数字を逆向きに使う）
+- **⚠ 必ず守ること**: 加工倍率を所要時間**だけ**から決めない。`利益/時間` が一定になり
+  「何を買ってどう売っても結局同じ」になる。面（贅沢／日用）による回転率の差を必ず併せて入れる
+
 ### スコープ
 
 | | |
@@ -104,14 +118,21 @@
 ### INCEPTION PHASE
 - [x] Workspace Detection - COMPLETED（Cycle 3 完了時点で確認済み）
 - [x] Reverse Engineering - SKIPPED（現行13品の実測は item-system.md §5 に記録済み）
-- [ ] **Requirements Analysis** — **Phase 0**（不変条件を判定可能な形で）＋ **Phase 1**（アイテム体系が
-      答えるべき問いを列挙し、各問いをちょうど1つの軸に割り当てる。ここで軸の本数が決まる）
-      **草案あり**: 不変条件4本は §7、問い5つは §3「根本原因」
-      **ここで決めない**: 軸の数（Phase 0）／各軸の値（Phase 1）
+- [x] **Requirements Analysis** - COMPLETED (2026-09-06)
+      → [Phase 0 不変条件](inception/requirements/cycle4-phase0-invariants.md) — INV-1〜6 ＋ 判定規律 PR-1〜3。
+        §7 の4本を判定手順つきに整形し、**INV-5（追加コストが定数）**と**INV-6（作った品は材料より高い）**を追加。
+        §3 の却下案8件＋新規2件がすべて落ちることを検算済み
+      → [Phase 1 問いと軸](inception/requirements/cycle4-phase1-axes.md) — 問い11件を (a)軸/(b)規則/(c)導出 に仕分け。
+        **軸は 3 + N 本**（主種類・tier・産地 ＋ 要素の面 N 本）。N は Phase 2 で確定
+      → [回答済み質問票](inception/requirements/cycle4-phase01-questions.md)
 - [x] User Stories - SKIPPED（新ペルソナなし）
 - [x] Workflow Planning - SKIPPED（§7 の Phase 0〜4 が計画そのもの）
 - [ ] **Application Design** — **Phase 2**（各軸の定義を1行で。「tier とは加工の深さである」レベル）
-      **ここで決めない**: 語彙・数値
+      **入力**: Phase 0 の INV-1〜6 ／ Phase 1 の §4（軸）と §5（申し送り）
+      **決めること**: 主種類の値（§4-A）／ **面の本数 N と各面の語彙**（§4-B。候補は 保存／客層／価格感、2〜4本）／
+        条件言語の形（§4-C。**アイテムの軸への述語**と**ゲーム状態への述語**の2種類が要る）
+      **ここで決めない**: 数値
+      **別セッションで行う**（このセッションは Phase 1 完了で終了）
 - [x] Units Generation - SKIPPED（単一ユニット）
 
 ### CONSTRUCTION PHASE（単一ユニット: Item Taxonomy）
@@ -123,4 +144,6 @@
       **ここで初めて具体値を入れる**）
 - [ ] **Build and Test** — **Phase 4**（新品30個・新レシピ10本を投げ込み、Phase 0 の不変条件が
       破れるか確認。**破れたら Phase 1 に戻る**）
+      **追加の検査項目**（Phase 1 §5 より）: 新レシピ10本の `売値(出力) > Σ売値(材料)`（INV-6）／
+      新品30個について**最適戦略が一致していないか**（「何を買ってどう売っても結局同じ」の検出）
 
