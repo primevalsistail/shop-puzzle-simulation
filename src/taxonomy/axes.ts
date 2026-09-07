@@ -205,11 +205,4 @@ export interface RecipeDef {
   readonly ingredients: readonly { readonly itemId: ItemId; readonly quantity: number }[]
   /** 加工中は店が閉まる（機会損失）。戦略を分ける5つの量の1つ */
   readonly durationMinutes: number
-  /**
-   * 加工倍率。売値 = (Σ 材料の売値) × これ（P2）。
-   *
-   * ⚠ P3 — 所要時間だけから決めない。時間だけで決めると `利益/時間` が全品一定になり
-   *   「何を買ってどう売っても結局同じ」になる。贅沢さによる回転率の差を併せて入れる。
-   */
-  readonly craftMultiplier: number
 }

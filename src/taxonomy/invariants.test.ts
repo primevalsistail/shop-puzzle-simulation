@@ -10,9 +10,9 @@
 
 import { describe, it, expect } from 'vitest'
 import type { ItemDef, RecipeDef } from './axes.js'
-import { ALL_ITEMS } from './items.js'
+import { ALL_ITEMS, getItem } from './items.js'
 import { ALL_RECIPES, RECIPES_BY_OUTPUT } from './recipes.js'
-import { dumpAll, ingredientCost, salePrice, tier } from './derive.js'
+import { craftProfit, dumpAll, ingredientCost, salePrice, tier } from './derive.js'
 import { SIGNATURE_PAIRS, PAIR_RULES, DEMAND_RULES, UNLOCK_RULES, combine } from './rules.js'
 import { evalCondition, evaluate, type GameState, type Placement } from './evaluate.js'
 
@@ -53,7 +53,7 @@ describe('INV-1 追加しても、既存は変わらない', () => {
       outputItemId: 'test_flatbread', outputQuantity: 2,
       // 既存の品（麦・塩）を材料に使う
       ingredients: [{ itemId: 'rice', quantity: 2 }, { itemId: 'salt', quantity: 1 }],
-      durationMinutes: 3, craftMultiplier: 1.5,
+      durationMinutes: 3,
     }
     const recipes = new Map(RECIPES_BY_OUTPUT)
     recipes.set(newRecipe.outputItemId, newRecipe)
@@ -100,7 +100,7 @@ describe('INV-3 導出できる属性は持たない', () => {
       id: 'cyclic', display: { name: '循環' },
       outputItemId: 'buckwheat', outputQuantity: 1,
       ingredients: [{ itemId: 'buckwheat_flour', quantity: 1 }],
-      durationMinutes: 1, craftMultiplier: 1.5,
+      durationMinutes: 1,
     })
     expect(() => tier('buckwheat_flour', cyclic)).toThrow(/cycle/i)
   })
@@ -184,9 +184,12 @@ describe('INV-6 作った品は、材料より高い', () => {
     }
   })
 
-  it('加工倍率はすべて 1 より大きい（構造的に INV-6 を満たす条件）', () => {
+  it('加工利益は常に正（構造的に INV-6 を満たす条件）', () => {
+    // 売値 = 材料費 + 加工利益 なので、利益が正である限り INV-6 は定義から成立する。
+    // 旧式は「加工倍率 > 1」に依存していた。
     for (const recipe of ALL_RECIPES) {
-      expect(recipe.craftMultiplier).toBeGreaterThan(1)
+      const item = getItem(recipe.outputItemId)
+      expect(craftProfit(recipe, item), recipe.id).toBeGreaterThan(0)
     }
   })
 })
