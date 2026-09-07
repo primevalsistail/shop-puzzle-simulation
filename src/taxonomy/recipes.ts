@@ -449,6 +449,19 @@ export const ALL_RECIPES: readonly RecipeDef[] = [
     ingredients: [{ itemId: 'basket', quantity: 1 }, { itemId: 'rope', quantity: 1 }, { itemId: 'cotton_yarn', quantity: 1 }],
     durationMinutes: 300, craftMultiplier: 1.46,
   },
+  // ── 2026-09-07 追加 — `実りの土地` の母数を埋める2本 ──
+  {
+    id: 'recipe_straw_bale', display: { name: '稲わらの俵をつくる' },
+    outputItemId: 'straw_bale', outputQuantity: 2,
+    ingredients: [{ itemId: 'rice_straw', quantity: 4 }, { itemId: 'rope', quantity: 2 }],
+    durationMinutes: 240, craftMultiplier: 1.43,
+  },
+  {
+    id: 'recipe_bamboo_sieve', display: { name: '竹のざるをつくる' },
+    outputItemId: 'bamboo_sieve', outputQuantity: 3,
+    ingredients: [{ itemId: 'bamboo', quantity: 3 }, { itemId: 'rope', quantity: 1 }],
+    durationMinutes: 120, craftMultiplier: 1.36,
+  },
 ] as const
 
 export const RECIPES_BY_OUTPUT: ReadonlyMap<string, RecipeDef> =

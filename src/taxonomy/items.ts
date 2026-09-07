@@ -103,13 +103,13 @@ export const ALL_ITEMS: readonly ItemDef[] = [
   },
   {
     id: 'corn', display: { name: 'とうもろこし', color: 0xb75c3f },
-    mainKind: '食料', origin: 'リナツィア', luxury: '日用', suitedLand: 'どこでも',
+    mainKind: '食料', origin: 'リナツィア', luxury: '日用', suitedLand: '温暖な土地',
     shape: [[1], [1], [1]], basePrice: 20,
     originReason: '高温と長い日照で一気に育つ',
   },
   {
     id: 'eggplant', display: { name: 'なす', color: 0xc04648 },
-    mainKind: '食料', origin: 'リナツィア', luxury: '上等', suitedLand: 'どこでも',
+    mainKind: '食料', origin: 'リナツィア', luxury: '上等', suitedLand: '温暖な土地',
     shape: [[1], [1]], basePrice: 22,
     originReason: '高温を好み、実がつやよく次々になる',
   },
@@ -153,7 +153,7 @@ export const ALL_ITEMS: readonly ItemDef[] = [
   },
   {
     id: 'persimmon', display: { name: '柿', color: 0xdf5e4e },
-    mainKind: '食料', origin: 'ノアキータ', luxury: '贅沢', suitedLand: 'どこでも',
+    mainKind: '食料', origin: 'ノアキータ', luxury: '贅沢', suitedLand: '温暖な土地',
     shape: [[1]], basePrice: 28,
     originReason: '寒暖差で渋が抜けて色づき、熟す',
   },
@@ -165,7 +165,7 @@ export const ALL_ITEMS: readonly ItemDef[] = [
   },
   {
     id: 'apple', display: { name: 'りんご', color: 0xc0504e },
-    mainKind: '食料', origin: 'ノアキータ', luxury: '贅沢', suitedLand: 'どこでも',
+    mainKind: '食料', origin: 'ノアキータ', luxury: '贅沢', suitedLand: '温暖な土地',
     shape: [[1]], basePrice: 30,
     originReason: '夜の冷えで色と甘みが入り、霜の前に穫る',
   },
@@ -251,7 +251,7 @@ export const ALL_ITEMS: readonly ItemDef[] = [
   },
   {
     id: 'enoki', display: { name: 'えのきたけ', color: 0xcd6845 },
-    mainKind: '食料', origin: 'ミフユリア', luxury: '上等', suitedLand: 'どこでも',
+    mainKind: '食料', origin: 'ミフユリア', luxury: '上等', suitedLand: '温暖な土地',
     shape: [[1], [1]], basePrice: 22,
     originReason: '凍りつく倒木や雪の下に出る菌。寒さが発生の条件',
   },
@@ -281,7 +281,7 @@ export const ALL_ITEMS: readonly ItemDef[] = [
   },
   {
     id: 'lemon', display: { name: 'レモン', color: 0xd44958 },
-    mainKind: '食料', origin: 'ミフユリア', luxury: '上等', suitedLand: 'どこでも',
+    mainKind: '食料', origin: 'ミフユリア', luxury: '上等', suitedLand: '温暖な土地',
     shape: [[1]], basePrice: 28,
     originReason: '実が熟すのは冬。冬の柑橘',
   },
@@ -780,6 +780,22 @@ export const ALL_ITEMS: readonly ItemDef[] = [
     id: 'carrying_basket', display: { name: '背負い籠', color: 0xb07b34 },
     mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: '温暖な土地',
     shape: [[1, 1], [1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  // ── 2026-09-07 追加 — `実りの土地` の母数を埋める2品 ──
+  // `温暖な土地` に「生のまま食べるもの」を明記して6品が移った結果、
+  // 需要4行が 18:16:32:9 = 3.56倍 に開いた。**薄い側（実りの土地）を品で埋める。**
+  // ⚠ 書き手は「4行の比を3倍以内に収める」ことを知った状態で足している。独立ではない。
+  {
+    id: 'straw_bale', display: { name: '稲わらの俵', color: 0xbf9a3c },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: '実りの土地',
+    shape: [[1, 1], [1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'bamboo_sieve', display: { name: '竹のざる', color: 0x9fb257 },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: '実りの土地',
+    shape: [[1, 1, 1]],
     originReason: '船倉で作る品。旬を持たないので産地なし',
   },
 ] as const

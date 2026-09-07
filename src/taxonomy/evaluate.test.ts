@@ -202,11 +202,11 @@ describe('導出', () => {
     }
   })
 
-  it('120品ある（素材50 ＋ 加工品70）', () => {
-    // 2026-09-07 宿題B で道具10品＋レシピ10本を追加（110品/60本 → 120品/70本）。
+  it('122品ある（素材50 ＋ 加工品72）', () => {
+    // 110品/60本 → 宿題B で道具10品＋10本 → Phase 4 後に実りの土地を2品＋2本。
     // 素材50は変わらない（追加はすべて tier2 以上の加工品）。
-    expect(ALL_ITEMS).toHaveLength(120)
+    expect(ALL_ITEMS).toHaveLength(122)
     expect(ALL_ITEMS.filter(i => i.basePrice !== undefined)).toHaveLength(50)
-    expect(ALL_RECIPES).toHaveLength(70)
+    expect(ALL_RECIPES).toHaveLength(72)
   })
 })
