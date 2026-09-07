@@ -489,7 +489,7 @@ export class GameScene extends Phaser.Scene {
     EventBus.on(GameEvents.TIME_MINUTE_PASSED, (time: unknown) => {
       const t = time as GameTime
       this.hud.updateTime(t.day, t.hour, t.minute)
-      this.gameService.onMinutePassed()
+      this.gameService.onMinutePassed(Math.random, this.timeManager.isOpen())
       this.hud.updateRevenue(this.economy.getTotalRevenue(), this.gameService.isInEndlessMode())
     })
 

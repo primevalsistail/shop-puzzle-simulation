@@ -10,13 +10,15 @@ import type { TimeManager } from '../core/TimeManager.js'
 
 function makeTimeManagerMock(): TimeManager {
   return {
-    pause: vi.fn(),
-    resume: vi.fn(),
-    isCrafting: vi.fn().mockReturnValue(false),
     isAdvancing: vi.fn().mockReturnValue(false),
     startAdvancing: vi.fn(),
     stopAdvancing: vi.fn(),
     getCurrentTime: vi.fn().mockReturnValue({ day: 1, hour: 8, minute: 0 }),
+    // 8:00 時点なので 24:00 まで 960分ある（#25 Q3 = B の判定に使う）
+    minutesUntilEndOfDay: vi.fn().mockReturnValue(960),
+    skipMinutes: vi.fn(),
+    getPhase: vi.fn().mockReturnValue('作業'),
+    isOpen: vi.fn().mockReturnValue(false),
     update: vi.fn(),
   } as unknown as TimeManager
 }
@@ -50,10 +52,18 @@ describe('CraftingSystem', () => {
     expect(inventory.getQuantity('flour')).toBe(3) // 5 - 2
   })
 
-  it('startCraftでTimeManagerをpauseする', () => {
+  it('startCraftはゲーム内時間を所要分だけ飛ばす（＝その間は客が来ない）', () => {
     inventory.add('flour', 2)
-    cs.startCraft('recipe_bread')
-    expect(timeManager.pause).toHaveBeenCalledOnce()
+    cs.startCraft('recipe_bread') // bread: 5分
+    expect(timeManager.skipMinutes).toHaveBeenCalledWith(5)
+  })
+
+  it('その日のうちに終わらない加工は着手できない（#25 Q3 = B）', () => {
+    vi.mocked(timeManager.minutesUntilEndOfDay).mockReturnValue(3)
+    inventory.add('flour', 2)
+    expect(cs.canCraft('recipe_bread')).toBe(false) // 5分 > 残り3分
+    expect(cs.startCraft('recipe_bread')).toBe(false)
+    expect(inventory.getQuantity('flour')).toBe(2) // 素材は減らない
   })
 
   it('startCraftでCRAFTING_STARTEDを発火する', () => {
@@ -70,50 +80,25 @@ describe('CraftingSystem', () => {
     expect(cs.isActive()).toBe(false)
   })
 
-  it('進捗が正しく更新される', () => {
+  it('着手した時点で製品が倉庫に入る（実時間では待たない）', () => {
     inventory.add('flour', 2)
-    cs.startCraft('recipe_bread') // 5min * 1000ms = 5000ms
-    cs.update(2500)
-    expect(cs.getProgress()).toBeCloseTo(0.5, 1)
-  })
-
-  it('完了したとき製品を倉庫に追加する', () => {
-    inventory.add('flour', 2)
-    cs.startCraft('recipe_bread') // bread: 5min = 5000ms, output 3
-    cs.update(6000) // over completion
+    cs.startCraft('recipe_bread') // bread: output 3
     expect(inventory.getQuantity('bread')).toBe(3)
   })
 
-  it('完了したときTimeManagerをresumeする', () => {
-    inventory.add('flour', 2)
-    cs.startCraft('recipe_bread')
-    cs.update(6000)
-    expect(timeManager.resume).toHaveBeenCalledOnce()
-  })
-
-  it('完了したときCRAFTING_COMPLETEDを発火する', () => {
+  it('CRAFTING_COMPLETEDはstartCraftの中で発火する', () => {
     const listener = vi.fn()
     EventBus.on(GameEvents.CRAFTING_COMPLETED, listener)
     inventory.add('flour', 2)
     cs.startCraft('recipe_bread')
-    cs.update(6000)
     expect(listener).toHaveBeenCalledWith('recipe_bread')
   })
 
-  it('cancelCraftで素材を返却する', () => {
-    inventory.add('flour', 5)
-    cs.startCraft('recipe_bread')
-    cs.cancelCraft()
-    expect(inventory.getQuantity('flour')).toBe(5) // refunded
-    expect(cs.isActive()).toBe(false)
-  })
-
-  it('isActiveはジョブ実行中にtrue', () => {
+  it('加工は途中の状態を持たない（着手＝完了）', () => {
     inventory.add('flour', 2)
     cs.startCraft('recipe_bread')
-    expect(cs.isActive()).toBe(true)
-    cs.update(6000)
     expect(cs.isActive()).toBe(false)
+    expect(cs.getProgress()).toBe(0)
   })
 
   it('複数素材レシピが動作する', () => {

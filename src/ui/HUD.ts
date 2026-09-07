@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { phaseOf } from '../components/core/TimeManager.js'
 
 const GOAL_AMOUNT = 1_000_000
 const PW = 174  // panel width (右パネル 190px - 余白 16px)
@@ -83,7 +84,8 @@ export class HUD {
   updateTime(day: number, hour: number, minute: number): void {
     const h = String(hour).padStart(2, '0')
     const m = String(minute).padStart(2, '0')
-    this.timeText.setText(`${h}:${m}`)
+    // 区分を併記する（#25）。客が来るのは 10:00-20:00 の「営業」だけ
+    this.timeText.setText(`${h}:${m}  ${phaseOf(hour)}`)
     this.dayText.setText(`Day ${day}`)
   }
 }

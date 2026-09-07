@@ -87,6 +87,10 @@ export const GameEvents = {
   FLOOR_SLOT_REMOVED: 'floor:slot-removed',
   FLOOR_SLOT_EMPTIED: 'floor:slot-emptied',
   FLOOR_SLOT_SOLD: 'floor:slot-sold',
+  // 時間
+  TIME_PHASE_CHANGED: 'time:phase-changed',
+  TIME_DAY_CHANGED: 'time:day-changed',
+  TIME_SKIPPED: 'time:skipped',
   // クラフト
   CRAFTING_STARTED: 'crafting:started',
   CRAFTING_COMPLETED: 'crafting:completed',

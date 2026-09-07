@@ -29,20 +29,17 @@ describe('TimeManager', () => {
     expect(tm.getCurrentTime().minute).toBe(1) // 止まっているので増えない
   })
 
-  it('pause 中は時間が進まない', () => {
-    tm.startAdvancing()
-    tm.pause()
-    tm.update(500)
-    expect(tm.getCurrentTime().minute).toBe(0)
+  it('skipMinutes は時計を飛ばす（加工がこれを呼ぶ）', () => {
+    tm.setTime({ day: 1, hour: 8, minute: 0 })
+    tm.skipMinutes(120)
+    expect(tm.getCurrentTime()).toEqual({ day: 1, hour: 10, minute: 0 })
   })
 
-  it('resume 後は時間が進む', () => {
-    tm.startAdvancing()
-    tm.pause()
-    tm.update(500)
-    tm.resume()
-    tm.update(100)
-    expect(tm.getCurrentTime().minute).toBe(1)
+  it('skipMinutes は TIME_MINUTE_PASSED を出さない（＝その間は客が来ない）', () => {
+    let count = 0
+    EventBus.on(GameEvents.TIME_MINUTE_PASSED, () => { count++ })
+    tm.skipMinutes(60)
+    expect(count).toBe(0)
   })
 
   it('60分で1時間進む', () => {
@@ -53,9 +50,9 @@ describe('TimeManager', () => {
 
   it('24時間で翌日になる', () => {
     tm.startAdvancing()
-    tm.update(100 * 60 * 16) // 16時間分（8時スタートなので翌0時）
+    tm.update(100 * 60 * 16) // 16時間分（8時スタートなので24:00到達）
     expect(tm.getCurrentTime().day).toBe(2)
-    expect(tm.getCurrentTime().hour).toBe(0)
+    expect(tm.getCurrentTime().hour).toBe(6) // 睡眠を飛ばして翌日6:00（#25）
   })
 
   it('TIME_MINUTE_PASSED イベントが発行される', () => {
@@ -81,11 +78,29 @@ describe('TimeManager', () => {
     expect(fired).toBe(true)
   })
 
-  it('isCrafting は pause/resume で切り替わる', () => {
-    expect(tm.isCrafting()).toBe(false)
-    tm.pause()
-    expect(tm.isCrafting()).toBe(true)
-    tm.resume()
-    expect(tm.isCrafting()).toBe(false)
+  it('区分は 6-10 作業 / 10-20 営業 / 20-24 作業', () => {
+    tm.setTime({ day: 1, hour: 8, minute: 0 })
+    expect(tm.getPhase()).toBe('作業')
+    expect(tm.isOpen()).toBe(false)
+    tm.setTime({ day: 1, hour: 10, minute: 0 })
+    expect(tm.getPhase()).toBe('営業')
+    expect(tm.isOpen()).toBe(true)
+    tm.setTime({ day: 1, hour: 19, minute: 59 })
+    expect(tm.isOpen()).toBe(true)
+    tm.setTime({ day: 1, hour: 20, minute: 0 })
+    expect(tm.getPhase()).toBe('作業')
+    expect(tm.isOpen()).toBe(false)
+  })
+
+  it('24:00 に達したら睡眠を飛ばして翌日 6:00 になる', () => {
+    tm.setTime({ day: 1, hour: 23, minute: 59 })
+    tm.startAdvancing()
+    tm.update(100)
+    expect(tm.getCurrentTime()).toEqual({ day: 2, hour: 6, minute: 0 })
+  })
+
+  it('minutesUntilEndOfDay は 24:00 までの分数を返す', () => {
+    tm.setTime({ day: 1, hour: 22, minute: 30 })
+    expect(tm.minutesUntilEndOfDay()).toBe(90)
   })
 })

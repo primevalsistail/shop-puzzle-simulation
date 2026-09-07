@@ -19,7 +19,14 @@ export class GameService {
     private economy: EconomyManager,
   ) {}
 
-  onMinutePassed(rng: () => number = Math.random): void {
+  /**
+   * 1ゲーム分ぶんの売買を回す。
+   *
+   * ⚠ `isOpen` が false の分には**客が来ない**（#25）。
+   *   営業は 10:00-20:00 のみ。加工で飛ばした分も呼ばれない（TimeManager.skipMinutes）。
+   */
+  onMinutePassed(rng: () => number = Math.random, isOpen = true): void {
+    if (!isOpen) return
     const slots = this.floorGrid.getAllSlots()
     if (slots.length === 0) return
 
