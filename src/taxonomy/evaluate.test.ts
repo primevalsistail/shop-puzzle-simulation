@@ -199,9 +199,11 @@ describe('導出', () => {
     }
   })
 
-  it('110品ある（素材50 ＋ 加工品60）', () => {
-    expect(ALL_ITEMS).toHaveLength(110)
+  it('120品ある（素材50 ＋ 加工品70）', () => {
+    // 2026-09-07 宿題B で道具10品＋レシピ10本を追加（110品/60本 → 120品/70本）。
+    // 素材50は変わらない（追加はすべて tier2 以上の加工品）。
+    expect(ALL_ITEMS).toHaveLength(120)
     expect(ALL_ITEMS.filter(i => i.basePrice !== undefined)).toHaveLength(50)
-    expect(ALL_RECIPES).toHaveLength(60)
+    expect(ALL_RECIPES).toHaveLength(70)
   })
 })

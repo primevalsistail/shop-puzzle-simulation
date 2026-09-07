@@ -195,7 +195,7 @@ export const ALL_ITEMS: readonly ItemDef[] = [
   },
   {
     id: 'salmon', display: { name: '鮭', color: 0xbe6b56 },
-    mainKind: '食料', origin: 'ノアキータ', luxury: '日用', suitedLand: 'どこでも',
+    mainKind: '食料', origin: 'ノアキータ', luxury: '日用', suitedLand: '温暖な土地',
     shape: [[1, 1, 1]], basePrice: 45,
     originReason: '産卵のために群れが川へ戻る。この時期だけ岸で獲れる',
   },
@@ -275,7 +275,7 @@ export const ALL_ITEMS: readonly ItemDef[] = [
   },
   {
     id: 'crab', display: { name: 'かに', color: 0xcd6158 },
-    mainKind: '食料', origin: 'ミフユリア', luxury: '贅沢', suitedLand: 'どこでも',
+    mainKind: '食料', origin: 'ミフユリア', luxury: '贅沢', suitedLand: '温暖な土地',
     shape: [[0, 1], [1, 1]], basePrice: 60,
     originReason: '冷たく深い海にだけ棲み、身が詰まるのが寒さの底',
   },
@@ -289,19 +289,19 @@ export const ALL_ITEMS: readonly ItemDef[] = [
   // ── 海（産地なし・通年） ──
   {
     id: 'tuna', display: { name: 'まぐろ', color: 0xbb5548 },
-    mainKind: '食料', origin: 'なし', luxury: '上等', suitedLand: 'どこでも',
+    mainKind: '食料', origin: 'なし', luxury: '上等', suitedLand: '温暖な土地',
     shape: [[1, 1, 1]], basePrice: 55,
     originReason: '一つの海域に留まらず外洋を回遊し続ける',
   },
   {
     id: 'sardine', display: { name: 'いわし', color: 0xcd7952 },
-    mainKind: '食料', origin: 'なし', luxury: '日用', suitedLand: 'どこでも',
+    mainKind: '食料', origin: 'なし', luxury: '日用', suitedLand: '温暖な土地',
     shape: [[1]], basePrice: 18,
     originReason: '群れが絶えず移動し、産卵の時期も群れごとにずれる',
   },
   {
     id: 'squid', display: { name: 'いか', color: 0xdf7529 },
-    mainKind: '食料', origin: 'なし', luxury: '上等', suitedLand: 'どこでも',
+    mainKind: '食料', origin: 'なし', luxury: '上等', suitedLand: '温暖な土地',
     shape: [[1], [1]], basePrice: 30,
     originReason: '種類ごとに寄る時期が違い、外洋を漂うものが多い',
   },
@@ -699,6 +699,87 @@ export const ALL_ITEMS: readonly ItemDef[] = [
     id: 'fishing_rod', display: { name: '釣りざお', color: 0x848f27 },
     mainKind: '道具', origin: 'なし', luxury: '上等', suitedLand: 'どこでも',
     shape: [[1], [1], [1], [1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  // ══════ 2026-09-07 追加 — 宿題B（Phase 3 の評価が指摘した穴を埋める）10品 ══════
+  //
+  // ⚠ 埋めたのは2つの穴。どちらも**定義文から素直に導けるもの**だけを出した。
+  //   1. `実りの土地` が 5品しかない（束ねる・容れる・蓄える**手段**）
+  //   2. `道具` 19品のうち `寒い土地`・`暑い土地`・`温暖な土地` が **0**
+  //      → 値を足すと切り方の混在になるので、**気候に答えられる道具を品として足す**方で埋めた
+  //
+  // ⚠ すべて tier2 以上（＝加工品）。気候は「何が育つか」しか決めないので、
+  //   かたちになった道具はどの島も産さない（item-system.md §2 #23）。よって産地はすべて `なし`。
+  //
+  // ⚠ **書き手は L2 の線（4行の比が3倍以内）を知った状態で選んでいる。独立ではない。**
+  //   手順は「定義文から候補を出す → そのあとに数える」を踏んだが、
+  //   **Phase 4 の評価は別セッションで行うこと。**
+
+  // ── 実りの土地（多すぎる収穫を捌く手段）──
+  {
+    id: 'straw_mat', display: { name: '稲わらのむしろ', color: 0xc2a34a },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: '実りの土地',
+    shape: [[1, 1], [1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'pine_barrel', display: { name: '松の桶', color: 0x9a6b3f },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: '実りの土地',
+    shape: [[1, 1], [1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'drying_net', display: { name: '竹の干し網', color: 0x8fa35b },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: '実りの土地',
+    shape: [[1, 1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'canvas_sack', display: { name: '帆布の袋', color: 0xd8c9a3 },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: '実りの土地',
+    shape: [[1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+
+  // ── 暑い土地（熱を逃がす／冷たさを与える）──
+  {
+    id: 'bamboo_fan', display: { name: '竹の団扇', color: 0xa8c05a },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: '暑い土地',
+    shape: [[1], [1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'bamboo_blind', display: { name: '竹の簾', color: 0x7f9d3e },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: '暑い土地',
+    shape: [[1], [1], [1], [1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+
+  // ── 寒い土地（熱を守る／熱を与える）──
+  {
+    id: 'pine_firewood', display: { name: '松の薪', color: 0x8b5a2b },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: '寒い土地',
+    shape: [[1], [1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'wool_rug', display: { name: '羊毛の敷物', color: 0xd9cfc0 },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: '寒い土地',
+    shape: [[1, 1], [1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+
+  // ── 温暖な土地（外で過ごす時間の長い暮らし／持ち歩くために作られた形）──
+  {
+    id: 'bamboo_flask', display: { name: '竹の水筒', color: 0x93b04d },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: '温暖な土地',
+    shape: [[1], [1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'carrying_basket', display: { name: '背負い籠', color: 0xb07b34 },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: '温暖な土地',
+    shape: [[1, 1], [1, 1]],
     originReason: '船倉で作る品。旬を持たないので産地なし',
   },
 ] as const

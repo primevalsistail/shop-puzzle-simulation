@@ -386,6 +386,69 @@ export const ALL_RECIPES: readonly RecipeDef[] = [
     ingredients: [{ itemId: 'bamboo', quantity: 2 }, { itemId: 'rope', quantity: 1 }, { itemId: 'gull_feather', quantity: 1 }],
     durationMinutes: 600, craftMultiplier: 1.76,
   },
+  // ══════ 2026-09-07 追加 — 宿題B の10品ぶん ══════
+  // craftMultiplier は既存と同じ式で機械的に置いている（品ごとの手当ては無い）:
+  //   1.30 + 0.25 × min(所要分 / 480, 2) + 0.15 × 贅沢さの順位（10品とも `日用` なので順位0）
+  {
+    id: 'recipe_straw_mat', display: { name: '稲わらのむしろをつくる' },
+    outputItemId: 'straw_mat', outputQuantity: 2,
+    ingredients: [{ itemId: 'rice_straw', quantity: 4 }, { itemId: 'rope', quantity: 1 }],
+    durationMinutes: 180, craftMultiplier: 1.39,
+  },
+  {
+    id: 'recipe_pine_barrel', display: { name: '松の桶をつくる' },
+    outputItemId: 'pine_barrel', outputQuantity: 2,
+    ingredients: [{ itemId: 'pine', quantity: 3 }, { itemId: 'rope', quantity: 1 }],
+    durationMinutes: 480, craftMultiplier: 1.55,
+  },
+  {
+    id: 'recipe_drying_net', display: { name: '竹の干し網をつくる' },
+    outputItemId: 'drying_net', outputQuantity: 2,
+    ingredients: [{ itemId: 'bamboo', quantity: 2 }, { itemId: 'rope', quantity: 2 }],
+    durationMinutes: 240, craftMultiplier: 1.43,
+  },
+  {
+    id: 'recipe_canvas_sack', display: { name: '帆布の袋をつくる' },
+    outputItemId: 'canvas_sack', outputQuantity: 3,
+    ingredients: [{ itemId: 'canvas', quantity: 1 }, { itemId: 'rope', quantity: 2 }],
+    durationMinutes: 240, craftMultiplier: 1.43,
+  },
+  {
+    id: 'recipe_bamboo_fan', display: { name: '竹の団扇をつくる' },
+    outputItemId: 'bamboo_fan', outputQuantity: 3,
+    ingredients: [{ itemId: 'bamboo', quantity: 1 }, { itemId: 'gull_feather', quantity: 2 }],
+    durationMinutes: 120, craftMultiplier: 1.36,
+  },
+  {
+    id: 'recipe_bamboo_blind', display: { name: '竹の簾をつくる' },
+    outputItemId: 'bamboo_blind', outputQuantity: 2,
+    ingredients: [{ itemId: 'bamboo', quantity: 3 }, { itemId: 'rope', quantity: 1 }],
+    durationMinutes: 240, craftMultiplier: 1.43,
+  },
+  {
+    id: 'recipe_pine_firewood', display: { name: '松の薪をつくる' },
+    outputItemId: 'pine_firewood', outputQuantity: 4,
+    ingredients: [{ itemId: 'pine', quantity: 2 }],
+    durationMinutes: 60, craftMultiplier: 1.33,
+  },
+  {
+    id: 'recipe_wool_rug', display: { name: '羊毛の敷物をつくる' },
+    outputItemId: 'wool_rug', outputQuantity: 1,
+    ingredients: [{ itemId: 'wool_felt', quantity: 2 }, { itemId: 'rope', quantity: 1 }],
+    durationMinutes: 480, craftMultiplier: 1.55,
+  },
+  {
+    id: 'recipe_bamboo_flask', display: { name: '竹の水筒をつくる' },
+    outputItemId: 'bamboo_flask', outputQuantity: 2,
+    ingredients: [{ itemId: 'bamboo', quantity: 2 }, { itemId: 'beeswax', quantity: 1 }],
+    durationMinutes: 240, craftMultiplier: 1.43,
+  },
+  {
+    id: 'recipe_carrying_basket', display: { name: '背負い籠をつくる' },
+    outputItemId: 'carrying_basket', outputQuantity: 1,
+    ingredients: [{ itemId: 'basket', quantity: 1 }, { itemId: 'rope', quantity: 1 }, { itemId: 'cotton_yarn', quantity: 1 }],
+    durationMinutes: 300, craftMultiplier: 1.46,
+  },
 ] as const
 
 export const RECIPES_BY_OUTPUT: ReadonlyMap<string, RecipeDef> =
