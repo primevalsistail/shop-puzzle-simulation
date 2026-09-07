@@ -152,7 +152,14 @@ export const PAIR_RULES: readonly PairRule[] = [
   },
 ]
 
-/** R5 だけ範囲が `店全体`。同じ島の産の品を並べると店全体に人が寄る（島の棚ができる） */
+/**
+ * R5 だけ範囲が `店全体`。同じ島の産の品を並べると店全体に人が寄る（島の棚ができる）。
+ *
+ * ⚠ **この規則は素材（tier1）50品にしか効かない。**加工品70品はすべて産地が `なし` だから
+ *   （旬を持たないため。#22）。**加工が進むほど効かなくなる**（Phase 3 の評価が指摘）。
+ *   効かせるには「材料を遡った産地の**集合**」を導出する必要があり、
+ *   条件言語に「含む」が要る＝規則の書き方が一段複雑になる。**採らないと決めた**（→ issue #37）。
+ */
 export const SAME_ORIGIN_RULE: PairRule = {
   id: 'R5', description: '同じ島の産の品を並べると店全体に人が寄る（島の棚ができる）',
   // 「同じ島」は値の一致であって特定の島ではないので、評価器が甲乙の産地を突き合わせる。
@@ -179,14 +186,35 @@ export const DEMAND_RULES: readonly ConditionRule[] = DEMAND_TABLE.map(row => ({
   effect: { kind: '売れやすさ', scope: 'その品', multiplier: row.multiplier },
 }))
 
-/** D2 — よその島の産の品は目に留まりやすい。産地と現在地の突き合わせは評価器が行う */
+/**
+ * D2 — よその島の産の品は目に留まりやすい。産地と現在地の突き合わせは評価器が行う。
+ *
+ * ⚠ R5 と同じく**素材（tier1）50品にしか効かない**（→ issue #37）。
+ */
 export const FOREIGN_ORIGIN_RULE: ConditionRule = {
   id: 'D2', description: 'よその島の産の品は目に留まりやすい',
   condition: item({ axis: '産地', op: '!=', value: 'なし' }),
   effect: { kind: '売れやすさ', scope: 'その品', multiplier: 1.15 },
 }
 
-/** 入荷解禁（U1〜U4）。ItemId を書かない */
+/**
+ * 入荷**解禁**（U1・U2）。ItemId を書かない。
+ *
+ * ⚠ **ここが持つのは「そもそも並ぶか」だけ。**「どこで並ぶか」＝**場所の条件**は
+ *   evaluate.ts の `stockedByIslandMerchant` が持つ（産地 == 現在地 ／ 産地 == なし）。
+ *
+ *   場所の条件は**軸どうしの比較**（`産地 == 現在地`）を要求するが、
+ *   条件言語にそれが無いため書けない（→ issue #31）。
+ *
+ *   **2026-09-07 まで、書けないはずの U4「産地を持たない品はどの島でも並ぶ」が
+ *   ここにデータとして置かれていた。**評価器は同じことを `isSeaborne` として再実装しており、
+ *   `U4.condition` も `U4.stockedBy` も**一度も読まれていなかった**（Phase 3 の評価が指摘）。
+ *   **規則データが嘘をつくよりは持たないほうがよい**ので削除した。
+ *   U3「島の商人はその島を産地とする品を並べる」も同じ理由でここには無い。
+ *
+ * ⚠ 評価器は `r.id === 'U1'` と**IDで名指し**して拾う。**U3 を足しても無視される。**
+ *   データ駆動にするには条件言語の拡張（#31）が要るため、いまは名指しのままにしてある。
+ */
 export const UNLOCK_RULES: readonly UnlockRule[] = [
   {
     // 加工品はすべて産地が `なし`（旬を持たないため）。U4「産地を持たない品はどの島でも並ぶ」と
@@ -202,11 +230,6 @@ export const UNLOCK_RULES: readonly UnlockRule[] = [
       item({ axis: 'tier', op: '>=', value: 2 }),
       { metric: '累計販売数', target: 'この品', op: '>=', value: 100 },
     ),
-    stockedBy: '島の商人',
-  },
-  {
-    id: 'U4', description: '産地を持たない品は、どの島でも並ぶ',
-    condition: item({ axis: '産地', op: '==', value: 'なし' }),
     stockedBy: '島の商人',
   },
 ]

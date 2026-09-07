@@ -263,8 +263,16 @@ export function finalModifiers(result: EvaluationResult, slotId: string): Modifi
 /**
  * その島の商人が並べる品を出す。
  *
- * U3「島の商人はその島を産地とする品を並べる」は産地と現在地の**一致**を見る規則。
- * 条件言語に軸どうしの比較が無いのでここで持つ（→ rules.ts の申し送り）。
+ * **場所の条件（どこで並ぶか）はここが持つ。**規則データ（UNLOCK_RULES）が持つのは
+ * **解禁の条件（そもそも並ぶか）＝ U1・U2 だけ**。
+ *
+ *   U3「島の商人はその島を産地とする品を並べる」… 産地と現在地の**一致**
+ *   U4「産地を持たない品はどの島でも並ぶ」    … 産地 == なし
+ *
+ * どちらも**軸どうしの比較**を要求し、条件言語にそれが無いので書けない（→ issue #31）。
+ * **規則データに置くと嘘になる**ので置いていない（U4 は 2026-09-07 に rules.ts から削除した）。
+ *
+ * ⚠ U1・U2 は **IDで名指し**して拾っている。**U3 を足しても無視される。**
  */
 export function stockedByIslandMerchant(
   items: readonly ItemDef[],
@@ -273,8 +281,8 @@ export function stockedByIslandMerchant(
 ): readonly ItemDef[] {
   return items.filter(item => {
     const ctx = { item, state }
-    const isLocal = item.origin === state.現在地   // U3
-    const isSeaborne = item.origin === 'なし'      // U4
+    const isLocal = item.origin === state.現在地   // U3（場所の条件。規則データには無い）
+    const isSeaborne = item.origin === 'なし'      // U4（同上）
     if (!isLocal && !isSeaborne) return false
 
     const passesTierGate = rules.some(r => r.id === 'U1' && evalCondition(r.condition, ctx))

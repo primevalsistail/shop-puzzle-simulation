@@ -146,14 +146,17 @@ describe('島の需要（D1）— 需要表4行', () => {
   })
 })
 
-describe('入荷解禁（U1〜U4）', () => {
-  it('U3 — 島の商人は、その島を産地とする品を並べる', () => {
+// 解禁の条件（U1・U2）は規則データが持つ。場所の条件（U3・U4）は評価器が持つ。
+// 軸どうしの比較が条件言語に無いため規則データに書けない（→ issue #31）。
+// U4 は 2026-09-07 に rules.ts から削除した（データが一度も読まれていなかったため）。
+describe('入荷解禁（解禁 U1・U2 ／ 場所 U3・U4）', () => {
+  it('U3（場所・評価器が持つ） — 島の商人は、その島を産地とする品を並べる', () => {
     const stocked = stockedByIslandMerchant(ALL_ITEMS, at('ミフユリア'))
     expect(stocked.every(i => i.origin === 'ミフユリア' || i.origin === 'なし')).toBe(true)
     expect(stocked.map(i => i.id)).toContain('reindeer_meat')
   })
 
-  it('U4 — 産地を持たない品は、どの島でも並ぶ', () => {
+  it('U4（場所・評価器が持つ） — 産地を持たない品は、どの島でも並ぶ', () => {
     for (const island of ['ハルヴェラ', 'リナツィア', 'ノアキータ', 'ミフユリア'] as const) {
       const ids = stockedByIslandMerchant(ALL_ITEMS, at(island)).map(i => i.id)
       expect(ids).toContain('salt')
