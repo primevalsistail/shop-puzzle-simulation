@@ -1,13 +1,15 @@
 import Phaser from 'phaser'
 import { phaseOf } from '../components/core/TimeManager.js'
+import type { Location } from '../components/progress/WorldState.js'
 
 const GOAL_AMOUNT = 1_000_000
 const PW = 174  // panel width (右パネル 190px - 余白 16px)
-const PH = 108  // panel height
+const PH = 126  // panel height（#44 の場所表示ぶん 108 から広げた）
 
 export class HUD {
   private timeText!: Phaser.GameObjects.Text
   private dayText!: Phaser.GameObjects.Text
+  private placeText!: Phaser.GameObjects.Text
   private moneyText!: Phaser.GameObjects.Text
   private barBg!: Phaser.GameObjects.Rectangle
   private barFill!: Phaser.GameObjects.Rectangle
@@ -30,28 +32,33 @@ export class HUD {
       .setStrokeStyle(1, 0x334477).setDepth(5)
 
     // Row 1 — Day (left) + Time (right, big)
-    this.dayText = this.scene.add.text(px - PW / 2 + 12, py - 38, 'Day 1', {
+    this.dayText = this.scene.add.text(px - PW / 2 + 12, py - 47, 'Day 1', {
       fontSize: '13px', color: '#7788aa',
     }).setOrigin(0, 0.5).setDepth(5)
 
-    this.timeText = this.scene.add.text(px + PW / 2 - 12, py - 38, '08:00', {
+    this.timeText = this.scene.add.text(px + PW / 2 - 12, py - 47, '06:00', {
       fontSize: '26px', color: '#55ddff', fontStyle: 'bold',
     }).setOrigin(1, 0.5).setDepth(5)
+
+    // Row 2 — 現在地（#44）。島名は正式名のみ。**季節名は出さない**（#2 の確定事項）
+    this.placeText = this.scene.add.text(px - PW / 2 + 12, py - 25, '', {
+      fontSize: '13px', color: '#88bbdd',
+    }).setOrigin(0, 0.5).setDepth(5)
 
     // Divider line
     const lineGfx = this.scene.add.graphics().setDepth(5)
     lineGfx.lineStyle(1, 0x334477, 0.7)
-    lineGfx.lineBetween(px - PW / 2 + 8, py - 18, px + PW / 2 - 8, py - 18)
+    lineGfx.lineBetween(px - PW / 2 + 8, py - 12, px + PW / 2 - 8, py - 12)
 
-    // Row 2 — Money (center, big)
-    this.moneyText = this.scene.add.text(px, py + 4, '¥0', {
+    // Row 3 — Money (center, big)
+    this.moneyText = this.scene.add.text(px, py + 10, '¥0', {
       fontSize: '22px', color: '#ffdd44', fontStyle: 'bold',
     }).setOrigin(0.5, 0.5).setDepth(5)
 
-    // Row 3 — Goal progress bar
+    // Row 4 — Goal progress bar
     const barW = PW - 24
     const barH = 8
-    const barY = py + 34
+    const barY = py + 40
     this.barBg = this.scene.add.rectangle(px, barY, barW, barH, 0x223344)
       .setDepth(5)
     this.barFill = this.scene.add.rectangle(px - barW / 2, barY, 0, barH, 0x44cc77)
@@ -79,6 +86,19 @@ export class HUD {
     this.barFill.setFillStyle(color)
     const labelColor = pct > 0.8 ? '#44ff88' : pct > 0.5 ? '#ffaa44' : '#556677'
     this.barLabel.setText(`目標 ${Math.floor(pct * 100)}%`).setStyle({ color: labelColor })
+  }
+
+  /**
+   * 現在地の表示（#44）。
+   *
+   * ⚠ **季節名を出さない。**この世界に四季という観念はなく「春島」のような呼び名も無い（#2 の確定事項）。
+   *   出すのは正式名（ハルヴェラ島…）と、次の寄港までの残り日数だけ。
+   */
+  updateLocation(location: Location): void {
+    this.placeText.setText(location.atSea
+      ? `航海中 → ${location.next}島`
+      : `${location.island}島  あと${location.daysLeftAtPort}日`)
+    this.placeText.setStyle({ color: location.atSea ? '#7799cc' : '#88bbdd' })
   }
 
   updateTime(day: number, hour: number, minute: number): void {

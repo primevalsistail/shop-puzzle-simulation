@@ -180,12 +180,14 @@ export class GameScene extends Phaser.Scene {
         this.economy.restore(data.money, data.totalRevenue)
         this.inventory.setInitialStock(data.inventory)
         this.world.restore(data.soldCounts ?? {})
+        this.world.setDay(data.currentTime.day)  // 現在地は日付から決まる（#2）
         this.timeManager.setTime(data.currentTime)
 
         // HUD・パネルを更新
         this.hud.updateMoney(data.money)
         this.hud.updateRevenue(data.totalRevenue, this.gameService.isInEndlessMode())
         this.hud.updateTime(data.currentTime.day, data.currentTime.hour, data.currentTime.minute)
+        this.hud.updateLocation(this.world.getLocation())
         this.refreshInventoryPanel()
         this.updateStatus(`スロット${slot + 1}からロードしました`)
       },
@@ -194,6 +196,8 @@ export class GameScene extends Phaser.Scene {
     this.inventory.setInitialStock(INITIAL_STOCK)
 
     this.hud.create()
+    this.world.setDay(this.timeManager.getCurrentTime().day)
+    this.hud.updateLocation(this.world.getLocation())
     this.inventoryPanel.onSelect(id => {
       this.selectedItemId = id
       this.currentRotation = 0
@@ -424,6 +428,16 @@ export class GameScene extends Phaser.Scene {
       this.cancelDrag()
     })
 
+    // ⚠ テスト用（#43）。いまの日を切り上げて翌朝へ飛ばす。撤去は #51 がまとめて扱う。
+    //    skipMinutes は TIME_MINUTE_PASSED を出さない＝飛ばした分に客は来ない（#25）
+    this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.N).on('down', () => {
+      if (this.craftMenu.isVisible() || this.purchaseMenu.isVisible() || this.saveLoadMenu.isVisible()) return
+      this.timeManager.skipMinutes(this.timeManager.minutesUntilEndOfDay())
+      const t = this.timeManager.getCurrentTime()
+      this.hud.updateTime(t.day, t.hour, t.minute)
+      this.updateStatus(`[テスト用] Day ${t.day} へ飛ばしました`)
+    })
+
     // ESC: メニューを閉じる（ドラッグキャンセルは左ボタン離しで行う）
     const escKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC)
     escKey.on('down', () => {
@@ -498,8 +512,14 @@ export class GameScene extends Phaser.Scene {
     EventBus.on(GameEvents.TIME_MINUTE_PASSED, (time: unknown) => {
       const t = time as GameTime
       this.hud.updateTime(t.day, t.hour, t.minute)
-      this.gameService.onMinutePassed(Math.random, this.timeManager.isOpen())
+      // ⚠ 航海中は店が開かない（#4）。営業時間帯かどうかとは別の条件
+      this.gameService.onMinutePassed(Math.random, this.timeManager.isOpen() && !this.world.isAtSea())
       this.hud.updateRevenue(this.economy.getTotalRevenue(), this.gameService.isInEndlessMode())
+    })
+
+    // 日が変わると現在地が動く（#2）。10日寄港して1日航海する
+    EventBus.on(GameEvents.TIME_DAY_CHANGED, (time: unknown) => {
+      this.onDayChanged((time as GameTime).day)
     })
 
     // 加工で時計が飛んだとき（TimeManager.skipMinutes）。
@@ -564,6 +584,25 @@ export class GameScene extends Phaser.Scene {
       this.timeManager.stopAdvancing()
       this.showGameOver()
     })
+  }
+
+  /**
+   * 日が変わったとき。現在地は日付から決まる（#2）ので、ここで `WorldState` に日を渡すだけでよい。
+   * 島が変わった／航海に出た／着いた、はそのあとの表示の話。
+   */
+  private onDayChanged(day: number): void {
+    const before = this.world.getLocation()
+    this.world.setDay(day)
+    const after = this.world.getLocation()
+    this.hud.updateLocation(after)
+
+    if (!before.atSea && after.atSea) {
+      this.messageLog.addMessage(`${after.island}島を出た。${after.next}島へ向かう`, 'event')
+    } else if (before.atSea && !after.atSea) {
+      this.messageLog.addMessage(`${after.island}島に着いた`, 'event')
+    }
+    // 島が変われば商人の品揃えも需要も変わるので、開いているメニューは閉じる
+    if (before.island !== after.island && this.purchaseMenu.isVisible()) this.purchaseMenu.close()
   }
 
   private tryPlaceItem(cell: GridCell): void {
@@ -637,6 +676,11 @@ export class GameScene extends Phaser.Scene {
       this.timeManager.stopAdvancing()
       this.advanceBtnLabel.setText('▶  進める'); this.advanceBtnBg.setFillStyle(0x4a4a8a)
       
+    }
+    // 航海中は島の商人がいない（#4）
+    if (this.world.isAtSea()) {
+      this.updateStatus(`航海中です。${this.world.getLocation().next}島に着くまで仕入れられません`)
+      return
     }
     // 固定の材料一覧ではなく、**その島の商人が並べる品**（#30）。
     // tier と累計販売数で解禁されるので、売るほど品揃えが増える
