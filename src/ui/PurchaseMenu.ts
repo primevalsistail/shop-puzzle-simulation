@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import type { ItemDef, ItemRegistry } from '../components/items/ItemRegistry.js'
 import type { EconomyManager } from '../components/economy/EconomyManager.js'
 import type { Inventory } from '../components/economy/Inventory.js'
+import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
 
 const PANEL_W = 420
 const PANEL_H = 480
@@ -9,9 +10,10 @@ const PANEL_X = 640
 const PANEL_Y = 360
 
 const ROW_H = 52
-const ROWS_TOP = PANEL_Y - 140          // 先頭行の中心
-const VISIBLE_COUNT = 7                 // 7行目の下端 558 < パネル下端 600
+const ROWS_TOP = PANEL_Y - 128          // 先頭行の中心（絞り込みの行を入れたぶん下げた）
+const VISIBLE_COUNT = 6                 // 6行目の下端 546 < パネル下端 600
 const BUY_QTY = 5
+const FILTER_Y = PANEL_Y - 166   // 1行目（中心 PANEL_Y-128、高さ46）に食い込まない位置
 
 /**
  * 島の商人が並べる品を買う。
@@ -25,7 +27,7 @@ export class PurchaseMenu {
   private isOpen = false
   private materials: ItemDef[] = []
   private islandName = ''
-  private scrollIndex = 0
+  private paging = new ListPaging(VISIBLE_COUNT)
 
   constructor(
     private scene: Phaser.Scene,
@@ -39,11 +41,7 @@ export class PurchaseMenu {
       _over: unknown, _dx: number, dy: number,
     ) => {
       if (!this.isOpen) return
-      const max = Math.max(0, this.materials.length - VISIBLE_COUNT)
-      const next = Math.min(Math.max(0, this.scrollIndex + (dy > 0 ? 1 : -1)), max)
-      if (next === this.scrollIndex) return
-      this.scrollIndex = next
-      this.rebuild()
+      if (this.paging.movePage(dy > 0 ? 1 : -1, this.shown().length)) this.rebuild()
     })
   }
 
@@ -52,7 +50,7 @@ export class PurchaseMenu {
     this.isOpen = true
     this.materials = materials
     this.islandName = islandName
-    this.scrollIndex = 0
+    this.paging.clearKinds()
     this.rebuild()
   }
 
@@ -68,10 +66,18 @@ export class PurchaseMenu {
     return this.isOpen
   }
 
+  private shown(): ItemDef[] {
+    return this.paging.filter(this.materials, m => m.mainKind)
+  }
+
+  private turnPage(delta: number): void {
+    if (this.paging.movePage(delta, this.shown().length)) this.rebuild()
+  }
+
   private rebuild(): void {
     this.container?.destroy()
     this.container = null
-    this.build(this.materials)
+    this.build(this.shown())
   }
 
   private build(materials: ItemDef[]): void {
@@ -88,11 +94,9 @@ export class PurchaseMenu {
     objs.push(panel)
 
     const total = materials.length
-    const from = total === 0 ? 0 : this.scrollIndex + 1
-    const to = Math.min(this.scrollIndex + VISIBLE_COUNT, total)
 
     objs.push(
-      this.scene.add.text(PANEL_X, PANEL_Y - 210, `${this.islandName}の商人  ${from}-${to} / ${total}`, {
+      this.scene.add.text(PANEL_X, PANEL_Y - 210, `${this.islandName}の商人  ${this.paging.rangeLabel(total)}`, {
         fontSize: '20px',
         color: '#ffdd88',
         fontStyle: 'bold',
@@ -107,13 +111,47 @@ export class PurchaseMenu {
     objs.push(closeBtn)
 
     objs.push(
-      this.scene.add.text(PANEL_X - 180, PANEL_Y - 178, `所持金: ¥${this.economy.getMoney().toLocaleString()}`, {
+      this.scene.add.text(PANEL_X - 190, PANEL_Y - 185, `所持金: ¥${this.economy.getMoney().toLocaleString()}`, {
         fontSize: '14px',
         color: '#ffdd44',
-      }).setOrigin(0, 0),
+      }).setOrigin(0, 0.5),
     )
 
-    materials.slice(this.scrollIndex, this.scrollIndex + VISIBLE_COUNT).forEach((mat, i) => {
+    // ── 絞り込み（主種類）＋ ページ送り ──
+    const btnW = 54, btnH = 20, gap = 6
+    const groupW = KIND_BUTTONS.length * btnW + (KIND_BUTTONS.length - 1) * gap
+    KIND_BUTTONS.forEach((cat, i) => {
+      const bx = PANEL_X - groupW / 2 + btnW / 2 + i * (btnW + gap)
+      const on = this.paging.isKindActive(cat.id)
+      const bg = this.scene.add.rectangle(bx, FILTER_Y, btnW, btnH, on ? 0x6a5a2a : 0x232338)
+        .setStrokeStyle(1, on ? 0xbb9944 : 0x444455)
+        .setInteractive({ useHandCursor: true })
+      const label = this.scene.add.text(bx, FILTER_Y, cat.label, {
+        fontSize: '11px', color: on ? '#ffdd88' : '#778899',
+      }).setOrigin(0.5)
+      bg.on('pointerdown', () => { this.paging.toggleKind(cat.id); this.rebuild() })
+      objs.push(bg, label)
+    })
+
+    const pages = this.paging.pageCount(total)
+    const cur = this.paging.currentPage(total)
+    const arrow = (x: number, text: string, delta: number, enabled: boolean) => {
+      const t = this.scene.add.text(x, PANEL_Y + 218, text, {
+        fontSize: '18px', color: enabled ? '#ffdd88' : '#555566',
+      }).setOrigin(0.5)
+      if (enabled) {
+        t.setInteractive({ useHandCursor: true })
+        t.on('pointerdown', () => this.turnPage(delta))
+      }
+      objs.push(t)
+    }
+    arrow(PANEL_X - 60, '◀', -1, cur > 0)
+    objs.push(this.scene.add.text(PANEL_X, PANEL_Y + 218, this.paging.pageLabel(total), {
+      fontSize: '13px', color: '#aa9977',
+    }).setOrigin(0.5))
+    arrow(PANEL_X + 60, '▶', 1, cur < pages - 1)
+
+    this.paging.slice(materials).forEach((mat, i) => {
       const y = ROWS_TOP + i * ROW_H
       const unitCost = this.registry.purchasePriceOf(mat.id)
       const totalCost = unitCost * BUY_QTY

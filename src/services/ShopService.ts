@@ -21,8 +21,10 @@ export class ShopService {
     const toAdd = Math.min(quantity, available)
     if (toAdd <= 0) return false
 
-    this.inventory.remove(slot.itemId, toAdd)
-    this.placementManager.restock(slotId, toAdd)
+    // ⚠ **実際に積めた数だけ引く。**区画の上限 999 で頭打ちになったぶんは手持ちに残す
+    const added = this.placementManager.restock(slotId, toAdd)
+    if (added <= 0) return false
+    this.inventory.remove(slot.itemId, added)
     return true
   }
 

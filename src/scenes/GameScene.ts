@@ -199,6 +199,13 @@ export class GameScene extends Phaser.Scene {
     this.world.setDay(this.timeManager.getCurrentTime().day)
     this.hud.updateLocation(this.world.getLocation())
     this.inventoryPanel.onSelect(id => {
+      // 1つの品は棚に1区画まで。**掴んだ時点で知らせる**（どこへ持って行っても置けないため）
+      if (this.placementManager.isDisplayed(id)) {
+        const item = this.registry_.getItem(id)
+        this.updateStatus(`${item.display.name}はもう並べています。増やすなら棚をクリックして補充してください`)
+        this.inventoryPanel.clearSelection()
+        return
+      }
       this.selectedItemId = id
       this.currentRotation = 0
       this.slotPrompt.hide()
@@ -617,9 +624,10 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
+    const alreadyDisplayed = !isMoving && this.placementManager.isDisplayed(this.selectedItemId)
     const slot = this.placementManager.tryPlace(this.selectedItemId, cell, this.currentRotation, quantity)
     if (!slot) {
-      this.updateStatus('配置できません')
+      this.updateStatus(alreadyDisplayed ? 'もう並べています' : '配置できません')
       if (isMoving) {
         this.floorGrid.place(this.pendingMoveSlot!)
         this.floorRenderer.drawSlot(this.pendingMoveSlot!)
@@ -633,8 +641,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (!isMoving) {
-      this.inventory.remove(this.selectedItemId, quantity)
-      this.inventoryPanel.updateQuantity(this.selectedItemId, 0)
+      // ⚠ **置けた数だけ引く。**区画の上限は 999 なので、
+      //   1万個持っていても置けるのは 999 個で、残りは手持ちに戻る。
+      //   ここで `quantity`（持っている数）を引くと、**差が消滅する**
+      this.inventory.remove(this.selectedItemId, slot.quantity)
+      this.inventoryPanel.updateQuantity(this.selectedItemId, this.inventory.getQuantity(this.selectedItemId))
     }
 
     this.pendingMoveSlot = null

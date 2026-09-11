@@ -4,7 +4,8 @@ import { EventBus } from '../../services/EventBus.js'
 import type { FloorGrid } from './FloorGrid.js'
 import type { ItemRegistry } from '../items/ItemRegistry.js'
 
-const MAX_QUANTITY = 999
+/** 1区画に積める上限。これを超えるぶんは**手持ちに残す**（消してはならない） */
+export const MAX_SLOT_QUANTITY = 999
 
 export class PlacementManager {
   constructor(
@@ -12,7 +13,18 @@ export class PlacementManager {
     private registry: ItemRegistry,
   ) {}
 
+  /**
+   * その品がすでに棚に出ているか。
+   *
+   * **1つの品は棚に1区画まで**（2026-09-11）。同じ品を2箇所に分けて並べられない。
+   * 増やすときは**その区画に補充する**（`ShopService.restockSlot`）。
+   */
+  isDisplayed(itemId: string): boolean {
+    return this.grid.getAllSlots().some(s => s.itemId === itemId)
+  }
+
   tryPlace(itemId: string, position: GridCell, rotation: Rotation, quantity: number): DisplaySlot | null {
+    if (this.isDisplayed(itemId)) return null
     const item = this.registry.getItem(itemId)
     if (!this.grid.canPlace(item.shape, position, rotation)) return null
 
@@ -22,7 +34,7 @@ export class PlacementManager {
       shape: item.shape,
       position,
       rotation,
-      quantity: Math.min(quantity, MAX_QUANTITY),
+      quantity: Math.min(quantity, MAX_SLOT_QUANTITY),
     }
     this.grid.place(slot)
     EventBus.emit(GameEvents.FLOOR_SLOT_PLACED, slot)
@@ -37,14 +49,21 @@ export class PlacementManager {
     EventBus.emit(GameEvents.FLOOR_SLOT_REMOVED, slotId)
   }
 
-  restock(slotId: string, quantity: number): boolean {
+  /**
+   * 区画に積み増す。**実際に積めた数を返す。**
+   *
+   * ⚠ 上限 999 で頭打ちになるので、**渡した数と返る数は一致しないことがある。**
+   *   呼び出し側は**返った数だけを手持ちから引くこと。**渡した数を引くと差が消滅する。
+   */
+  restock(slotId: string, quantity: number): number {
     const slots = this.grid.getAllSlots()
     const slot = slots.find(s => s.id === slotId)
-    if (!slot) return false
+    if (!slot) return 0
 
-    const newQty = Math.min(slot.quantity + quantity, MAX_QUANTITY)
+    const newQty = Math.min(slot.quantity + quantity, MAX_SLOT_QUANTITY)
+    const added = newQty - slot.quantity
     this.grid.updateQuantity(slotId, newQty)
-    return true
+    return added
   }
 
   depleteOne(slotId: string): boolean {
@@ -61,6 +80,8 @@ export class PlacementManager {
   }
 
   canPlaceAt(itemId: string, position: GridCell, rotation: Rotation): boolean {
+    // すでに出ている品はどこにも置けない。**プレビューの段階で弾く**
+    if (this.isDisplayed(itemId)) return false
     const item = this.registry.getItem(itemId)
     return this.grid.canPlace(item.shape, position, rotation)
   }

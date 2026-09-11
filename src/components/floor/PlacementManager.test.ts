@@ -36,7 +36,7 @@ describe('PlacementManager', () => {
 
   it('配置不可な位置でnullを返す', () => {
     const { pm } = setup()
-    pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 5)
+    pm.tryPlace('broad_bean', { x: 0, y: 0 }, 0, 5)   // [[1,1]] が (0,0)(1,0) を占める
     const slot2 = pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 5)
     expect(slot2).toBeNull()
   })
@@ -94,10 +94,63 @@ describe('PlacementManager', () => {
     expect(grid.getAllSlots()[0].quantity).toBe(999)
   })
 
+  it('restock は実際に積めた数を返す（上限で頭打ちになったぶんは積んでいない）', () => {
+    const { pm } = setup()
+    const slot = pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 990)
+    expect(pm.restock(slot!.id, 20)).toBe(9)   // 990 → 999
+    expect(pm.restock(slot!.id, 20)).toBe(0)   // もう積めない
+  })
+
+  it('存在しない区画への restock は 0 を返す', () => {
+    const { pm } = setup()
+    expect(pm.restock('not_exist', 10)).toBe(0)
+  })
+
+  it('上限を超える数で置いても、置けるのは999個まで（残りは呼び出し側が持つ）', () => {
+    const { pm } = setup()
+    const slot = pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 10000)
+    expect(slot!.quantity).toBe(999)
+  })
+
+  describe('1つの品は棚に1区画まで', () => {
+    it('同じ品を2箇所に並べられない', () => {
+      const { pm } = setup()
+      expect(pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 10)).not.toBeNull()
+      expect(pm.tryPlace('snap_pea', { x: 3, y: 3 }, 0, 10)).toBeNull()
+    })
+
+    it('プレビューの段階で弾く（空いている升でも置けない）', () => {
+      const { pm } = setup()
+      pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 10)
+      expect(pm.canPlaceAt('snap_pea', { x: 3, y: 3 }, 0)).toBe(false)
+    })
+
+    it('違う品なら並べられる', () => {
+      const { pm } = setup()
+      pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 10)
+      expect(pm.tryPlace('broad_bean', { x: 3, y: 3 }, 0, 10)).not.toBeNull()
+    })
+
+    it('撤去すればまた並べられる（＝移動ができる）', () => {
+      const { pm } = setup()
+      const slot = pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 10)!
+      pm.removeSlot(slot.id)
+      expect(pm.isDisplayed('snap_pea')).toBe(false)
+      expect(pm.tryPlace('snap_pea', { x: 3, y: 3 }, 0, 10)).not.toBeNull()
+    })
+
+    it('isDisplayed は並べているかを返す', () => {
+      const { pm } = setup()
+      expect(pm.isDisplayed('snap_pea')).toBe(false)
+      pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 10)
+      expect(pm.isDisplayed('snap_pea')).toBe(true)
+    })
+  })
+
   it('canPlaceAtで配置可否を返す', () => {
     const { pm } = setup()
     expect(pm.canPlaceAt('snap_pea', { x: 0, y: 0 }, 0)).toBe(true)
-    pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 1)
+    pm.tryPlace('broad_bean', { x: 0, y: 0 }, 0, 1)
     expect(pm.canPlaceAt('snap_pea', { x: 0, y: 0 }, 0)).toBe(false)
   })
 })

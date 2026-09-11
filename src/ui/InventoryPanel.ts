@@ -1,31 +1,26 @@
 import Phaser from 'phaser'
 import type { ItemDef, ItemRegistry } from '../components/items/ItemRegistry.js'
-import type { MainKind } from '../taxonomy/axes.js'
+import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
 
 const PANEL_X = 20
 const PANEL_WIDTH = 200
 const ITEM_RIGHT_MARGIN = 12             // アイテム右端の余白
 const ITEM_WIDTH = PANEL_WIDTH - PANEL_X - ITEM_RIGHT_MARGIN  // = 168
 const ITEM_HEIGHT = 70
-const ITEM_START_Y = 136  // フィルタ下端(94)から42px余白
+const ITEM_START_Y = 150  // ページ送り(108)の下端から余白をとる
 const LIST_BOTTOM = 716   // 左パネルはy=720まで
 const VISIBLE_COUNT = Math.floor((LIST_BOTTOM - ITEM_START_Y) / ITEM_HEIGHT)  // = 8
 const PREVIEW_CELL = 13
 const PREVIEW_CX = PANEL_X + 27
 
 /**
- * 絞り込みは **`主種類`**（軸1）で行う。
+ * 絞り込みは **`主種類`**（軸1）で行う。決まりは `ListPaging` を参照
+ * （既定は絞り込みなし／1つ押すとそれだけ／全部選ぶか全部外すと絞り込みが外れる）。
  *
  * ⚠ 旧 `category`（食品・飲物・雑貨・素材）は #30 で消えた。新体系に `category` は無く、
  *   素材かどうかは `tier` から出る**導出値**なので、軸と混ぜて1列に並べない。
- *   ボタンは幅39pxしかないので、表示だけ短く詰める（値そのものは `主種類` のまま）。
  */
-const CATEGORIES: { id: MainKind; label: string }[] = [
-  { id: '食料',     label: '食料' },
-  { id: '飲みもの', label: '飲物' },
-  { id: '衣類',     label: '衣類' },
-  { id: '道具',     label: '道具' },
-]
+const PAGER_Y = 108
 
 export class InventoryPanel {
   private allObjects: Phaser.GameObjects.GameObject[] = []
@@ -34,10 +29,9 @@ export class InventoryPanel {
   private quantityTexts: Map<string, Phaser.GameObjects.Text> = new Map()
   private selectedItemId: string | null = null
   private onSelectCallback: ((itemId: string) => void) | null = null
-  private activeCategories: Set<MainKind> = new Set(CATEGORIES.map(c => c.id))
+  private paging = new ListPaging(VISIBLE_COUNT)
   private storedItems: ItemDef[] = []
   private storedInventory: Record<string, number> = {}
-  private scrollIndex = 0
   /** メニューが開いている間は送らない（背後のリストが動いてしまうため） */
   private scrollBlocked: () => boolean = () => false
 
@@ -45,14 +39,14 @@ export class InventoryPanel {
     private scene: Phaser.Scene,
     private registry: ItemRegistry,
   ) {
-    // 品数が VISIBLE_COUNT を超えるので、ホイールで送れないと下の品に手が届かない（#30）
+    // ホイールでもページを送れる（ボタンを押さずに流し見できるように）
     this.scene.input.on('wheel', (
       pointer: Phaser.Input.Pointer,
       _over: unknown, _dx: number, dy: number,
     ) => {
       if (this.scrollBlocked()) return
       if (!this.isOverList(pointer.x, pointer.y)) return
-      this.scrollBy(dy > 0 ? 1 : -1)
+      this.turnPage(dy > 0 ? 1 : -1)
     })
   }
 
@@ -67,9 +61,13 @@ export class InventoryPanel {
   render(items: ItemDef[], inventory: Record<string, number>): void {
     this.storedItems = items
     this.storedInventory = { ...inventory }
-    this.clampScroll()
-    this.rebuildFilterBar()
-    this.renderItems(this.filtered())
+    this.redraw()
+  }
+
+  private redraw(): void {
+    const shown = this.filtered()
+    this.rebuildFilterBar(shown.length)
+    this.renderItems(this.paging.slice(shown))
   }
 
   updateQuantity(itemId: string, qty: number): void {
@@ -89,76 +87,79 @@ export class InventoryPanel {
   }
 
   private isOverList(x: number, y: number): boolean {
-    return x >= PANEL_X && x <= PANEL_X + PANEL_WIDTH && y >= ITEM_START_Y - ITEM_HEIGHT / 2
+    return x >= PANEL_X && x <= PANEL_X + PANEL_WIDTH && y >= PAGER_Y - 12
   }
 
-  private scrollBy(delta: number): void {
-    const before = this.scrollIndex
-    this.scrollIndex += delta
-    this.clampScroll()
-    if (this.scrollIndex !== before) {
-      this.rebuildFilterBar()
-      this.renderItems(this.filtered())
-    }
-  }
-
-  private clampScroll(): void {
-    const max = Math.max(0, this.filtered().length - VISIBLE_COUNT)
-    this.scrollIndex = Math.min(Math.max(0, this.scrollIndex), max)
+  private turnPage(delta: number): void {
+    if (this.paging.movePage(delta, this.filtered().length)) this.redraw()
   }
 
   private filtered(): ItemDef[] {
-    if (this.activeCategories.size === CATEGORIES.length) return this.storedItems
-    return this.storedItems.filter(it => this.activeCategories.has(it.mainKind))
+    return this.paging.filter(this.storedItems, it => it.mainKind)
   }
 
-  private rebuildFilterBar(): void {
+  private rebuildFilterBar(total: number): void {
     for (const obj of this.filterObjects) obj.destroy()
     this.filterObjects = []
 
     const cx = PANEL_X + PANEL_WIDTH / 2
-    const total = this.filtered().length
-    const from = total === 0 ? 0 : this.scrollIndex + 1
-    const to = Math.min(this.scrollIndex + VISIBLE_COUNT, total)
 
-    // タイトル（右に「いま何件目を見ているか」。品数が画面に収まらないので位置が要る）
-    const title = this.scene.add.text(cx, 52, `アイテム  ${from}-${to} / ${total}`, {
-      fontSize: '15px', color: '#ffffff',
-    }).setOrigin(0.5)
-    this.filterObjects.push(title)
+    // タイトル（右に件数。122品あるので位置が要る）
+    this.filterObjects.push(
+      this.scene.add.text(cx, 52, `アイテム  ${this.paging.rangeLabel(total)}`, {
+        fontSize: '15px', color: '#ffffff',
+      }).setOrigin(0.5),
+    )
 
-    // カテゴリトグルボタン（1行 × 4カテゴリ、横幅をアイテムに揃える）
+    // 絞り込み（1行 × 4種類、横幅をアイテムに揃える）
     // ITEM_WIDTH=168: (168 - 3*gap) / 4 = 39px @ gap=4 → total=4*39+3*4=168 ✓
     const btnW = 39, btnH = 18, gap = 4
-    const rowY = 76  // ラベル削除分だけ上に詰める
+    const rowY = 76
 
-    CATEGORIES.forEach((cat, i) => {
+    KIND_BUTTONS.forEach((cat, i) => {
       const bx = PANEL_X + i * (btnW + gap) + btnW / 2
       const by = rowY + btnH / 2
+      const on = this.paging.isKindActive(cat.id)
 
-      const isActive = this.activeCategories.has(cat.id)
-      const bg = this.scene.add.rectangle(bx, by, btnW, btnH,
-        isActive ? 0x336699 : 0x222233,
-      ).setStrokeStyle(1, isActive ? 0x5599cc : 0x444455)
+      const bg = this.scene.add.rectangle(bx, by, btnW, btnH, on ? 0x336699 : 0x222233)
+        .setStrokeStyle(1, on ? 0x5599cc : 0x444455)
         .setInteractive({ useHandCursor: true })
       const label = this.scene.add.text(bx, by, cat.label, {
-        fontSize: '10px', color: isActive ? '#aaddff' : '#556677',
+        fontSize: '10px', color: on ? '#aaddff' : '#667788',
       }).setOrigin(0.5)
 
       bg.on('pointerdown', () => {
-        if (this.activeCategories.has(cat.id)) {
-          if (this.activeCategories.size > 1) this.activeCategories.delete(cat.id)
-        } else {
-          this.activeCategories.add(cat.id)
-        }
-        this.scrollIndex = 0
-        this.render(this.storedItems, this.storedInventory)
+        this.paging.toggleKind(cat.id)
+        this.redraw()
       })
       bg.on('pointerover', () => bg.setStrokeStyle(2, 0x7fbfff))
-      bg.on('pointerout',  () => bg.setStrokeStyle(1, this.activeCategories.has(cat.id) ? 0x5599cc : 0x444455))
+      bg.on('pointerout',  () => bg.setStrokeStyle(1, this.paging.isKindActive(cat.id) ? 0x5599cc : 0x444455))
 
       this.filterObjects.push(bg, label)
     })
+
+    // ページ送り
+    const pages = this.paging.pageCount(total)
+    const cur = this.paging.currentPage(total)
+    const arrow = (x: number, text: string, delta: number, enabled: boolean) => {
+      const t = this.scene.add.text(x, PAGER_Y, text, {
+        fontSize: '14px', color: enabled ? '#aaccee' : '#445566',
+      }).setOrigin(0.5)
+      if (enabled) {
+        t.setInteractive({ useHandCursor: true })
+        t.on('pointerdown', () => this.turnPage(delta))
+        t.on('pointerover', () => t.setColor('#ffffff'))
+        t.on('pointerout', () => t.setColor('#aaccee'))
+      }
+      this.filterObjects.push(t)
+    }
+    arrow(PANEL_X + 12, '◀', -1, cur > 0)
+    this.filterObjects.push(
+      this.scene.add.text(cx, PAGER_Y, this.paging.pageLabel(total), {
+        fontSize: '12px', color: '#8899aa',
+      }).setOrigin(0.5),
+    )
+    arrow(PANEL_X + ITEM_WIDTH - 12, '▶', 1, cur < pages - 1)
   }
 
   private renderItems(items: ItemDef[]): void {
@@ -168,7 +169,7 @@ export class InventoryPanel {
     this.quantityTexts.clear()
     this.selectedItemId = null
 
-    items.slice(this.scrollIndex, this.scrollIndex + VISIBLE_COUNT).forEach((item, i) => {
+    items.forEach((item, i) => {
       const y = ITEM_START_Y + i * ITEM_HEIGHT
       const qty = this.storedInventory[item.id] ?? 0
 

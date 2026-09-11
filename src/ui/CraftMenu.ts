@@ -2,9 +2,10 @@ import Phaser from 'phaser'
 import type { CraftingSystem } from '../components/items/CraftingSystem.js'
 import type { Inventory } from '../components/economy/Inventory.js'
 import type { ItemRegistry, RecipeDef } from '../components/items/ItemRegistry.js'
+import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
 
 const PANEL_W = 560
-const PANEL_H = 520
+const PANEL_H = 560   // 絞り込みとページ送りを入れたぶん 520 から広げた
 const PANEL_X = 640
 const PANEL_Y = 360
 
@@ -13,12 +14,15 @@ const CONTENT_L = PANEL_X - PANEL_W / 2 + 30
 const CONTENT_R = PANEL_X + PANEL_W / 2 - 30
 
 const ROW_H = 84
-const ROWS_TOP = PANEL_Y - PANEL_H / 2 + 56
+/** 絞り込みの行 */
+const FILTER_Y = PANEL_Y - PANEL_H / 2 + 62
+const ROWS_TOP = PANEL_Y - PANEL_H / 2 + 84
+/** ページ送りの行 */
+const PAGER_Y = PANEL_Y + PANEL_H / 2 - 22
+
 /**
- * 一度に映る行数。パネル下端は 620 なので `(620 - 156) / 84 = 5.5` → 5行。
- *
- * ⚠ **レシピは72本ある**（#30）。旧5本のときは全部が収まっていたが、いまは収まらない。
- *   ホイールで送れないと6本目から先に手が届かない。
+ * 一度に映る行数。**レシピは72本ある**（#30）ので、全部は収まらない。
+ * 5行目の下端は `84 + 42 + 4*84 + 42 = 504`（パネル上端からの相対）で、ページ送りの行に届かない。
  */
 const VISIBLE_ROWS = 5
 
@@ -61,7 +65,9 @@ export class CraftMenu {
   private rows: Row[] = []
   /** レシピごとに選んだ回数。閉じても覚えておき、上限で丸める */
   private times = new Map<string, number>()
-  private scrollIndex = 0
+  private paging = new ListPaging(VISIBLE_ROWS)
+  /** 「作れる」だけに絞るか。いま材料と当日の残り時間が足りるものだけ出す */
+  private onlyCraftable = false
 
   constructor(
     private scene: Phaser.Scene,
@@ -79,11 +85,7 @@ export class CraftMenu {
       _over: unknown, _dx: number, dy: number,
     ) => {
       if (!this.isOpen) return
-      const max = Math.max(0, this.registry.getAllRecipes().length - VISIBLE_ROWS)
-      const next = Math.min(Math.max(0, this.scrollIndex + (dy > 0 ? 1 : -1)), max)
-      if (next === this.scrollIndex) return
-      this.scrollIndex = next
-      this.rebuild()
+      if (this.paging.movePage(dy > 0 ? 1 : -1, this.shown().length)) this.rebuild()
     })
   }
 
@@ -104,12 +106,22 @@ export class CraftMenu {
     return this.isOpen
   }
 
-  /** いま何本目を見ているか。72本あるので位置が要る */
-  private rangeLabel(): string {
-    const total = this.registry.getAllRecipes().length
-    const from = total === 0 ? 0 : this.scrollIndex + 1
-    const to = Math.min(this.scrollIndex + VISIBLE_ROWS, total)
-    return `${from}-${to} / ${total}`
+  /**
+   * いま並べるレシピ。**主種類は「出来上がる品」で見る**（材料ではない）。
+   * 「作れる」は材料と当日の残り時間の両方を見る（`maxCraftTimes > 0`）。
+   */
+  private shown(): RecipeDef[] {
+    const byKind = this.paging.filter(
+      this.registry.getAllRecipes(),
+      r => this.registry.getItem(r.outputItemId).mainKind,
+    )
+    return this.onlyCraftable
+      ? byKind.filter(r => this.craftingSystem.maxCraftTimes(r.id) > 0)
+      : byKind
+  }
+
+  private turnPage(delta: number): void {
+    if (this.paging.movePage(delta, this.shown().length)) this.rebuild()
   }
 
   /** 画面の部品と DOM を片付け、ゲームのキー入力を戻す */
@@ -151,7 +163,7 @@ export class CraftMenu {
 
     const titleY = PANEL_Y - PANEL_H / 2 + 26
     objs.push(
-      this.scene.add.text(PANEL_X, titleY, `クラフトメニュー  ${this.rangeLabel()}`, {
+      this.scene.add.text(PANEL_X, titleY, `クラフトメニュー  ${this.paging.rangeLabel(this.shown().length)}`, {
         fontSize: '20px', color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0.5),
     )
@@ -162,15 +174,74 @@ export class CraftMenu {
     closeBtn.on('pointerdown', () => this.close())
     objs.push(closeBtn)
 
-    this.registry.getAllRecipes()
-      .slice(this.scrollIndex, this.scrollIndex + VISIBLE_ROWS)
-      .forEach((recipe, i) => {
-        this.buildRecipeRow(recipe, ROWS_TOP + ROW_H / 2 + i * ROW_H, objs)
-      })
+    const shown = this.shown()
+    this.buildFilterBar(objs)
+    this.paging.slice(shown).forEach((recipe, i) => {
+      this.buildRecipeRow(recipe, ROWS_TOP + ROW_H / 2 + i * ROW_H, objs)
+    })
+    if (shown.length === 0) {
+      objs.push(this.scene.add.text(PANEL_X, ROWS_TOP + 60, '当てはまるレシピがありません', {
+        fontSize: '14px', color: '#889999',
+      }).setOrigin(0.5))
+    }
+    this.buildPager(shown.length, objs)
 
     this.container = this.scene.add.container(0, 0, objs)
     this.container.setDepth(100)
     for (const row of this.rows) this.refreshRow(row)
+  }
+
+  /** 絞り込み — 主種類4つ ＋「作れる」 */
+  private buildFilterBar(objs: Phaser.GameObjects.GameObject[]): void {
+    const btnW = 58, btnH = 20, gap = 6
+    const buttons = [
+      ...KIND_BUTTONS.map(k => ({
+        label: k.label,
+        on: this.paging.isKindActive(k.id),
+        press: () => { this.paging.toggleKind(k.id); this.rebuild() },
+      })),
+      {
+        label: '作れる',
+        on: this.onlyCraftable,
+        press: () => {
+          this.onlyCraftable = !this.onlyCraftable
+          this.paging.setPage(0, this.shown().length)
+          this.rebuild()
+        },
+      },
+    ]
+    const groupW = buttons.length * btnW + (buttons.length - 1) * gap
+    buttons.forEach((b, i) => {
+      const bx = PANEL_X - groupW / 2 + btnW / 2 + i * (btnW + gap)
+      const bg = this.scene.add.rectangle(bx, FILTER_Y, btnW, btnH, b.on ? 0x4a6a3a : 0x232338)
+        .setStrokeStyle(1, b.on ? 0x7abb5a : 0x444455)
+        .setInteractive({ useHandCursor: true })
+      const label = this.scene.add.text(bx, FILTER_Y, b.label, {
+        fontSize: '11px', color: b.on ? '#ccffaa' : '#778899',
+      }).setOrigin(0.5)
+      bg.on('pointerdown', b.press)
+      objs.push(bg, label)
+    })
+  }
+
+  private buildPager(total: number, objs: Phaser.GameObjects.GameObject[]): void {
+    const pages = this.paging.pageCount(total)
+    const cur = this.paging.currentPage(total)
+    const arrow = (x: number, text: string, delta: number, enabled: boolean) => {
+      const t = this.scene.add.text(x, PAGER_Y, text, {
+        fontSize: '18px', color: enabled ? '#aaccee' : '#445566',
+      }).setOrigin(0.5)
+      if (enabled) {
+        t.setInteractive({ useHandCursor: true })
+        t.on('pointerdown', () => this.turnPage(delta))
+      }
+      objs.push(t)
+    }
+    arrow(PANEL_X - 60, '◀', -1, cur > 0)
+    objs.push(this.scene.add.text(PANEL_X, PAGER_Y, this.paging.pageLabel(total), {
+      fontSize: '13px', color: '#8899aa',
+    }).setOrigin(0.5))
+    arrow(PANEL_X + 60, '▶', 1, cur < pages - 1)
   }
 
   private buildRecipeRow(recipe: RecipeDef, cy: number, objs: Phaser.GameObjects.GameObject[]): void {
