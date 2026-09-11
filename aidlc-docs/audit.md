@@ -1795,3 +1795,27 @@ Current Status も 2026-09-11 現在に更新（未コミット14ファイル・
 `main` が反映済みの唯一の基準／close コメントにコミットハッシュと実装内容を書く／
 本文と実装が違うなら何を変えたかも書く／残作業は先に別 issue へ切り出してから閉じる。"
 **Context**: issue 一覧を現在地と一致させる
+
+---
+
+## セッション再開（AI-DLC ワークフロー）
+**Timestamp**: 2026-09-11T00:00:00Z
+**User Input（原文）**: "AIDLC"
+**AI Response**: "既存の `aidlc-state.md` を読み、現在地を提示。未回答の質問票は
+[item-taxonomy-integration-plan.md](construction/plans/item-taxonomy-integration-plan.md) Q1 の1件。
+併せて `aidlc-state.md` の陳腐化を1件訂正した（クラフトUIの作り直しを『未コミット』と書いていたが
+`05c0c25` で main に入っている）。"
+**Context**: Workspace Detection（セッション再開）。新規ワークフローではないため welcome message は表示しない
+
+---
+
+## 「今から何をやるのか」の問い直し
+**Timestamp**: 2026-09-11T00:10:00Z
+**User Input（原文）**: "何の話？現在地をどこだと認識してる？" ／ "そもそも「今から何をやるのか」って理解しているか？"
+**AI Response**: "**理解していないと回答。**「AIDLC」は再開語であって作業指示ではなく、
+こちらが出した『次は #30』は過去に自分で `aidlc-state.md` に書いた推奨を読み上げたもので、PO の決定ではなかった。
+『これが決まらないと #30 に入れません』は #30 をやる前提で書いた行き過ぎ。
+また『現在地』をワークフロー上の位置とゲーム内の島の2つの意味で混ぜて使っていた。
+ゲーム内の島については実測: `src` 全体の grep で `src/taxonomy/` の外に0件。
+対象を決める質問票 [next-cycle-questions.md](inception/plans/next-cycle-questions.md) を作成（Q1: 対象、Q2: 実機確認の分担）。"
+**Context**: Requirements Analysis の前段。対象未確定のまま進めていたのを止めた
