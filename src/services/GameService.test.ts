@@ -28,7 +28,7 @@ describe('GameService', () => {
 
   it('スロットなしのとき売上ゼロ', () => {
     const { gs, eco } = setup()
-    gs.onMinutePassed(() => 0) // always trigger customer
+    gs.onMinutePassed(() => 0, true) // always trigger customer
     expect(eco.getTotalRevenue()).toBe(0)
   })
 
@@ -41,7 +41,7 @@ describe('GameService', () => {
       callCount++
       return callCount === 1 ? 0.1 : 0.01 // arrive + buy
     }
-    gs.onMinutePassed(rng)
+    gs.onMinutePassed(rng, true)
     expect(eco.getTotalRevenue()).toBeGreaterThan(0)
   })
 
@@ -54,8 +54,40 @@ describe('GameService', () => {
       callCount++
       return callCount === 1 ? 0.1 : 0.01
     }
-    gs.onMinutePassed(rng)
+    gs.onMinutePassed(rng, true)
     expect(grid.getAllSlots()[0].quantity).toBe(4)
+  })
+
+  it('閉店中（isOpen=false）は客が来ない — 売上も在庫も動かない（#25）', () => {
+    const { gs, pm, eco, grid } = setup()
+    pm.tryPlace('apple', { x: 0, y: 0 }, 0, 10)
+    const sold = vi.fn()
+    EventBus.on(GameEvents.FLOOR_SLOT_SOLD, sold)
+
+    // 営業中なら必ず買われる乱数（到着 → 購入）を渡しても、閉店中は何も起きない
+    let callCount = 0
+    const rng = () => {
+      callCount++
+      return callCount === 1 ? 0.1 : 0.01
+    }
+    gs.onMinutePassed(rng, false)
+
+    expect(eco.getTotalRevenue()).toBe(0)
+    expect(grid.getAllSlots()[0].quantity).toBe(10)
+    expect(sold).not.toHaveBeenCalled()
+    expect(callCount).toBe(0) // 乱数すら引かれない＝客の判定に入っていない
+  })
+
+  it('同じ乱数でも営業中なら売れる（閉店テストの対照）', () => {
+    const { gs, pm, eco } = setup()
+    pm.tryPlace('apple', { x: 0, y: 0 }, 0, 10)
+    let callCount = 0
+    const rng = () => {
+      callCount++
+      return callCount === 1 ? 0.1 : 0.01
+    }
+    gs.onMinutePassed(rng, true)
+    expect(eco.getTotalRevenue()).toBeGreaterThan(0)
   })
 
   it('累計売上が100万に達したときPROGRESS_GOAL_COMPLETEを発火する', () => {
@@ -74,7 +106,7 @@ describe('GameService', () => {
       callCount++
       return callCount === 1 ? 0.1 : 0.01
     }
-    gs.onMinutePassed(rng)
+    gs.onMinutePassed(rng, true)
     expect(listener).toHaveBeenCalledOnce()
   })
 
@@ -92,7 +124,7 @@ describe('GameService', () => {
       callCount++
       return callCount % 2 === 1 ? 0.1 : 0.01
     }
-    gs.onMinutePassed(rng)
+    gs.onMinutePassed(rng, true)
     expect(listener).not.toHaveBeenCalled()
   })
 

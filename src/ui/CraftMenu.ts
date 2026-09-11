@@ -3,17 +3,57 @@ import type { CraftingSystem } from '../components/items/CraftingSystem.js'
 import type { Inventory } from '../components/economy/Inventory.js'
 import type { ItemRegistry, RecipeDef } from '../components/items/ItemRegistry.js'
 
-const PANEL_W = 480
-const PANEL_H = 500
+const PANEL_W = 560
+const PANEL_H = 520
 const PANEL_X = 640
 const PANEL_Y = 360
 
+/** 枠の内側。すべての要素はこの範囲に収める */
+const CONTENT_L = PANEL_X - PANEL_W / 2 + 30
+const CONTENT_R = PANEL_X + PANEL_W / 2 - 30
+
+const ROW_H = 84
+const ROWS_TOP = PANEL_Y - PANEL_H / 2 + 56
+
+/**
+ * 右側の操作列の左端。ここから右は数量入力とボタンの領域で、文字は入れない
+ * （**名前が長くてもボタンに被らない**ようにするため）。
+ */
+const CONTROLS_L = PANEL_X + 60
+/** 左の文字列に使える幅 */
+const TEXT_MAX_W = CONTROLS_L - CONTENT_L - 22
+
+const INPUT_W = 52
+const INPUT_H = 22
+
+/** 1行ぶんの、あとから書き換える部品 */
+interface Row {
+  recipe: RecipeDef
+  max: number
+  input: HTMLInputElement
+  /** DOM が使えないときの数字表示（使えるときは undefined） */
+  valueText?: Phaser.GameObjects.Text
+  outText: Phaser.GameObjects.Text
+  ingText: Phaser.GameObjects.Text
+  timeText: Phaser.GameObjects.Text
+  reason: Phaser.GameObjects.Text
+  craftBg: Phaser.GameObjects.Rectangle
+  craftLabel: Phaser.GameObjects.Text
+}
+
+/**
+ * クラフトメニュー。
+ *
+ * 回数は HTML の `<input>` に**直接入力**する（Phaser の DOM コンテナに載せる）。
+ * 入力のたびに作り直すとカーソルが飛ぶので、**打鍵ごとに作り直さない。**
+ * 文字とボタンの状態だけをその場で書き換える（`refreshRow`）。
+ */
 export class CraftMenu {
   private container: Phaser.GameObjects.Container | null = null
-  private progressBar: Phaser.GameObjects.Rectangle | null = null
-  private progressBg: Phaser.GameObjects.Rectangle | null = null
-  private progressLabel: Phaser.GameObjects.Text | null = null
   private isOpen = false
+  private rows: Row[] = []
+  /** レシピごとに選んだ回数。閉じても覚えておき、上限で丸める */
+  private times = new Map<string, number>()
 
   constructor(
     private scene: Phaser.Scene,
@@ -21,7 +61,11 @@ export class CraftMenu {
     private inventory: Inventory,
     private registry: ItemRegistry,
     private onClose: () => void,
-  ) {}
+  ) {
+    // シーンが終わるとき DOM が残らないようにする
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown())
+    scene.events.once(Phaser.Scenes.Events.DESTROY, () => this.teardown())
+  }
 
   open(): void {
     if (this.isOpen) return
@@ -32,162 +76,299 @@ export class CraftMenu {
   close(): void {
     if (!this.isOpen) return
     this.isOpen = false
-    this.container?.destroy()
-    this.container = null
-    this.progressBar = null
-    this.progressBg = null
-    this.progressLabel = null
+    this.teardown()
     this.onClose()
-  }
-
-  update(): void {
-    if (!this.isOpen || !this.craftingSystem.isActive()) return
-    this.updateProgress()
   }
 
   isVisible(): boolean {
     return this.isOpen
   }
 
+  /** 画面の部品と DOM を片付け、ゲームのキー入力を戻す */
+  private teardown(): void {
+    this.container?.destroy() // DOMElement も子なので一緒に消える
+    this.container = null
+    this.rows = []
+    this.setGameKeyboard(true)
+  }
+
+  /** 中身だけ作り直す（閉じたことにはしない）。打鍵のたびには呼ばない */
+  private rebuild(): void {
+    this.container?.destroy()
+    this.container = null
+    this.rows = []
+    // 入力中の要素を消すと blur が来ないことがあるので、ここで必ず戻す
+    this.setGameKeyboard(true)
+    this.build()
+  }
+
+  /** 入力中はゲームのショートカット（ESC など）を止める */
+  private setGameKeyboard(enabled: boolean): void {
+    const keyboard = this.scene.input?.keyboard
+    if (keyboard) keyboard.enabled = enabled
+  }
+
   private build(): void {
     const objs: Phaser.GameObjects.GameObject[] = []
 
-    // Overlay backdrop
     const backdrop = this.scene.add
       .rectangle(0, 0, 1280, 720, 0x000000, 0.6)
       .setOrigin(0, 0)
       .setInteractive()
     objs.push(backdrop)
 
-    // Panel background
     const panel = this.scene.add.rectangle(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, 0x1e1e3a)
       .setStrokeStyle(2, 0x4a4a8a)
     objs.push(panel)
 
-    // Title
+    const titleY = PANEL_Y - PANEL_H / 2 + 26
     objs.push(
-      this.scene.add.text(PANEL_X, PANEL_Y - 220, 'クラフトメニュー', {
-        fontSize: '20px',
-        color: '#ffffff',
-        fontStyle: 'bold',
+      this.scene.add.text(PANEL_X, titleY, 'クラフトメニュー', {
+        fontSize: '20px', color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0.5),
     )
 
-    // Close button
-    const closeBtn = this.scene.add.text(PANEL_X + 220, PANEL_Y - 220, '[×]', {
-      fontSize: '18px',
-      color: '#ff6666',
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true })
+    const closeBtn = this.scene.add.text(CONTENT_R, titleY, '[×]', {
+      fontSize: '18px', color: '#ff6666',
+    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true })
     closeBtn.on('pointerdown', () => this.close())
     objs.push(closeBtn)
 
-    // Recipe rows
-    const recipes = this.registry.getAllRecipes()
-    recipes.forEach((recipe, i) => {
-      const y = PANEL_Y - 160 + i * 64
-      this.buildRecipeRow(recipe, y, objs)
+    this.registry.getAllRecipes().forEach((recipe, i) => {
+      this.buildRecipeRow(recipe, ROWS_TOP + ROW_H / 2 + i * ROW_H, objs)
     })
-
-    // Progress area
-    const progY = PANEL_Y + 180
-    objs.push(
-      this.scene.add.text(PANEL_X, progY - 24, '作業進捗', {
-        fontSize: '14px',
-        color: '#aaaaaa',
-      }).setOrigin(0.5),
-    )
-
-    this.progressBg = this.scene.add.rectangle(PANEL_X, progY, 380, 20, 0x333333)
-    this.progressBar = this.scene.add.rectangle(PANEL_X - 190, progY, 0, 18, 0x4a8a4a).setOrigin(0, 0.5)
-    this.progressLabel = this.scene.add.text(PANEL_X, progY + 22, '待機中', {
-      fontSize: '12px',
-      color: '#cccccc',
-    }).setOrigin(0.5)
-    objs.push(this.progressBg, this.progressBar, this.progressLabel)
 
     this.container = this.scene.add.container(0, 0, objs)
     this.container.setDepth(100)
-    this.updateProgress()
+    for (const row of this.rows) this.refreshRow(row)
   }
 
-  private buildRecipeRow(recipe: RecipeDef, y: number, objs: Phaser.GameObjects.GameObject[]): void {
-    const canCraft = this.craftingSystem.canCraft(recipe.id)
-    const bgColor = canCraft ? 0x2a3a2a : 0x3a2a2a
+  private buildRecipeRow(recipe: RecipeDef, cy: number, objs: Phaser.GameObjects.GameObject[]): void {
+    const max = this.craftingSystem.maxCraftTimes(recipe.id)
 
-    const bg = this.scene.add
-      .rectangle(PANEL_X, y, PANEL_W - 40, 56, bgColor)
-      .setStrokeStyle(1, 0x555555)
-    objs.push(bg)
-
-    // Recipe name
     objs.push(
-      this.scene.add.text(PANEL_X - 180, y - 10, recipe.name, {
-        fontSize: '14px',
-        color: canCraft ? '#ffffff' : '#888888',
-      }).setOrigin(0, 0.5),
+      this.scene.add
+        .rectangle(PANEL_X, cy, PANEL_W - 40, ROW_H - 8, max > 0 ? 0x2a3a2a : 0x3a2a2a)
+        .setStrokeStyle(1, 0x555555),
     )
 
-    // Ingredients
-    const ingText = recipe.ingredients
-      .map(ing => {
-        const item = this.registry.getItem(ing.itemId)
-        const have = this.inventory.getQuantity(ing.itemId)
-        return `${item.name}x${ing.quantity}(${have})`
-      })
-      .join('  ')
-    objs.push(
-      this.scene.add.text(PANEL_X - 180, y + 10, ingText, {
-        fontSize: '11px',
-        color: '#aaaaaa',
-      }).setOrigin(0, 0.5),
-    )
+    // 左は3段 — 完成品／材料／合計時間。数は括弧が在庫
+    const outText = this.text(CONTENT_L, cy - 24, '', 14, '#ffffff')
+    const ingText = this.text(CONTENT_L, cy - 2, '', 11, '#aaaaaa')
+    const timeText = this.text(CONTENT_L, cy + 22, '', 12, '#88ccff')
+    const reason = this.scene.add.text(CONTROLS_L - 10, cy + 22, '', {
+      fontSize: '11px', color: '#dd8888',
+    }).setOrigin(1, 0.5)
+    objs.push(outText, ingText, timeText, reason)
 
-    // Duration & output
-    const outItem = this.registry.getItem(recipe.outputItemId)
-    objs.push(
-      this.scene.add.text(PANEL_X + 60, y, `→ ${outItem.name}×${recipe.outputQuantity}  ${recipe.durationMinutes}分`, {
-        fontSize: '12px',
-        color: '#88ccff',
-      }).setOrigin(0, 0.5),
-    )
+    // 右上 — − [n]回 ＋
+    const groupW = 26 + 4 + INPUT_W + 4 + 16 + 4 + 26
+    let x = CONTROLS_L + (CONTENT_R - CONTROLS_L - groupW) / 2
+    const minusAt = x
+    x += 26 + 4
+    const inputAt = x
+    x += INPUT_W + 4
+    const unitAt = x
+    x += 16 + 4
+    const plusAt = x
 
-    // Craft button
-    if (canCraft && !this.craftingSystem.isActive()) {
-      const btn = this.scene.add
-        .text(PANEL_X + 190, y, 'クラフト', {
-          fontSize: '13px',
-          color: '#ffffff',
-          backgroundColor: '#4a4a8a',
-          padding: { x: 10, y: 6 },
+    const input = this.createInput(recipe)
+    // DOM が使えない設定でも**メニュー全体を道連れにしない**。
+    // 使えないときは数字を表示するだけにして、− ＋ 最大 で操作できるようにする
+    let valueText: Phaser.GameObjects.Text | undefined
+    const domEl = this.tryAddDom(inputAt + INPUT_W / 2, cy - 17, input)
+    if (domEl) {
+      objs.push(domEl)
+    } else {
+      objs.push(
+        this.scene.add.rectangle(inputAt + INPUT_W / 2, cy - 17, INPUT_W, INPUT_H, 0x15152a)
+          .setStrokeStyle(1, 0x4a4a8a),
+      )
+      valueText = this.scene.add.text(inputAt + INPUT_W - 6, cy - 17, input.value, {
+        fontSize: '12px', color: '#ffffff',
+      }).setOrigin(1, 0.5)
+      objs.push(valueText)
+    }
+
+    // 右下 — 最大 ／ 作る
+    const craftW = CONTENT_R - CONTROLS_L - 44
+    const craftBg = this.scene.add.rectangle(CONTROLS_L + 44 + craftW / 2, cy + 17, craftW, 24, 0x4a4a8a)
+      .setStrokeStyle(1, 0x6a6ab0)
+      .setInteractive({ useHandCursor: true })
+    const craftLabel = this.scene.add.text(CONTROLS_L + 44 + craftW / 2, cy + 17, '作る', {
+      fontSize: '12px', color: '#ffffff',
+    }).setOrigin(0.5)
+    objs.push(craftBg, craftLabel)
+
+    const row: Row = { recipe, max, input, valueText, outText, ingText, timeText, reason, craftBg, craftLabel }
+    craftBg.on('pointerdown', () => this.craft(row))
+
+    // 右上 — − [n]回 ＋
+    this.pushButton(objs, minusAt, cy - 17, 26, INPUT_H, '−', () => this.step(row, -1))
+    objs.push(
+      this.scene.add.text(unitAt + 8, cy - 17, '回', { fontSize: '12px', color: '#cccccc' })
+        .setOrigin(0.5),
+    )
+    this.pushButton(objs, plusAt, cy - 17, 26, INPUT_H, '＋', () => this.step(row, 1))
+
+    this.pushButton(objs, CONTROLS_L, cy + 17, 38, 24, '最大', () => {
+      this.setValue(row, Math.max(row.max, 1))
+    })
+
+    this.rows.push(row)
+  }
+
+  /**
+   * `<input>` を画面に載せる。載せられなければ null を返す
+   * （`dom.createContainer` と `parent` が揃っていないと Phaser が例外を投げる）。
+   */
+  private tryAddDom(x: number, y: number, el: HTMLInputElement): Phaser.GameObjects.DOMElement | null {
+    try {
+      return this.scene.add.dom(x, y, el)
+    } catch (e) {
+      console.warn('CraftMenu: 数量入力に DOM を使えません（− ＋ 最大 で操作してください）', e)
+      return null
+    }
+  }
+
+  /** 回数入力の `<input>`。打鍵ではこの要素を作り直さない（カーソルが飛ぶため） */
+  private createInput(recipe: RecipeDef): HTMLInputElement {
+    const el = document.createElement('input')
+    el.type = 'text'
+    el.inputMode = 'numeric'
+    el.value = String(this.times.get(recipe.id) ?? 1)
+    el.style.cssText = [
+      `width: ${INPUT_W - 8}px`,
+      `height: ${INPUT_H - 6}px`,
+      'padding: 0 3px',
+      'font-size: 12px',
+      'font-family: sans-serif',
+      'color: #ffffff',
+      'background: #15152a',
+      'border: 1px solid #4a4a8a',
+      'text-align: right',
+      // DOM コンテナ自体は pointer-events: none（クリックをゲームへ通す）なので、
+      // この入力だけ受け取れるようにする
+      'pointer-events: auto',
+    ].join(';')
+
+    // 打鍵をゲーム側のキー処理へ漏らさない
+    el.addEventListener('keydown', e => e.stopPropagation())
+    el.addEventListener('keyup', e => e.stopPropagation())
+    el.addEventListener('focus', () => this.setGameKeyboard(false))
+    el.addEventListener('blur', () => this.setGameKeyboard(true))
+    el.addEventListener('input', () => {
+      // ⚠ 打った文字は**書き換えない**。`-1` → `1`、`1.5` → `15` のように
+      //   意図しない回数に化けるため。整数でなければ「作る」を無効にするだけ
+      const row = this.rows.find(r => r.input === el)
+      if (row) this.refreshRow(row)
+    })
+    return el
+  }
+
+  /** いま入力されている回数。整数として読めなければ null（＝作れない） */
+  private readTimes(row: Row): number | null {
+    const raw = row.input.value.trim()
+    if (!/^\d+$/.test(raw)) return null
+    const n = Number(raw)
+    return Number.isSafeInteger(n) && n >= 1 ? n : null
+  }
+
+  /** 入力の値を差し替えて表示を更新する（作り直さない） */
+  private setValue(row: Row, times: number): void {
+    row.input.value = String(times)
+    this.refreshRow(row)
+  }
+
+  private step(row: Row, delta: number): void {
+    const current = this.readTimes(row) ?? 1
+    this.setValue(row, Math.max(1, current + delta))
+  }
+
+  private craft(row: Row): void {
+    const times = this.readTimes(row)
+    if (times === null || !this.craftingSystem.canCraft(row.recipe.id, times)) return
+    this.craftingSystem.startCraft(row.recipe.id, times)
+    this.rebuild() // 作ったあとは在庫も残り時間も変わるので、ここでは作り直してよい
+  }
+
+  /**
+   * 1行ぶんの表示を今の入力に合わせる。
+   * **入力は勝手に直さない**（丸めも字の置き換えもしない）。
+   * 上限超過も整数でない入力も、理由を出して「作る」を無効にするだけ。
+   */
+  private refreshRow(row: Row): void {
+    const { recipe } = row
+    const times = this.readTimes(row)
+    if (times !== null) this.times.set(recipe.id, times)
+    row.valueText?.setText(row.input.value)
+
+    // 数の欄は、読める値のときだけ書き換える（編集中に数字が踊らないように）
+    if (times !== null) {
+      const out = this.registry.getItem(recipe.outputItemId)
+      this.setText(row.outText, `${out.name}×${recipe.outputQuantity * times}(${this.inventory.getQuantity(out.id)})`)
+      this.setText(row.ingText, recipe.ingredients
+        .map(ing => {
+          const item = this.registry.getItem(ing.itemId)
+          return `${item.name}×${ing.quantity * times}(${this.inventory.getQuantity(ing.itemId)})`
         })
-        .setOrigin(0.5)
-        .setInteractive({ useHandCursor: true })
-      btn.on('pointerdown', () => {
-        this.craftingSystem.startCraft(recipe.id)
-        this.refresh()
-      })
-      objs.push(btn)
+        .join('  '))
+      this.setText(row.timeText, `${recipe.durationMinutes * times}分`)
+    }
+
+    const reason = this.reasonFor(row, times)
+    row.reason.setText(reason)
+    const enabled = reason === ''
+    row.craftBg.setFillStyle(enabled ? 0x4a4a8a : 0x3a3a4a)
+    row.craftLabel.setColor(enabled ? '#ffffff' : '#8888aa')
+    if (enabled) {
+      row.craftBg.setInteractive({ useHandCursor: true })
+    } else {
+      row.craftBg.disableInteractive()
     }
   }
 
-  private updateProgress(): void {
-    if (!this.progressBar || !this.progressLabel || !this.progressBg) return
-    const job = this.craftingSystem.getActiveJob()
-    if (!job) {
-      this.progressBar.setSize(0, 18)
-      this.progressLabel.setText('待機中')
-      return
+  /** 作れない理由。作れるなら空文字 */
+  private reasonFor(row: Row, times: number | null): string {
+    if (times === null) {
+      return row.input.value.trim() === '' ? '数量を入れてください' : '1以上の整数を入力'
     }
-    const pct = this.craftingSystem.getProgress()
-    this.progressBar.setSize(380 * pct, 18)
-    const recipe = this.craftingSystem.getRecipeDef(job.recipeId)
-    this.progressLabel.setText(`${recipe.name} … ${Math.floor(pct * 100)}%`)
+    if (!this.craftingSystem.hasIngredients(row.recipe.id, times)) return '材料が足りない'
+    if (!this.craftingSystem.fitsInToday(row.recipe.id, times)) return '今日はもう時間がない'
+    return ''
   }
 
-  private refresh(): void {
-    this.close()
-    this.onClose = this.onClose
-    this.isOpen = false
-    this.open()
+  /** 枠に収まる文字（はみ出す分は末尾を … に詰める）。左端そろえ */
+  private text(x: number, y: number, content: string, size: number, color: string): Phaser.GameObjects.Text {
+    return this.scene.add.text(x, y, content, { fontSize: `${size}px`, color }).setOrigin(0, 0.5)
+  }
+
+  private setText(t: Phaser.GameObjects.Text, content: string): void {
+    t.setText(content)
+    if (t.width <= TEXT_MAX_W) return
+    let s = content
+    while (s.length > 1 && t.width > TEXT_MAX_W) {
+      s = s.slice(0, -1)
+      t.setText(`${s}…`)
+    }
+  }
+
+  /** 矩形＋中央ぞろえの文字でボタンを作る。幅は指定値どおりなので隣と重ならない */
+  private pushButton(
+    objs: Phaser.GameObjects.GameObject[],
+    left: number, cy: number, w: number, h: number,
+    label: string, onClick: () => void, fill = 0x33335a,
+  ): void {
+    const cx = left + w / 2
+    const bg = this.scene.add.rectangle(cx, cy, w, h, fill)
+      .setStrokeStyle(1, 0x6a6ab0)
+      .setInteractive({ useHandCursor: true })
+    bg.on('pointerdown', onClick)
+    bg.on('pointerover', () => bg.setFillStyle(0x5a5ab0))
+    bg.on('pointerout', () => bg.setFillStyle(fill))
+    objs.push(
+      bg,
+      this.scene.add.text(cx, cy, label, { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5),
+    )
   }
 }

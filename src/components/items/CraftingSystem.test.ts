@@ -71,7 +71,7 @@ describe('CraftingSystem', () => {
     EventBus.on(GameEvents.CRAFTING_STARTED, listener)
     inventory.add('flour', 2)
     cs.startCraft('recipe_bread')
-    expect(listener).toHaveBeenCalledWith('recipe_bread')
+    expect(listener).toHaveBeenCalledWith({ recipeId: 'recipe_bread', times: 1, quantity: 3 })
   })
 
   it('素材不足のときstartCraftはfalseを返す', () => {
@@ -91,7 +91,7 @@ describe('CraftingSystem', () => {
     EventBus.on(GameEvents.CRAFTING_COMPLETED, listener)
     inventory.add('flour', 2)
     cs.startCraft('recipe_bread')
-    expect(listener).toHaveBeenCalledWith('recipe_bread')
+    expect(listener).toHaveBeenCalledWith({ recipeId: 'recipe_bread', times: 1, quantity: 3 })
   })
 
   it('加工は途中の状態を持たない（着手＝完了）', () => {
@@ -99,6 +99,76 @@ describe('CraftingSystem', () => {
     cs.startCraft('recipe_bread')
     expect(cs.isActive()).toBe(false)
     expect(cs.getProgress()).toBe(0)
+  })
+
+  // ── まとめて作る（回数指定） ───────────────────────────
+  describe('まとめて作る', () => {
+    it('材料も所要時間も回数分かかり、出来高は出力単位で増える', () => {
+      inventory.add('flour', 10)
+      expect(cs.startCraft('recipe_bread', 3)).toBe(true)
+      expect(inventory.getQuantity('flour')).toBe(4) // 10 − 2×3
+      expect(inventory.getQuantity('bread')).toBe(9) // 3個 × 3回
+      expect(timeManager.skipMinutes).toHaveBeenCalledWith(15) // 5分 × 3回
+    })
+
+    it('CRAFTING_COMPLETED は回数と総個数を伝える', () => {
+      const listener = vi.fn()
+      EventBus.on(GameEvents.CRAFTING_COMPLETED, listener)
+      inventory.add('flour', 4)
+      cs.startCraft('recipe_bread', 2)
+      expect(listener).toHaveBeenCalledWith({ recipeId: 'recipe_bread', times: 2, quantity: 6 })
+    })
+
+    it('材料が1回分足りないときは何も起きない（材料も時間も減らない）', () => {
+      inventory.add('flour', 5) // 2回ぶん(4)はあるが3回ぶん(6)は無い
+      expect(cs.startCraft('recipe_bread', 3)).toBe(false)
+      expect(inventory.getQuantity('flour')).toBe(5)
+      expect(inventory.getQuantity('bread')).toBe(0)
+      expect(timeManager.skipMinutes).not.toHaveBeenCalled()
+    })
+
+    it('当日に収まらない回数は着手できない（材料も時間も減らない）', () => {
+      vi.mocked(timeManager.minutesUntilEndOfDay).mockReturnValue(12) // 5分なら2回まで
+      inventory.add('flour', 20)
+      expect(cs.startCraft('recipe_bread', 3)).toBe(false)
+      expect(inventory.getQuantity('flour')).toBe(20)
+      expect(timeManager.skipMinutes).not.toHaveBeenCalled()
+      expect(cs.startCraft('recipe_bread', 2)).toBe(true)
+    })
+
+    it('maxCraftTimes は材料と当日の残り時間の小さいほうを返す', () => {
+      inventory.add('flour', 7) // 材料では3回
+      expect(cs.maxCraftTimes('recipe_bread')).toBe(3)
+
+      inventory.add('flour', 100) // 材料では53回だが、960分では192回
+      expect(cs.maxCraftTimes('recipe_bread')).toBe(53)
+
+      vi.mocked(timeManager.minutesUntilEndOfDay).mockReturnValue(20) // 時間では4回
+      expect(cs.maxCraftTimes('recipe_bread')).toBe(4)
+    })
+
+    it('材料が1回分も無ければ maxCraftTimes は 0', () => {
+      expect(cs.maxCraftTimes('recipe_bread')).toBe(0)
+      expect(cs.canCraft('recipe_bread', 1)).toBe(false)
+    })
+
+    it('0回・負の回数・小数は受け付けない', () => {
+      inventory.add('flour', 10)
+      expect(cs.startCraft('recipe_bread', 0)).toBe(false)
+      expect(cs.startCraft('recipe_bread', -1)).toBe(false)
+      expect(cs.startCraft('recipe_bread', 1.5)).toBe(false)
+      expect(inventory.getQuantity('flour')).toBe(10)
+    })
+
+    it('複数素材レシピでは一番足りない材料が上限を決める', () => {
+      inventory.add('bread', 10)
+      inventory.add('tomato', 3)
+      expect(cs.maxCraftTimes('recipe_sandwich')).toBe(3)
+      expect(cs.startCraft('recipe_sandwich', 4)).toBe(false)
+      expect(cs.startCraft('recipe_sandwich', 3)).toBe(true)
+      expect(inventory.getQuantity('sandwich')).toBe(6) // 2個 × 3回
+      expect(inventory.getQuantity('tomato')).toBe(0)
+    })
   })
 
   it('複数素材レシピが動作する', () => {

@@ -7,6 +7,7 @@ import { PlacementManager } from '../components/floor/PlacementManager.js'
 import { Inventory } from '../components/economy/Inventory.js'
 import { EconomyManager } from '../components/economy/EconomyManager.js'
 import { CraftingSystem } from '../components/items/CraftingSystem.js'
+import type { CraftResult } from '../components/items/CraftingSystem.js'
 import { CustomerSimulator } from '../components/simulation/CustomerSimulator.js'
 import { ShopService } from '../services/ShopService.js'
 import { GameService } from '../services/GameService.js'
@@ -29,23 +30,18 @@ import { ALL_RECIPES } from '../data/recipes.js'
 
 const INITIAL_GRID = { width: 6, height: 5 }
 
-const INITIAL_STOCK: Record<string, number> = {
-  // materials
-  flour: 10,
-  tomato: 8,
-  grape: 12,
-  fabric: 5,
-  wood: 6,
-  // products (all unlocked for testing)
-  apple: 20,
-  milk: 20,
-  bottle: 20,
-  bread: 20,
-  wine: 20,
-  tomato_sauce: 20,
-  sandwich: 20,
-  book: 20,
-}
+/**
+ * 新しく始めたときの在庫。**動作確認をしやすくするため、登録されている全品目を
+ * 同じ数だけ持たせる**（ユーザー依頼 2026-09-11「テストしづらいので各品目10000個」）。
+ *
+ * ⚠ これは遊びの初期条件ではなく確認用の値。セーブから読み込んだ場合は
+ *   保存された在庫が使われるので、既存のセーブはこの値の影響を受けない。
+ */
+const INITIAL_STOCK_PER_ITEM = 10000
+
+const INITIAL_STOCK: Record<string, number> = Object.fromEntries(
+  ALL_ITEMS.map(item => [item.id, INITIAL_STOCK_PER_ITEM]),
+)
 
 export class GameScene extends Phaser.Scene {
   private timeManager!: TimeManager
@@ -208,7 +204,6 @@ export class GameScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     this.timeManager.update(delta)
     this.craftingSystem.update(delta)
-    this.craftMenu.update()
   }
 
   private setupBackground(): void {
@@ -493,6 +488,14 @@ export class GameScene extends Phaser.Scene {
       this.hud.updateRevenue(this.economy.getTotalRevenue(), this.gameService.isInEndlessMode())
     })
 
+    // 加工で時計が飛んだとき（TimeManager.skipMinutes）。
+    // skipMinutes は TIME_MINUTE_PASSED を出さない＝その間は客が来ない（#25）ので、
+    // 表示だけをここで追いつかせる。売買は回さない。
+    EventBus.on(GameEvents.TIME_SKIPPED, (payload: unknown) => {
+      const { time } = payload as { minutes: number; time: GameTime }
+      this.hud.updateTime(time.day, time.hour, time.minute)
+    })
+
     EventBus.on(GameEvents.TIME_ADVANCE_STOPPED, () => {
       this.advanceBtnLabel.setText('▶  進める'); this.advanceBtnBg.setFillStyle(0x4a4a8a)
       
@@ -526,9 +529,13 @@ export class GameScene extends Phaser.Scene {
       }
     })
 
-    EventBus.on(GameEvents.CRAFTING_COMPLETED, (recipeId: unknown) => {
-      const recipe = this.registry_.getRecipe(recipeId as string)
-      this.messageLog.addMessage(`${recipe.name} 完了！ ${recipe.outputQuantity}個入手`, 'event')
+    EventBus.on(GameEvents.CRAFTING_COMPLETED, (payload: unknown) => {
+      const { recipeId, times, quantity } = payload as CraftResult
+      const recipe = this.registry_.getRecipe(recipeId)
+      this.messageLog.addMessage(
+        `${recipe.name} ×${times}回 完了！ ${quantity}個入手（${recipe.durationMinutes * times}分）`,
+        'event',
+      )
       this.refreshInventoryPanel()
     })
 
@@ -707,10 +714,6 @@ export class GameScene extends Phaser.Scene {
   private updateStatus(msg?: string): void {
     if (msg) {
       this.messageLog.addMessage(msg, 'info')
-      return
-    }
-    if (this.craftingSystem.isActive()) {
-      this.messageLog.addMessage(`クラフト中… ${Math.floor(this.craftingSystem.getProgress() * 100)}%`, 'event')
       return
     }
     if (this.selectedItemId) {

@@ -42,6 +42,20 @@ describe('TimeManager', () => {
     expect(count).toBe(0)
   })
 
+  // HUD の時計はこのペイロードだけを頼りに追いつく（GameScene の TIME_SKIPPED 購読）。
+  // day をまたぐ場合も飛んだ後の時刻が入っていること。
+  it('TIME_SKIPPED は飛ばした分数と飛んだ後の時刻を渡す', () => {
+    const payloads: unknown[] = []
+    EventBus.on(GameEvents.TIME_SKIPPED, (p) => payloads.push(p))
+
+    tm.setTime({ day: 1, hour: 23, minute: 55 })
+    tm.skipMinutes(5) // 24:00 到達 → 翌日 6:00
+
+    expect(payloads).toEqual([
+      { minutes: 5, time: { day: 2, hour: 6, minute: 0 } },
+    ])
+  })
+
   it('60分で1時間進む', () => {
     tm.startAdvancing()
     tm.update(100 * 60) // 60分分のdelta

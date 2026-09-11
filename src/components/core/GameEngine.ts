@@ -18,6 +18,13 @@ export class GameEngine {
       // canvas に image-rendering: pixelated CSS を付与する。
       // Scale.FIT でキャンバスが CSS 拡大される際のにじみを防ぐ唯一確実な方法。
       pixelArt: true,
+      // クラフトメニューの回数入力に HTML の <input> を使う（Phaser の DOM コンテナ）。
+      // Scale.FIT でキャンバスが拡縮されても、この器が同じ変形を受けるので位置がずれない。
+      //
+      // ⚠ `parent` が無いと Phaser は DOM コンテナを**作らない**（CreateDOMContainer）。
+      //   その場合 `scene.add.dom()` は例外を投げるので、この2つは必ず一組で指定する。
+      parent: 'game',
+      dom: { createContainer: true },
       scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,

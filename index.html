@@ -14,9 +14,16 @@
         height: 100vh;
         overflow: hidden;
       }
+      /*
+        Phaser の DOM コンテナ（クラフトメニューの数量入力に使う）は
+        親要素が指定されていないと作られない（Phaser の CreateDOMContainer）。
+        キャンバスと DOM コンテナを同じ箱に入れて位置をそろえる。
+      */
+      #game { position: relative; }
     </style>
   </head>
   <body>
+    <div id="game"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

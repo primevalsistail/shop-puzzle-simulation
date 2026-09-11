@@ -1,4 +1,10 @@
-const MAX_QUANTITY = 999
+/**
+ * 1品目あたりの持てる上限。
+ *
+ * ⚠ 999 だったが、動作確認用の初期在庫 10000（`GameScene.INITIAL_STOCK`）が
+ *   そのまま頭打ちになり、**まとめて加工しても増えて見えない**ので引き上げた。
+ */
+const MAX_QUANTITY = 99999
 
 export class Inventory {
   private stock: Map<string, number> = new Map()

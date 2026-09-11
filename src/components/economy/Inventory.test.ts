@@ -18,10 +18,15 @@ describe('Inventory', () => {
     expect(inv.getQuantity('apple')).toBe(5)
   })
 
-  it('addは999を超えない', () => {
-    inv.add('apple', 500)
-    inv.add('apple', 600)
-    expect(inv.getQuantity('apple')).toBe(999)
+  it('addは上限（99999）を超えない', () => {
+    inv.add('apple', 50000)
+    inv.add('apple', 60000)
+    expect(inv.getQuantity('apple')).toBe(99999)
+  })
+
+  it('確認用の初期在庫10000はそのまま入る（上限で切られない）', () => {
+    inv.setInitialStock({ apple: 10000 })
+    expect(inv.getQuantity('apple')).toBe(10000)
   })
 
   it('removeで数量を減らす', () => {

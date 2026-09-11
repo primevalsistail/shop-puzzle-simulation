@@ -24,8 +24,11 @@ export class GameService {
    *
    * ⚠ `isOpen` が false の分には**客が来ない**（#25）。
    *   営業は 10:00-20:00 のみ。加工で飛ばした分も呼ばれない（TimeManager.skipMinutes）。
+   *
+   * ⚠ `isOpen` に既定値を置かない。既定 `true` は「渡し忘れたら営業中」＝
+   *   呼び出し漏れが**閉店中の売買**として静かに通ってしまうため（SE-7）。
    */
-  onMinutePassed(rng: () => number = Math.random, isOpen = true): void {
+  onMinutePassed(rng: () => number, isOpen: boolean): void {
     if (!isOpen) return
     const slots = this.floorGrid.getAllSlots()
     if (slots.length === 0) return
