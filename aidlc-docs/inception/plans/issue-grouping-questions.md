@@ -130,4 +130,8 @@ X) Other（[Answer]: の後に記述してください）
 **影響**: A を選ぶと**数字の話が続く**（画面の見た目は変わらない）。
 D を選ぶと**見た目が良くなるが、23日で終わる問題はそのまま**。
 
-[Answer]: 
+[Answer]: A
+
+**→ 束D（数値バランス／利益率）に着手。**
+計画: [bundle-d-profit-plan.md](../../construction/plans/bundle-d-profit-plan.md)
+入口の判断: [bundle-d-questions.md](../../construction/plans/bundle-d-questions.md)
