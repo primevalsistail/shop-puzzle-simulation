@@ -1,7 +1,14 @@
 import { EventBus } from '../../services/EventBus.js'
 import { GameEvents } from '../../types/index.js'
 
-const STARTING_MONEY = 50000
+/**
+ * 開始の所持金。
+ *
+ * ⚠ **50000 から下げた**（2026-09-11）。50000 あると初日に島の商人の品を
+ *   999個ずつ買えてしまい、**テスト用の全品所持と同じ「個数で殴る」形**に戻る。
+ *   5000 なら仕入れは1日数十個が上限で、**最初の数日は棚を埋められない**ところから始まる。
+ */
+const STARTING_MONEY = 5000
 
 export class EconomyManager {
   private money: number

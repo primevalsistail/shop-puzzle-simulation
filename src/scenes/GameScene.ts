@@ -32,22 +32,19 @@ import { stockedByIslandMerchant } from '../taxonomy/evaluate.js'
 const INITIAL_GRID = { width: 6, height: 5 }
 
 /**
- * 新しく始めたときの在庫。**動作確認をしやすくするため、登録されている全品目を
- * 同じ数だけ持たせる**（ユーザー依頼 2026-09-11「テストしづらいので各品目10000個」）。
+ * 新しく始めたときの在庫。**伯母から預かったぶん**という想定で、3品を15個ずつ。
  *
- * ⚠ これは遊びの初期条件ではなく確認用の値。セーブから読み込んだ場合は
- *   保存された在庫が使われるので、既存のセーブはこの値の影響を受けない。
- *
- * ⚠ **#30 以降、これは仕入れの仕組みを丸ごと隠す。**島の商人は序盤は素材18品しか並べず（U1）、
- *   売った実績で加工品が並び始める（U2）。最初から全122品を10000個持っていると、
- *   **仕入れメニューを開く理由が無くなる。**
- *   **PO判断（2026-09-11）: テスト用なので残す。**撤去は issue #51 がまとめて扱う。
+ * ⚠ **以前は登録されている全122品を10000個ずつ持たせていた**（#42 のテスト用設定）。
+ *   確認はしやすかったが、**そこで測った数字は当てにならなかった** —
+ *   初日から棚を999個ずつ埋められるので「個数で殴る」形になり、
+ *   仕入れの解禁（U1・U2）も「買うか作るか」の判断も起きなかった。
+ *   テスト用の仕掛けを外す話は #51。
  */
-const INITIAL_STOCK_PER_ITEM = 10000
-
-const INITIAL_STOCK: Record<string, number> = Object.fromEntries(
-  ALL_ITEMS.map(item => [item.id, INITIAL_STOCK_PER_ITEM]),
-)
+const INITIAL_STOCK: Record<string, number> = {
+  sheep_milk: 15,       // 羊の乳
+  apple: 15,            // りんご
+  buckwheat_bread: 15,  // 蕎麦粉のパン
+}
 
 export class GameScene extends Phaser.Scene {
   private timeManager!: TimeManager
