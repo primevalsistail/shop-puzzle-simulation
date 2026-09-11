@@ -14,6 +14,13 @@ const CONTENT_R = PANEL_X + PANEL_W / 2 - 30
 
 const ROW_H = 84
 const ROWS_TOP = PANEL_Y - PANEL_H / 2 + 56
+/**
+ * 一度に映る行数。パネル下端は 620 なので `(620 - 156) / 84 = 5.5` → 5行。
+ *
+ * ⚠ **レシピは72本ある**（#30）。旧5本のときは全部が収まっていたが、いまは収まらない。
+ *   ホイールで送れないと6本目から先に手が届かない。
+ */
+const VISIBLE_ROWS = 5
 
 /**
  * 右側の操作列の左端。ここから右は数量入力とボタンの領域で、文字は入れない
@@ -54,6 +61,7 @@ export class CraftMenu {
   private rows: Row[] = []
   /** レシピごとに選んだ回数。閉じても覚えておき、上限で丸める */
   private times = new Map<string, number>()
+  private scrollIndex = 0
 
   constructor(
     private scene: Phaser.Scene,
@@ -65,6 +73,18 @@ export class CraftMenu {
     // シーンが終わるとき DOM が残らないようにする
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown())
     scene.events.once(Phaser.Scenes.Events.DESTROY, () => this.teardown())
+
+    scene.input.on('wheel', (
+      _pointer: Phaser.Input.Pointer,
+      _over: unknown, _dx: number, dy: number,
+    ) => {
+      if (!this.isOpen) return
+      const max = Math.max(0, this.registry.getAllRecipes().length - VISIBLE_ROWS)
+      const next = Math.min(Math.max(0, this.scrollIndex + (dy > 0 ? 1 : -1)), max)
+      if (next === this.scrollIndex) return
+      this.scrollIndex = next
+      this.rebuild()
+    })
   }
 
   open(): void {
@@ -82,6 +102,14 @@ export class CraftMenu {
 
   isVisible(): boolean {
     return this.isOpen
+  }
+
+  /** いま何本目を見ているか。72本あるので位置が要る */
+  private rangeLabel(): string {
+    const total = this.registry.getAllRecipes().length
+    const from = total === 0 ? 0 : this.scrollIndex + 1
+    const to = Math.min(this.scrollIndex + VISIBLE_ROWS, total)
+    return `${from}-${to} / ${total}`
   }
 
   /** 画面の部品と DOM を片付け、ゲームのキー入力を戻す */
@@ -123,7 +151,7 @@ export class CraftMenu {
 
     const titleY = PANEL_Y - PANEL_H / 2 + 26
     objs.push(
-      this.scene.add.text(PANEL_X, titleY, 'クラフトメニュー', {
+      this.scene.add.text(PANEL_X, titleY, `クラフトメニュー  ${this.rangeLabel()}`, {
         fontSize: '20px', color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0.5),
     )
@@ -134,9 +162,11 @@ export class CraftMenu {
     closeBtn.on('pointerdown', () => this.close())
     objs.push(closeBtn)
 
-    this.registry.getAllRecipes().forEach((recipe, i) => {
-      this.buildRecipeRow(recipe, ROWS_TOP + ROW_H / 2 + i * ROW_H, objs)
-    })
+    this.registry.getAllRecipes()
+      .slice(this.scrollIndex, this.scrollIndex + VISIBLE_ROWS)
+      .forEach((recipe, i) => {
+        this.buildRecipeRow(recipe, ROWS_TOP + ROW_H / 2 + i * ROW_H, objs)
+      })
 
     this.container = this.scene.add.container(0, 0, objs)
     this.container.setDepth(100)
@@ -306,11 +336,11 @@ export class CraftMenu {
     // 数の欄は、読める値のときだけ書き換える（編集中に数字が踊らないように）
     if (times !== null) {
       const out = this.registry.getItem(recipe.outputItemId)
-      this.setText(row.outText, `${out.name}×${recipe.outputQuantity * times}(${this.inventory.getQuantity(out.id)})`)
+      this.setText(row.outText, `${out.display.name}×${recipe.outputQuantity * times}(${this.inventory.getQuantity(out.id)})`)
       this.setText(row.ingText, recipe.ingredients
         .map(ing => {
           const item = this.registry.getItem(ing.itemId)
-          return `${item.name}×${ing.quantity * times}(${this.inventory.getQuantity(ing.itemId)})`
+          return `${item.display.name}×${ing.quantity * times}(${this.inventory.getQuantity(ing.itemId)})`
         })
         .join('  '))
       this.setText(row.timeText, `${recipe.durationMinutes * times}分`)

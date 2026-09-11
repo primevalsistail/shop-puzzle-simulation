@@ -6,7 +6,7 @@
 - **Tech Stack**: TypeScript + Phaser.js 3 + Vite
 - **Platform**: Webブラウザ
 - **Started**: 2026-07-05T02:00:00Z
-- **Last Updated**: 2026-09-11（進行中の作業なし。次の対象は未定）
+- **Last Updated**: 2026-09-11（#30 本体接続が完了。次の対象は未定）
 
 ## Current Status
 
@@ -17,8 +17,9 @@
 
 - **Current Phase**: CONSTRUCTION。**Cycle 4（アイテム体系）は完了（2026-09-07）**
 - **リポジトリの状態（2026-09-11）**: `main` は clean。
-  162テスト全件パス ／ `tsc --noEmit` ／ `npm run build` 成功
-- **未着手の候補**: OPEN issue が 40件ある。一覧は `gh issue list` で取る
+  **172テスト全件パス** ／ `tsc --noEmit` ／ `npm run build` 成功
+- **⚠ 本体はもう旧13品では動いていない。**#30 で `src/taxonomy`（122品）に載せ替えた（下の §4）
+- **未着手の候補**: OPEN issue の一覧は `gh issue list` で取る
 - **⚠ この環境の制約**: ブラウザでの実機確認ができない（Chromium が exit 144 でハングする）。
   UI に触る作業は、テスト・型・ビルドまでしか保証できない
 - **Cycle 4 / Current Stage**: Code Generation ＝ **Phase 3 — 完了（2026-09-06）**。
@@ -554,3 +555,39 @@ AI-DLC のステージ（Requirements / Design / Units）は踏んでおらず�
 
 **検証**: **162テスト全件パス** ／ `tsc --noEmit` ／ `npm run build` 成功。
 **⚠ ブラウザでの実機確認は未了。**
+
+## 4. `src/taxonomy` をゲーム本体に接続（[#30](https://github.com/primevalsistail/shop-puzzle-simulation/issues/30)）— 2026-09-11
+
+計画・質問票: [item-taxonomy-integration-plan.md](construction/plans/item-taxonomy-integration-plan.md)
+（Q1 = **A: 現在地をハルヴェラに固定して繋ぐ**。巡航は #2 が引き取る）
+
+**ゲーム本体が動かすデータが 旧13品 → 122品/72レシピ に変わった。**
+Cycle 4 の成果が初めてプレイヤー側に出る経路に乗った。
+
+- **型**: 本体の `ItemDef` を**捨てた**。`src/taxonomy/axes.ts` の型をそのまま使う。
+  `price` / `purchasePrice` / `baseSaleProb` / `adjacencyBonuses` は**フィールドから消え**、
+  値段は `salePrice()` / `purchasePrice()` / `finalPrice()` が**都度導出する**
+  （アダプタを作ると導出結果を焼き付けることになるため。技術判断の記録は計画ファイル）
+- **売買**: `AdjacencyEngine`（品ID直書きの隣接規則）を**削除**し、`evaluate()` に置き換えた。
+  **`店全体` の効き目が初めて通った**（R5）。集客は**店全体ぶんが来店判定に、その品ぶんが購入判定に**効く。
+  売れやすさの素の値は `贅沢さ` の回転率（日用1.0／上等0.7／贅沢0.45）が担う
+- **⚠ 計画に無かった修正1 — 回転と隣接の食い違い**: `evaluate()` 既定の `adjacentPairs` は
+  品の**回転前**のかたちで隣接を見る（`Placement` が回転を持たないため）。
+  `evaluate()` に**隣接の組を渡せる引数を足し**（既定は従来どおり）、
+  `FloorGrid.getAdjacentSlotIds` が実占有升目で出した組を渡すようにした
+- **⚠ 計画に無かった修正2 — リストが品数に耐えない**: 在庫・クラフト・仕入れの3つとも
+  スクロールを持っていなかった。**ホイールでの送りを入れた**（それ以上は入れていない → #50）。
+  在庫の絞り込みは `category` → **`主種類`** に張り替え
+- **⚠ 計画に無かった修正3 — 在庫パネルを全品に**: 旧体系では素材は材料でしかなかったが、
+  新体系では**素材にも売値・かたち・需要の規則がかかる**。商人が序盤に並べるのは素材だけ（U1）なので、
+  加工品しか出さないと**買った品を1つも置けない**
+- **入荷**: `WorldState`（現在地＝ハルヴェラ固定 ＋ 累計販売数）を新設。
+  仕入れは `stockedByIslandMerchant` が出す。**ハルヴェラ・累計販売0の時点で18品**（すべて tier1）。
+  `累計販売数` は `SaveData.soldCounts` に載せた（積まないとロードで解禁が巻き戻る）
+
+**検証**: **172テスト全件パス**（旧13品IDに依存していた6ファイルを新品IDへ移行）／
+`tsc --noEmit` ／ `npm run build` 成功。
+**⚠ ブラウザでの実機確認は未了**（この環境ではブラウザが動かない）→ **#47**
+
+**持ち越し（すべて issue 化済み）**: #47 実機確認 ／ #48 レシピの解禁が読まれていない ／
+#49 初期在庫の全品所持が仕入れの仕組みを隠す ／ #50 リストの操作がホイールだけ

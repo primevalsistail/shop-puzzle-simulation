@@ -1,24 +1,25 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { GameService } from './GameService.js'
 import { FloorGrid } from '../components/floor/FloorGrid.js'
-import { AdjacencyEngine } from '../components/floor/AdjacencyEngine.js'
 import { PlacementManager } from '../components/floor/PlacementManager.js'
 import { CustomerSimulator } from '../components/simulation/CustomerSimulator.js'
 import { EconomyManager } from '../components/economy/EconomyManager.js'
 import { ItemRegistry } from '../components/items/ItemRegistry.js'
 import { EventBus } from './EventBus.js'
 import { GameEvents } from '../types/index.js'
-import { ALL_ITEMS } from '../data/items.js'
+import { WorldState } from '../components/progress/WorldState.js'
+import { ALL_ITEMS } from '../taxonomy/items.js'
+import { ALL_RECIPES } from '../taxonomy/recipes.js'
 
 function setup() {
-  const reg = new ItemRegistry(ALL_ITEMS)
+  const reg = new ItemRegistry(ALL_ITEMS, ALL_RECIPES)
   const grid = new FloorGrid({ width: 6, height: 5 }, reg)
-  const adj = new AdjacencyEngine(grid, reg)
   const pm = new PlacementManager(grid, reg)
   const sim = new CustomerSimulator(reg)
   const eco = new EconomyManager(50000)
-  const gs = new GameService(grid, adj, pm, sim, eco)
-  return { reg, grid, adj, pm, sim, eco, gs }
+  const world = new WorldState()
+  const gs = new GameService(grid, pm, sim, eco, world)
+  return { reg, grid, pm, sim, eco, world, gs }
 }
 
 describe('GameService', () => {
@@ -34,7 +35,7 @@ describe('GameService', () => {
 
   it('顧客が購入するとき売上が計上される', () => {
     const { gs, pm, eco } = setup()
-    pm.tryPlace('apple', { x: 0, y: 0 }, 0, 10)
+    pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 10)
 
     let callCount = 0
     const rng = () => {
@@ -47,7 +48,7 @@ describe('GameService', () => {
 
   it('購入でスロット数量が減る', () => {
     const { gs, pm, grid } = setup()
-    pm.tryPlace('apple', { x: 0, y: 0 }, 0, 5)
+    pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 5)
 
     let callCount = 0
     const rng = () => {
@@ -60,7 +61,7 @@ describe('GameService', () => {
 
   it('閉店中（isOpen=false）は客が来ない — 売上も在庫も動かない（#25）', () => {
     const { gs, pm, eco, grid } = setup()
-    pm.tryPlace('apple', { x: 0, y: 0 }, 0, 10)
+    pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 10)
     const sold = vi.fn()
     EventBus.on(GameEvents.FLOOR_SLOT_SOLD, sold)
 
@@ -80,7 +81,7 @@ describe('GameService', () => {
 
   it('同じ乱数でも営業中なら売れる（閉店テストの対照）', () => {
     const { gs, pm, eco } = setup()
-    pm.tryPlace('apple', { x: 0, y: 0 }, 0, 10)
+    pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 10)
     let callCount = 0
     const rng = () => {
       callCount++
@@ -91,15 +92,13 @@ describe('GameService', () => {
   })
 
   it('累計売上が100万に達したときPROGRESS_GOAL_COMPLETEを発火する', () => {
-    const { gs, eco, pm } = setup()
+    const { gs, eco, pm, reg } = setup()
     const listener = vi.fn()
     EventBus.on(GameEvents.PROGRESS_GOAL_COMPLETE, listener)
 
-    // Manually add revenue close to goal
-    for (let i = 0; i < 9999; i++) {
-      eco.addRevenue(100)
-    }
-    pm.tryPlace('apple', { x: 0, y: 0 }, 0, 10)
+    // ちょうど1品売れば届くところまで積む（売値は導出値なので、数字を直書きしない）
+    eco.addRevenue(gs.getGoalAmount() - reg.salePriceOf('snap_pea'))
+    pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 10)
 
     let callCount = 0
     const rng = () => {
@@ -114,7 +113,7 @@ describe('GameService', () => {
     const { gs, eco, pm } = setup()
     gs.enterEndlessMode()
     eco.addRevenue(999999)
-    pm.tryPlace('apple', { x: 0, y: 0 }, 0, 10)
+    pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 10)
 
     const listener = vi.fn()
     EventBus.on(GameEvents.PROGRESS_GOAL_COMPLETE, listener)
@@ -126,6 +125,20 @@ describe('GameService', () => {
     }
     gs.onMinutePassed(rng, true)
     expect(listener).not.toHaveBeenCalled()
+  })
+
+  it('売れた品は累計販売数に積まれる（U2 の解禁条件が読む）', () => {
+    const { gs, pm, world } = setup()
+    pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 5)
+    expect(world.getSoldCount('snap_pea')).toBe(0)
+
+    let callCount = 0
+    const rng = () => {
+      callCount++
+      return callCount === 1 ? 0.1 : 0.01
+    }
+    gs.onMinutePassed(rng, true)
+    expect(world.getSoldCount('snap_pea')).toBe(1)
   })
 
   it('getGoalAmountは100万を返す', () => {

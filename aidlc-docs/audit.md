@@ -1819,3 +1819,81 @@ Current Status も 2026-09-11 現在に更新（未コミット14ファイル・
 ゲーム内の島については実測: `src` 全体の grep で `src/taxonomy/` の外に0件。
 対象を決める質問票 [next-cycle-questions.md](inception/plans/next-cycle-questions.md) を作成（Q1: 対象、Q2: 実機確認の分担）。"
 **Context**: Requirements Analysis の前段。対象未確定のまま進めていたのを止めた
+## セッション再開（AI-DLC ワークフロー）— 対象決めの質問票を作成
+**Timestamp**: 2026-09-11T05:00:00Z
+**User Input（原文）**: "AIDLC"
+**AI Response**: "Workspace Detection を実行。`aidlc-state.md` の指示どおり、次の対象を推測せずユーザーに聞く。
+
+**実測した現在地**
+- `main` / `b44e40c` / 未コミットの変更なし
+- `npx vitest run` → 15ファイル 162テスト 全件パス
+- `src/taxonomy` は本体から 0箇所 import（grep で taxonomy 外 0件）。本体は旧 `src/data/items.ts` のまま
+- 「島」に触れるファイルは `src/taxonomy/` の7本のみ。本体に島は存在しない
+- `TimeManager` 初期値 `{ day: 1, hour: 8 }`、`WAKE_HOUR = 6` は睡眠明けの時刻（#41 未実施を確認）
+
+**前セッションで作成したと記録した [next-cycle-questions.md] は実際には存在しなかった**
+（git 履歴にも無し）。今回あらためて作成した
+→ [next-cycle-questions.md](inception/plans/next-cycle-questions.md) Q1（対象／A〜D）"
+**Context**: Workspace Detection。既存プロジェクトの再開のため welcome message は表示しない。対象未確定のため Requirements Analysis には入らない
+
+---
+
+## 次の対象の決定 — #30（本体接続）
+**Timestamp**: 2026-09-11T05:30:00Z
+**User Input（原文）**: "優先度の高いものをこなしたい。推奨ないしはissueの中で優先して解決するべき事象を対応したい"
+**AI Response**: "「推奨ないしは」を推奨への委任と読み、**両方の質問で A** とした。
+
+- [next-cycle-questions.md](inception/plans/next-cycle-questions.md) Q1 = **A（#30 本体接続）**
+- [item-taxonomy-integration-plan.md](construction/plans/item-taxonomy-integration-plan.md) Q1 = **A（現在地をハルヴェラに固定して繋ぐ）**。巡航は #2 が引き取る
+
+**計画ファイルの訂正1件**: 選択肢 B に書いていた『#25（時間モデル）が未確定なので10日を数えられない』は
+**もう成立しない**（#25 は `287268a` で main）。B を採らない理由は『接続と新機能を分けるため』に置き換えた。
+
+**計画ファイルに冒頭ブロックを追加**（CLAUDE.md §委任の前に目的を書く）: 目的・決定済みの前提と出典・
+今回決めないこと・受入条件6項目。**受入条件6 は『満たせないもの』として明記**
+（この環境ではブラウザが動かず、実機確認は保証できない）。
+
+**技術判断（記録）**: 橋渡しはアダプタを作らず、本体の `ItemDef` を捨てて `src/taxonomy/axes.ts` の
+`ItemDef` をそのまま使う。アダプタは `salePrice()` の導出結果を `price` フィールドに焼き付けることになり、
+『導出結果を一次情報扱いする』型に戻るため。差し替え箇所は実測14箇所。プレイヤー体験は変わらない。"
+**Context**: Code Generation / Part 1（計画）。実装の承認待ち
+
+---
+
+## 実行計画の承認
+**Timestamp**: 2026-09-11T05:40:00Z
+**User Input（原文）**: "OK"
+**AI Response**: "[item-taxonomy-integration-plan.md](construction/plans/item-taxonomy-integration-plan.md) 段1〜5 の実装に着手。受入条件6（実機確認）は満たせないことを提示したうえでの承認。"
+**Context**: Code Generation / Part 2（実装）開始
+
+---
+
+## #30 — `src/taxonomy` をゲーム本体に接続（実装完了）
+**Timestamp**: 2026-09-11T06:30:00Z
+**User Input（原文）**: "OK"
+**AI Response**: "**本体が動かすデータを 旧13品 → 122品/72レシピ に載せ替えた。172テスト全件パス。**
+
+**やったこと**
+- 本体の `ItemDef` を捨て、`src/taxonomy/axes.ts` の型をそのまま使う。
+  `price` / `purchasePrice` / `baseSaleProb` / `adjacencyBonuses` はフィールドから消え、値段は都度導出
+- `AdjacencyEngine`（品ID直書き）を削除し `evaluate()` に置換。**`店全体` の効き目が初めて通った**
+- `WorldState`（現在地＝ハルヴェラ固定 ＋ 累計販売数）を新設。仕入れは `stockedByIslandMerchant`
+- `src/data/items.ts` / `recipes.ts` を削除。旧IDに依存していたテスト6ファイルを新品IDへ移行
+
+**計画に無かった修正3件**（いずれも繋ぐのに不可欠だったため実施し、計画ファイルに追記）
+1. **回転と隣接の食い違い** — `evaluate()` 既定の `adjacentPairs` は品の**回転前**のかたちで隣接を見る。
+   `evaluate()` に隣接の組を渡せる引数を足し（既定は従来どおり）、`FloorGrid` が実占有升目で出す
+2. **リストが品数に耐えない** — 在庫・クラフト・仕入れの3つともスクロールが無かった。
+   ホイールでの送りを入れ、在庫の絞り込みを `category` → `主種類` に張り替え
+3. **在庫パネルを加工品だけ → 全品に** — 商人が序盤に並べるのは素材だけ（U1）なので、
+   素材を出さないと買った品を1つも置けない
+
+**検証**: 172テスト全件パス ／ `tsc --noEmit` ／ `npm run build` 成功。
+**⚠ ブラウザでの実機確認は未了**（この環境では動かない）。
+
+**新規 issue 4件**: #47 実機確認 ／ #48 レシピの解禁が読まれていない ／
+#49 初期在庫の全品所持が仕入れの仕組みを隠す ／ #50 リストの操作がホイールだけ"
+**Context**: Code Generation / Part 2（実装）完了。実機確認のみ残る
+
+---
+

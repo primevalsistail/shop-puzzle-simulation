@@ -167,8 +167,8 @@ export type ItemId = string
  *   - 何から作れるか / 何に使えるか … ALL_RECIPES から導出
  *
  * ⚠ 隣接ボーナスを型に置いていない（INV-4）。効き目は規則側（rules.ts）にある。
- *   現行 src/data/items.ts の `adjacencyBonuses: [{ adjacentItemId: 'milk' }]` が
- *   INV-4 / INV-5 違反として落とされた形。
+ *   旧 src/data/items.ts の `adjacencyBonuses: [{ adjacentItemId: 'milk' }]` が
+ *   INV-4 / INV-5 違反として落とされた形。**その旧ファイルは #30 で削除した。**
  *
  * INV-5: 品を1つ足すときに書くのはこの定義1件だけ。既存の定義は1行も変わらない。
  */

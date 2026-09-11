@@ -1,3 +1,5 @@
+import type { Shape } from '../taxonomy/axes.js'
+
 // ─── グリッド ─────────────────────────────────────────
 export type GridCell = { x: number; y: number }
 export type GridSize = { width: number; height: number }
@@ -10,18 +12,15 @@ export type GameTime = { day: number; hour: number; minute: number }
 export interface DisplaySlot {
   id: string
   itemId: string
-  shape: number[][]    // 2次元boolean配列（1=占有, 0=空き）
+  shape: Shape         // 2次元boolean配列（1=占有, 0=空き）
   position: GridCell   // グリッド上の左上基準点
   rotation: Rotation
   quantity: number     // 0〜999
 }
 
-export interface AdjacencyBonus {
-  slotId: string
-  bonusType: 'sales_rate' | 'customer_attraction' | 'price_up'
-  multiplier: number   // 1.0 = ボーナスなし, 1.2 = 20%UP など
-  sourceSlotIds: string[]
-}
+// ⚠ 旧 `AdjacencyBonus`（`bonusType` 3種 ＋ 品ID直書きの隣接規則）は #30 で削除した。
+//    置き換えは `src/taxonomy/evaluate.ts` の `Modifiers`（売れやすさ・値段・集客）で、
+//    こちらは**店全体にかかる効き目**も表せる。
 
 // ─── 販売 ─────────────────────────────────────────────
 export interface SaleResult {
@@ -52,6 +51,8 @@ export interface SaveData {
   money: number
   totalRevenue: number
   inventory: Record<string, number>
+  /** 品ごとの累計販売数。U2（売った実績で解禁）がこれを読むので、積まないとロードで解禁が巻き戻る */
+  soldCounts?: Record<string, number>
   floor: DisplaySlot[]
   unlockedFeatures: string[]
   unlockedRecipes: string[]

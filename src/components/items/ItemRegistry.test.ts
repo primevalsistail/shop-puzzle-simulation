@@ -1,14 +1,34 @@
 import { describe, it, expect } from 'vitest'
 import { ItemRegistry } from './ItemRegistry.js'
-import { SAMPLE_ITEMS } from '../../data/items.js'
+import { ALL_ITEMS } from '../../taxonomy/items.js'
+import { ALL_RECIPES } from '../../taxonomy/recipes.js'
 
 describe('ItemRegistry', () => {
-  const reg = new ItemRegistry(SAMPLE_ITEMS)
+  const reg = new ItemRegistry(ALL_ITEMS, ALL_RECIPES)
 
   it('アイテムIDで取得できる', () => {
-    const item = reg.getItem('apple')
-    expect(item.name).toBe('りんご')
-    expect(item.price).toBe(100)
+    const item = reg.getItem('snap_pea')
+    expect(item.display.name).toBe('さやえんどう')
+  })
+
+  it('値段はフィールドではなく導出値（#30）', () => {
+    // tier1 は基準値 × 贅沢さ、tier2以上は 材料費 + 加工利益。どちらも都度出す
+    expect(reg.salePriceOf('snap_pea')).toBeGreaterThan(0)
+    expect(reg.tierOf('snap_pea')).toBe(1)
+    expect(reg.tierOf('buckwheat_flour')).toBe(2)
+    // 作った品は材料より高い（INV-6）
+    expect(reg.salePriceOf('buckwheat_flour')).toBeGreaterThan(reg.salePriceOf('buckwheat'))
+  })
+
+  it('仕入れ値は素の売値より高い（買う方が高い＝時間を金で買う）', () => {
+    expect(reg.purchasePriceOf('buckwheat_flour')).toBeGreaterThan(reg.salePriceOf('buckwheat_flour'))
+  })
+
+  it('配置の倍率は加工利益にだけ乗る（材料費には乗らない）', () => {
+    const plain = reg.salePriceOf('buckwheat_flour')
+    const boosted = reg.finalPriceOf('buckwheat_flour', 2.0)
+    expect(boosted).toBeGreaterThan(plain)
+    expect(boosted).toBeLessThan(plain * 2)  // 材料費まで倍になっていないこと
   })
 
   it('存在しないIDで例外を投げる', () => {
@@ -16,8 +36,13 @@ describe('ItemRegistry', () => {
   })
 
   it('全アイテムを返す', () => {
-    // SAMPLE_ITEMS は ALL_ITEMS から products のみ抽出したもの (8種)
-    expect(reg.getAllItems()).toHaveLength(8)
+    expect(reg.getAllItems()).toHaveLength(ALL_ITEMS.length)
+  })
+
+  it('素材と加工品は tier で分かれる（itemType フィールドは持たない）', () => {
+    expect(reg.getMaterials().length + reg.getProducts().length).toBe(ALL_ITEMS.length)
+    expect(reg.getMaterials().every(i => reg.tierOf(i.id) === 1)).toBe(true)
+    expect(reg.getProducts().every(i => reg.tierOf(i.id) >= 2)).toBe(true)
   })
 
   it('rotation=0で形状を変えない', () => {
@@ -44,7 +69,7 @@ describe('ItemRegistry', () => {
   })
 
   it('4回回転で元の形状に戻る', () => {
-    for (const item of SAMPLE_ITEMS) {
+    for (const item of ALL_ITEMS) {
       expect(reg.getRotatedShape(item.shape, 0)).toEqual(item.shape)
     }
   })
@@ -55,7 +80,7 @@ describe('ItemRegistry', () => {
   })
 
   it('shapeToOffsets: L字形の複数セル', () => {
-    // book: [[1,0],[1,0],[1,1]]
+    // L字（3段）
     const offsets = reg.shapeToOffsets([[1, 0], [1, 0], [1, 1]])
     expect(offsets).toHaveLength(4)
     expect(offsets).toContainEqual({ x: 0, y: 0 })

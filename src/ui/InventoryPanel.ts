@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
-import type { ItemDef } from '../components/items/ItemRegistry.js'
+import type { ItemDef, ItemRegistry } from '../components/items/ItemRegistry.js'
+import type { MainKind } from '../taxonomy/axes.js'
 
 const PANEL_X = 20
 const PANEL_WIDTH = 200
@@ -7,14 +8,23 @@ const ITEM_RIGHT_MARGIN = 12             // アイテム右端の余白
 const ITEM_WIDTH = PANEL_WIDTH - PANEL_X - ITEM_RIGHT_MARGIN  // = 168
 const ITEM_HEIGHT = 70
 const ITEM_START_Y = 136  // フィルタ下端(94)から42px余白
+const LIST_BOTTOM = 716   // 左パネルはy=720まで
+const VISIBLE_COUNT = Math.floor((LIST_BOTTOM - ITEM_START_Y) / ITEM_HEIGHT)  // = 8
 const PREVIEW_CELL = 13
 const PREVIEW_CX = PANEL_X + 27
 
-const CATEGORIES: { id: string; label: string }[] = [
-  { id: 'food',     label: '食品' },
-  { id: 'drink',    label: '飲物' },
-  { id: 'misc',     label: '雑貨' },
-  { id: 'material', label: '素材' },
+/**
+ * 絞り込みは **`主種類`**（軸1）で行う。
+ *
+ * ⚠ 旧 `category`（食品・飲物・雑貨・素材）は #30 で消えた。新体系に `category` は無く、
+ *   素材かどうかは `tier` から出る**導出値**なので、軸と混ぜて1列に並べない。
+ *   ボタンは幅39pxしかないので、表示だけ短く詰める（値そのものは `主種類` のまま）。
+ */
+const CATEGORIES: { id: MainKind; label: string }[] = [
+  { id: '食料',     label: '食料' },
+  { id: '飲みもの', label: '飲物' },
+  { id: '衣類',     label: '衣類' },
+  { id: '道具',     label: '道具' },
 ]
 
 export class InventoryPanel {
@@ -24,11 +34,31 @@ export class InventoryPanel {
   private quantityTexts: Map<string, Phaser.GameObjects.Text> = new Map()
   private selectedItemId: string | null = null
   private onSelectCallback: ((itemId: string) => void) | null = null
-  private activeCategories: Set<string> = new Set(CATEGORIES.map(c => c.id))
+  private activeCategories: Set<MainKind> = new Set(CATEGORIES.map(c => c.id))
   private storedItems: ItemDef[] = []
   private storedInventory: Record<string, number> = {}
+  private scrollIndex = 0
+  /** メニューが開いている間は送らない（背後のリストが動いてしまうため） */
+  private scrollBlocked: () => boolean = () => false
 
-  constructor(private scene: Phaser.Scene) {}
+  constructor(
+    private scene: Phaser.Scene,
+    private registry: ItemRegistry,
+  ) {
+    // 品数が VISIBLE_COUNT を超えるので、ホイールで送れないと下の品に手が届かない（#30）
+    this.scene.input.on('wheel', (
+      pointer: Phaser.Input.Pointer,
+      _over: unknown, _dx: number, dy: number,
+    ) => {
+      if (this.scrollBlocked()) return
+      if (!this.isOverList(pointer.x, pointer.y)) return
+      this.scrollBy(dy > 0 ? 1 : -1)
+    })
+  }
+
+  setScrollBlocked(fn: () => boolean): void {
+    this.scrollBlocked = fn
+  }
 
   onSelect(callback: (itemId: string) => void): void {
     this.onSelectCallback = callback
@@ -37,6 +67,7 @@ export class InventoryPanel {
   render(items: ItemDef[], inventory: Record<string, number>): void {
     this.storedItems = items
     this.storedInventory = { ...inventory }
+    this.clampScroll()
     this.rebuildFilterBar()
     this.renderItems(this.filtered())
   }
@@ -57,9 +88,28 @@ export class InventoryPanel {
     this.selectedItemId = null
   }
 
+  private isOverList(x: number, y: number): boolean {
+    return x >= PANEL_X && x <= PANEL_X + PANEL_WIDTH && y >= ITEM_START_Y - ITEM_HEIGHT / 2
+  }
+
+  private scrollBy(delta: number): void {
+    const before = this.scrollIndex
+    this.scrollIndex += delta
+    this.clampScroll()
+    if (this.scrollIndex !== before) {
+      this.rebuildFilterBar()
+      this.renderItems(this.filtered())
+    }
+  }
+
+  private clampScroll(): void {
+    const max = Math.max(0, this.filtered().length - VISIBLE_COUNT)
+    this.scrollIndex = Math.min(Math.max(0, this.scrollIndex), max)
+  }
+
   private filtered(): ItemDef[] {
     if (this.activeCategories.size === CATEGORIES.length) return this.storedItems
-    return this.storedItems.filter(it => this.activeCategories.has(it.category))
+    return this.storedItems.filter(it => this.activeCategories.has(it.mainKind))
   }
 
   private rebuildFilterBar(): void {
@@ -67,10 +117,13 @@ export class InventoryPanel {
     this.filterObjects = []
 
     const cx = PANEL_X + PANEL_WIDTH / 2
+    const total = this.filtered().length
+    const from = total === 0 ? 0 : this.scrollIndex + 1
+    const to = Math.min(this.scrollIndex + VISIBLE_COUNT, total)
 
-    // タイトル
-    const title = this.scene.add.text(cx, 52, 'アイテム', {
-      fontSize: '16px', color: '#ffffff',
+    // タイトル（右に「いま何件目を見ているか」。品数が画面に収まらないので位置が要る）
+    const title = this.scene.add.text(cx, 52, `アイテム  ${from}-${to} / ${total}`, {
+      fontSize: '15px', color: '#ffffff',
     }).setOrigin(0.5)
     this.filterObjects.push(title)
 
@@ -98,6 +151,7 @@ export class InventoryPanel {
         } else {
           this.activeCategories.add(cat.id)
         }
+        this.scrollIndex = 0
         this.render(this.storedItems, this.storedInventory)
       })
       bg.on('pointerover', () => bg.setStrokeStyle(2, 0x7fbfff))
@@ -114,9 +168,8 @@ export class InventoryPanel {
     this.quantityTexts.clear()
     this.selectedItemId = null
 
-    items.forEach((item, i) => {
+    items.slice(this.scrollIndex, this.scrollIndex + VISIBLE_COUNT).forEach((item, i) => {
       const y = ITEM_START_Y + i * ITEM_HEIGHT
-      if (y + ITEM_HEIGHT / 2 > 716) return  // 左パネルはy=720まで
       const qty = this.storedInventory[item.id] ?? 0
 
       const itemCX = PANEL_X + ITEM_WIDTH / 2  // = 20 + 84 = 104
@@ -130,15 +183,15 @@ export class InventoryPanel {
       this.drawShapePreview(shapeGfx, item, y)
       this.allObjects.push(shapeGfx)
 
-      const nameText = this.scene.add.text(PANEL_X + 54, y - 20, item.name, {
+      const nameText = this.scene.add.text(PANEL_X + 54, y - 20, item.display.name, {
         fontSize: '13px', color: '#ffffff',
       })
       const qtyText = this.scene.add.text(PANEL_X + 54, y - 2, `在庫: ${qty}`, {
         fontSize: '11px', color: '#aaaaaa',
       })
-      const priceLabel = item.purchasePrice !== undefined
-        ? `売¥${item.price} / 仕¥${item.purchasePrice}`
-        : `売¥${item.price}`
+      // 値段は持ち物ではなく導出値。表示のたびに出す（ItemRegistry の注記を参照）
+      const priceLabel =
+        `売¥${this.registry.salePriceOf(item.id)} / 仕¥${this.registry.purchasePriceOf(item.id)}`
       const priceText = this.scene.add.text(PANEL_X + 54, y + 16, priceLabel, {
         fontSize: '11px', color: '#778899',
       })
@@ -171,7 +224,7 @@ export class InventoryPanel {
         if (shape[r][c]) {
           const px = startX + c * PREVIEW_CELL
           const py = startY + r * PREVIEW_CELL
-          gfx.fillStyle(item.color, 1.0)
+          gfx.fillStyle(item.display.color, 1.0)
           gfx.fillRect(px + 1, py + 1, PREVIEW_CELL - 2, PREVIEW_CELL - 2)
           gfx.lineStyle(1, 0xffffff, 0.45)
           gfx.strokeRect(px + 1, py + 1, PREVIEW_CELL - 2, PREVIEW_CELL - 2)

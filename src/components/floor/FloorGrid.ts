@@ -1,5 +1,13 @@
 import type { GridCell, GridSize, DisplaySlot, Rotation } from '../../types/index.js'
+import type { Shape } from '../../taxonomy/axes.js'
 import type { ItemRegistry } from '../items/ItemRegistry.js'
+
+const NEIGHBOR_OFFSETS = [
+  { x: 1, y: 0 },
+  { x: -1, y: 0 },
+  { x: 0, y: 1 },
+  { x: 0, y: -1 },
+]
 
 export class FloorGrid {
   private size: GridSize
@@ -15,7 +23,7 @@ export class FloorGrid {
     this.cells = this.createEmptyCells(initialSize)
   }
 
-  canPlace(shape: number[][], position: GridCell, rotation: Rotation): boolean {
+  canPlace(shape: Shape, position: GridCell, rotation: Rotation): boolean {
     const offsets = this.getOffsets(shape, rotation)
     for (const offset of offsets) {
       const x = position.x + offset.x
@@ -73,6 +81,24 @@ export class FloorGrid {
     this.size = { ...newSize }
   }
 
+  /**
+   * 辺で接している区画のID。
+   *
+   * ⚠ **回転後の実際の占有升目で見る。**`evaluate()` 既定の `adjacentPairs` は
+   *   品の**回転前**のかたちで隣接を出すので、回転した品があると食い違う（#30）。
+   *   盤面を持っているのはこちらなので、隣接はこちらが出して `evaluate()` に渡す。
+   */
+  getAdjacentSlotIds(slot: DisplaySlot): string[] {
+    const ids = new Set<string>()
+    for (const cell of this.getOccupiedCells(slot)) {
+      for (const offset of NEIGHBOR_OFFSETS) {
+        const neighbor = this.getSlotAt({ x: cell.x + offset.x, y: cell.y + offset.y })
+        if (neighbor && neighbor.id !== slot.id) ids.add(neighbor.id)
+      }
+    }
+    return Array.from(ids)
+  }
+
   getOccupiedCells(slot: DisplaySlot): GridCell[] {
     return this.getOffsets(slot.shape, slot.rotation).map(offset => ({
       x: slot.position.x + offset.x,
@@ -90,7 +116,7 @@ export class FloorGrid {
     if (slot) slot.quantity = newQty
   }
 
-  private getOffsets(shape: number[][], rotation: Rotation): GridCell[] {
+  private getOffsets(shape: Shape, rotation: Rotation): GridCell[] {
     const rotated = this.registry.getRotatedShape(shape, rotation)
     return this.registry.shapeToOffsets(rotated)
   }

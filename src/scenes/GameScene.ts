@@ -2,7 +2,6 @@ import Phaser from 'phaser'
 import { TimeManager } from '../components/core/TimeManager.js'
 import { ItemRegistry } from '../components/items/ItemRegistry.js'
 import { FloorGrid } from '../components/floor/FloorGrid.js'
-import { AdjacencyEngine } from '../components/floor/AdjacencyEngine.js'
 import { PlacementManager } from '../components/floor/PlacementManager.js'
 import { Inventory } from '../components/economy/Inventory.js'
 import { EconomyManager } from '../components/economy/EconomyManager.js'
@@ -12,6 +11,7 @@ import { CustomerSimulator } from '../components/simulation/CustomerSimulator.js
 import { ShopService } from '../services/ShopService.js'
 import { GameService } from '../services/GameService.js'
 import { GameProgress } from '../components/progress/GameProgress.js'
+import { WorldState } from '../components/progress/WorldState.js'
 import { FloorRenderer, GRID_ORIGIN_X, GRID_ORIGIN_Y, CELL_SIZE, DISCARD_MARGIN } from '../ui/FloorRenderer.js'
 import { InventoryPanel } from '../ui/InventoryPanel.js'
 import { CraftMenu } from '../ui/CraftMenu.js'
@@ -25,8 +25,9 @@ import { MessageLog } from '../ui/MessageLog.js'
 import { EventBus } from '../services/EventBus.js'
 import { GameEvents } from '../types/index.js'
 import type { DisplaySlot, GameTime, GridCell, Rotation } from '../types/index.js'
-import { ALL_ITEMS } from '../data/items.js'
-import { ALL_RECIPES } from '../data/recipes.js'
+import { ALL_ITEMS } from '../taxonomy/items.js'
+import { ALL_RECIPES } from '../taxonomy/recipes.js'
+import { stockedByIslandMerchant } from '../taxonomy/evaluate.js'
 
 const INITIAL_GRID = { width: 6, height: 5 }
 
@@ -36,6 +37,10 @@ const INITIAL_GRID = { width: 6, height: 5 }
  *
  * ⚠ これは遊びの初期条件ではなく確認用の値。セーブから読み込んだ場合は
  *   保存された在庫が使われるので、既存のセーブはこの値の影響を受けない。
+ *
+ * ⚠ **#30 以降、これは仕入れの仕組みを丸ごと隠す。**島の商人は序盤は素材18品しか並べず（U1）、
+ *   売った実績で加工品が並び始める（U2）。最初から全122品を10000個持っていると、
+ *   **仕入れメニューを開く理由が無くなる。**外すかどうかはPO判断 → issue #49。
  */
 const INITIAL_STOCK_PER_ITEM = 10000
 
@@ -47,7 +52,6 @@ export class GameScene extends Phaser.Scene {
   private timeManager!: TimeManager
   private registry_!: ItemRegistry
   private floorGrid!: FloorGrid
-  private adjacencyEngine!: AdjacencyEngine
   private placementManager!: PlacementManager
   private inventory!: Inventory
   private economy!: EconomyManager
@@ -56,6 +60,7 @@ export class GameScene extends Phaser.Scene {
   private shopService!: ShopService
   private gameService!: GameService
   private progress!: GameProgress
+  private world!: WorldState
 
   private floorRenderer!: FloorRenderer
   private inventoryPanel!: InventoryPanel
@@ -83,8 +88,8 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.registry_ = new ItemRegistry(ALL_ITEMS, ALL_RECIPES)
+    this.world = new WorldState()
     this.floorGrid = new FloorGrid(INITIAL_GRID, this.registry_)
-    this.adjacencyEngine = new AdjacencyEngine(this.floorGrid, this.registry_)
     this.placementManager = new PlacementManager(this.floorGrid, this.registry_)
     this.inventory = new Inventory()
     this.economy = new EconomyManager()
@@ -94,12 +99,14 @@ export class GameScene extends Phaser.Scene {
     this.shopService = new ShopService(this.floorGrid, this.placementManager, this.inventory, this.registry_)
     this.gameService = new GameService(
       this.floorGrid,
-      this.adjacencyEngine,
       this.placementManager,
       this.customerSim,
       this.economy,
+      this.world,
     )
-    this.progress = new GameProgress(this.economy, this.inventory, this.floorGrid, this.timeManager)
+    this.progress = new GameProgress(
+      this.economy, this.inventory, this.floorGrid, this.timeManager, this.world,
+    )
 
     // ── 描画レイヤー確立: 背景→FloorRenderer→UI の順で生成 ──
     this.setupBackground()
@@ -109,7 +116,11 @@ export class GameScene extends Phaser.Scene {
     this.floorRenderer.init()
     this.floorRenderer.drawGrid(INITIAL_GRID)
 
-    this.inventoryPanel = new InventoryPanel(this)
+    this.inventoryPanel = new InventoryPanel(this, this.registry_)
+    // メニューが開いている間は、背後の在庫リストがホイールで動かないようにする
+    this.inventoryPanel.setScrollBlocked(() =>
+      this.craftMenu?.isVisible() || this.purchaseMenu?.isVisible() || this.saveLoadMenu?.isVisible(),
+    )
     this.hud = new HUD(this)
     this.tutorial = new Tutorial(this)
     this.characterStrip = new CharacterStrip(this)
@@ -132,6 +143,7 @@ export class GameScene extends Phaser.Scene {
     )
     this.purchaseMenu = new PurchaseMenu(
       this,
+      this.registry_,
       this.economy,
       this.inventory,
       () => this.onPurchaseMenuClosed(),
@@ -166,6 +178,7 @@ export class GameScene extends Phaser.Scene {
         // 経済・インベントリ・時間を復元
         this.economy.restore(data.money, data.totalRevenue)
         this.inventory.setInitialStock(data.inventory)
+        this.world.restore(data.soldCounts ?? {})
         this.timeManager.setTime(data.currentTime)
 
         // HUD・パネルを更新
@@ -525,7 +538,7 @@ export class GameScene extends Phaser.Scene {
         this.floorRenderer.refreshSlot(slot)
         this.showSalePopup(s.revenue, slot)
         const item = this.registry_.getItem(slot.itemId)
-        this.messageLog.addMessage(`${item.name}が売れた！ +¥${s.revenue}`, 'sale')
+        this.messageLog.addMessage(`${item.display.name}が売れた！ +¥${s.revenue}`, 'sale')
       }
     })
 
@@ -533,7 +546,7 @@ export class GameScene extends Phaser.Scene {
       const { recipeId, times, quantity } = payload as CraftResult
       const recipe = this.registry_.getRecipe(recipeId)
       this.messageLog.addMessage(
-        `${recipe.name} ×${times}回 完了！ ${quantity}個入手（${recipe.durationMinutes * times}分）`,
+        `${recipe.display.name} ×${times}回 完了！ ${quantity}個入手（${recipe.durationMinutes * times}分）`,
         'event',
       )
       this.refreshInventoryPanel()
@@ -624,7 +637,12 @@ export class GameScene extends Phaser.Scene {
       this.advanceBtnLabel.setText('▶  進める'); this.advanceBtnBg.setFillStyle(0x4a4a8a)
       
     }
-    this.purchaseMenu.open(this.registry_.getMaterials())
+    // 固定の材料一覧ではなく、**その島の商人が並べる品**（#30）。
+    // tier と累計販売数で解禁されるので、売るほど品揃えが増える
+    this.purchaseMenu.open(
+      stockedByIslandMerchant(this.registry_.getAllItems(), this.world.getState()).slice(),
+      this.world.getIsland(),
+    )
   }
 
   private onPurchaseMenuClosed(): void {
@@ -635,14 +653,21 @@ export class GameScene extends Phaser.Scene {
   private doSave(): void { this.saveLoadMenu.openSave() }
   private doLoad(): void { this.saveLoadMenu.openLoad() }
 
+  /**
+   * 売り場に並べられる品の一覧。
+   *
+   * ⚠ **加工品だけでなく全品を出す**（#30）。旧体系では素材は加工の材料でしかなかったが、
+   *   新体系では**素材にも売値・かたち・需要の規則がかかる**。実際、島の商人が並べるのは
+   *   序盤は素材だけ（U1）なので、素材を出さないと**買った品を1つも置けない。**
+   */
   private refreshInventoryPanel(): void {
-    const products = this.registry_.getProducts()
+    const items = this.registry_.getAllItems()
     const stock = this.inventory.getAllStock()
-    const productStock: Record<string, number> = {}
-    for (const p of products) {
-      productStock[p.id] = stock[p.id] ?? 0
+    const quantities: Record<string, number> = {}
+    for (const item of items) {
+      quantities[item.id] = stock[item.id] ?? 0
     }
-    this.inventoryPanel.render(products, productStock)
+    this.inventoryPanel.render(items, quantities)
   }
 
   private showSalePopup(revenue: number, slot: DisplaySlot): void {
@@ -720,7 +745,7 @@ export class GameScene extends Phaser.Scene {
       const item = this.registry_.getItem(this.selectedItemId)
       const rotLabels = ['↑', '→', '↓', '←']
       this.messageLog.addMessage(
-        `つかんでいる: ${item.name}  [${rotLabels[this.currentRotation]}]  右クリックで回転`,
+        `つかんでいる: ${item.display.name}  [${rotLabels[this.currentRotation]}]  右クリックで回転`,
         'info',
       )
     }

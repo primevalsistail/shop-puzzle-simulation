@@ -9,70 +9,70 @@ describe('Inventory', () => {
   })
 
   it('初期状態で全アイテム0', () => {
-    expect(inv.getQuantity('apple')).toBe(0)
+    expect(inv.getQuantity('snap_pea')).toBe(0)
     expect(inv.getTypeCount()).toBe(0)
   })
 
   it('addで数量を追加する', () => {
-    inv.add('apple', 5)
-    expect(inv.getQuantity('apple')).toBe(5)
+    inv.add('snap_pea', 5)
+    expect(inv.getQuantity('snap_pea')).toBe(5)
   })
 
   it('addは上限（99999）を超えない', () => {
-    inv.add('apple', 50000)
-    inv.add('apple', 60000)
-    expect(inv.getQuantity('apple')).toBe(99999)
+    inv.add('snap_pea', 50000)
+    inv.add('snap_pea', 60000)
+    expect(inv.getQuantity('snap_pea')).toBe(99999)
   })
 
   it('確認用の初期在庫10000はそのまま入る（上限で切られない）', () => {
-    inv.setInitialStock({ apple: 10000 })
-    expect(inv.getQuantity('apple')).toBe(10000)
+    inv.setInitialStock({ snap_pea: 10000 })
+    expect(inv.getQuantity('snap_pea')).toBe(10000)
   })
 
   it('removeで数量を減らす', () => {
-    inv.add('apple', 10)
-    const ok = inv.remove('apple', 3)
+    inv.add('snap_pea', 10)
+    const ok = inv.remove('snap_pea', 3)
     expect(ok).toBe(true)
-    expect(inv.getQuantity('apple')).toBe(7)
+    expect(inv.getQuantity('snap_pea')).toBe(7)
   })
 
   it('数量不足でremoveはfalseを返す', () => {
-    inv.add('apple', 2)
-    const ok = inv.remove('apple', 5)
+    inv.add('snap_pea', 2)
+    const ok = inv.remove('snap_pea', 5)
     expect(ok).toBe(false)
-    expect(inv.getQuantity('apple')).toBe(2)
+    expect(inv.getQuantity('snap_pea')).toBe(2)
   })
 
   it('0になったらアイテムを削除する', () => {
-    inv.add('apple', 3)
-    inv.remove('apple', 3)
-    expect(inv.getQuantity('apple')).toBe(0)
+    inv.add('snap_pea', 3)
+    inv.remove('snap_pea', 3)
+    expect(inv.getQuantity('snap_pea')).toBe(0)
     expect(inv.getTypeCount()).toBe(0)
   })
 
   it('hasEnoughで在庫確認', () => {
-    inv.add('flour', 5)
-    expect(inv.hasEnough('flour', 3)).toBe(true)
-    expect(inv.hasEnough('flour', 6)).toBe(false)
+    inv.add('buckwheat', 5)
+    expect(inv.hasEnough('buckwheat', 3)).toBe(true)
+    expect(inv.hasEnough('buckwheat', 6)).toBe(false)
   })
 
   it('getAllStockで全在庫を返す', () => {
-    inv.add('apple', 3)
-    inv.add('bread', 2)
+    inv.add('snap_pea', 3)
+    inv.add('buckwheat_flour', 2)
     const stock = inv.getAllStock()
-    expect(stock.apple).toBe(3)
-    expect(stock.bread).toBe(2)
+    expect(stock.snap_pea).toBe(3)
+    expect(stock.buckwheat_flour).toBe(2)
   })
 
   it('getTypeCountで種類数を返す', () => {
-    inv.add('apple', 1)
-    inv.add('bread', 1)
+    inv.add('snap_pea', 1)
+    inv.add('buckwheat_flour', 1)
     expect(inv.getTypeCount()).toBe(2)
   })
 
   it('setInitialStockで初期在庫を設定する', () => {
-    inv.setInitialStock({ apple: 10, bread: 5 })
-    expect(inv.getQuantity('apple')).toBe(10)
-    expect(inv.getQuantity('bread')).toBe(5)
+    inv.setInitialStock({ snap_pea: 10, buckwheat_flour: 5 })
+    expect(inv.getQuantity('snap_pea')).toBe(10)
+    expect(inv.getQuantity('buckwheat_flour')).toBe(5)
   })
 })

@@ -73,7 +73,7 @@ export class FloorRenderer {
     for (const cell of cells) {
       const px = GRID_ORIGIN_X + cell.x * CELL_SIZE
       const py = GRID_ORIGIN_Y + cell.y * CELL_SIZE
-      g.fillStyle(item.color, slot.quantity > 0 ? 1.0 : 0.3)
+      g.fillStyle(item.display.color, slot.quantity > 0 ? 1.0 : 0.3)
       g.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2)
       g.lineStyle(2, 0xffffff, 0.35)
       g.strokeRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2)
@@ -86,7 +86,7 @@ export class FloorRenderer {
       const cy = cells.reduce((s, c) => s + c.y, 0) / cells.length
       const tx = GRID_ORIGIN_X + cx * CELL_SIZE + CELL_SIZE / 2
       const ty = GRID_ORIGIN_Y + cy * CELL_SIZE + CELL_SIZE / 2
-      const text = this.scene.add.text(tx, ty, `${item.name}\n×${slot.quantity}`, {
+      const text = this.scene.add.text(tx, ty, `${item.display.name}\n×${slot.quantity}`, {
         fontSize: '10px',
         color: '#ffffff',
         stroke: '#000000',
@@ -149,7 +149,7 @@ export class FloorRenderer {
     for (const offset of offsets) {
       const px = cursorX + (offset.x - anchor.x) * step - ghostSize / 2
       const py = cursorY + (offset.y - anchor.y) * step - ghostSize / 2
-      this.dragGhostGraphics.fillStyle(item.color, 0.80)
+      this.dragGhostGraphics.fillStyle(item.display.color, 0.80)
       this.dragGhostGraphics.fillRoundedRect(px, py, ghostSize, ghostSize, 6)
       this.dragGhostGraphics.lineStyle(2, 0xffffff, 0.65)
       this.dragGhostGraphics.strokeRoundedRect(px, py, ghostSize, ghostSize, 6)

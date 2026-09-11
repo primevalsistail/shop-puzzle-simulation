@@ -5,7 +5,8 @@ import { Inventory } from '../economy/Inventory.js'
 import { ItemRegistry } from '../items/ItemRegistry.js'
 import { FloorGrid } from '../floor/FloorGrid.js'
 import { EventBus } from '../../services/EventBus.js'
-import { ALL_ITEMS } from '../../data/items.js'
+import { WorldState } from './WorldState.js'
+import { ALL_ITEMS } from '../../taxonomy/items.js'
 import type { TimeManager } from '../core/TimeManager.js'
 
 function makeTimeManagerMock(): TimeManager {
@@ -21,13 +22,17 @@ describe('GameProgress', () => {
     EventBus.removeAllListeners()
   })
 
-  it('初期状態で全レシピがアンロック済み', () => {
+  it('レシピの解禁は空で始まり、unlockRecipe で足せる', () => {
+    // ⚠ 旧13品時代は5本を直書きしていたが、そのIDは #30 で消えた。
+    //   この仕掛けはまだクラフトメニューに繋がっていない（全レシピが並ぶ）
     const eco = new EconomyManager()
     const inv = new Inventory()
     const reg = new ItemRegistry(ALL_ITEMS)
     const grid = new FloorGrid({ width: 6, height: 5 }, reg)
-    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock())
-    expect(gp.isRecipeUnlocked('recipe_bread')).toBe(true)
+    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState())
+    expect(gp.isRecipeUnlocked('recipe_buckwheat_flour')).toBe(false)
+    gp.unlockRecipe('recipe_buckwheat_flour')
+    expect(gp.isRecipeUnlocked('recipe_buckwheat_flour')).toBe(true)
   })
 
   it('unlockFeatureで機能をアンロックできる', () => {
@@ -35,7 +40,7 @@ describe('GameProgress', () => {
     const inv = new Inventory()
     const reg = new ItemRegistry(ALL_ITEMS)
     const grid = new FloorGrid({ width: 6, height: 5 }, reg)
-    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock())
+    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState())
     gp.unlockFeature('second_floor')
     expect(gp.isFeatureUnlocked('second_floor')).toBe(true)
     expect(gp.isFeatureUnlocked('other')).toBe(false)
@@ -46,7 +51,7 @@ describe('GameProgress', () => {
     const inv = new Inventory()
     const reg = new ItemRegistry(ALL_ITEMS)
     const grid = new FloorGrid({ width: 6, height: 5 }, reg)
-    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock())
+    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState())
 
     expect(gp.getGridSizeForRevenue(0)).toEqual({ width: 6, height: 5 })
     expect(gp.getGridSizeForRevenue(200000)).toEqual({ width: 9, height: 7 })
@@ -65,7 +70,7 @@ describe('GameProgress', () => {
     const inv = new Inventory()
     const reg = new ItemRegistry(ALL_ITEMS)
     const grid = new FloorGrid({ width: 6, height: 5 }, reg)
-    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock())
+    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState())
 
     gp.save()
     expect(gp.hasSave()).toBe(true)

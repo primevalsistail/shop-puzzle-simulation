@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import type { ItemDef } from '../components/items/ItemRegistry.js'
+import type { ItemDef, ItemRegistry } from '../components/items/ItemRegistry.js'
 import type { EconomyManager } from '../components/economy/EconomyManager.js'
 import type { Inventory } from '../components/economy/Inventory.js'
 
@@ -8,21 +8,52 @@ const PANEL_H = 480
 const PANEL_X = 640
 const PANEL_Y = 360
 
+const ROW_H = 52
+const ROWS_TOP = PANEL_Y - 140          // 先頭行の中心
+const VISIBLE_COUNT = 7                 // 7行目の下端 558 < パネル下端 600
+const BUY_QTY = 5
+
+/**
+ * 島の商人が並べる品を買う。
+ *
+ * ⚠ **品揃えは固定ではない。**`stockedByIslandMerchant` が現在地と累計販売数から出す（#30）。
+ *   ハルヴェラ・累計販売0の時点で **18品**。売るほど U2 で増えるので、
+ *   画面に収まらない。**ホイールで送れないと下の品に手が届かない。**
+ */
 export class PurchaseMenu {
   private container: Phaser.GameObjects.Container | null = null
   private isOpen = false
+  private materials: ItemDef[] = []
+  private islandName = ''
+  private scrollIndex = 0
 
   constructor(
     private scene: Phaser.Scene,
+    private registry: ItemRegistry,
     private economy: EconomyManager,
     private inventory: Inventory,
     private onClose: () => void,
-  ) {}
+  ) {
+    this.scene.input.on('wheel', (
+      _pointer: Phaser.Input.Pointer,
+      _over: unknown, _dx: number, dy: number,
+    ) => {
+      if (!this.isOpen) return
+      const max = Math.max(0, this.materials.length - VISIBLE_COUNT)
+      const next = Math.min(Math.max(0, this.scrollIndex + (dy > 0 ? 1 : -1)), max)
+      if (next === this.scrollIndex) return
+      this.scrollIndex = next
+      this.rebuild()
+    })
+  }
 
-  open(materials: ItemDef[]): void {
+  open(materials: ItemDef[], islandName: string): void {
     if (this.isOpen) return
     this.isOpen = true
-    this.build(materials)
+    this.materials = materials
+    this.islandName = islandName
+    this.scrollIndex = 0
+    this.rebuild()
   }
 
   close(): void {
@@ -35,6 +66,12 @@ export class PurchaseMenu {
 
   isVisible(): boolean {
     return this.isOpen
+  }
+
+  private rebuild(): void {
+    this.container?.destroy()
+    this.container = null
+    this.build(this.materials)
   }
 
   private build(materials: ItemDef[]): void {
@@ -50,8 +87,12 @@ export class PurchaseMenu {
       .setStrokeStyle(2, 0x8a6a2a)
     objs.push(panel)
 
+    const total = materials.length
+    const from = total === 0 ? 0 : this.scrollIndex + 1
+    const to = Math.min(this.scrollIndex + VISIBLE_COUNT, total)
+
     objs.push(
-      this.scene.add.text(PANEL_X, PANEL_Y - 210, '仕入れメニュー', {
+      this.scene.add.text(PANEL_X, PANEL_Y - 210, `${this.islandName}の商人  ${from}-${to} / ${total}`, {
         fontSize: '20px',
         color: '#ffdd88',
         fontStyle: 'bold',
@@ -66,24 +107,24 @@ export class PurchaseMenu {
     objs.push(closeBtn)
 
     objs.push(
-      this.scene.add.text(PANEL_X - 180, PANEL_Y - 170, `所持金: ¥${this.economy.getMoney().toLocaleString()}`, {
+      this.scene.add.text(PANEL_X - 180, PANEL_Y - 178, `所持金: ¥${this.economy.getMoney().toLocaleString()}`, {
         fontSize: '14px',
         color: '#ffdd44',
       }).setOrigin(0, 0),
     )
 
-    const BUY_QTY = 5
-    materials.forEach((mat, i) => {
-      const y = PANEL_Y - 120 + i * 56
-      const totalCost = mat.price * BUY_QTY
+    materials.slice(this.scrollIndex, this.scrollIndex + VISIBLE_COUNT).forEach((mat, i) => {
+      const y = ROWS_TOP + i * ROW_H
+      const unitCost = this.registry.purchasePriceOf(mat.id)
+      const totalCost = unitCost * BUY_QTY
       const canAfford = this.economy.canAfford(totalCost)
 
-      const bg = this.scene.add.rectangle(PANEL_X, y, PANEL_W - 40, 48, canAfford ? 0x2a3a2a : 0x3a2a2a)
+      const bg = this.scene.add.rectangle(PANEL_X, y, PANEL_W - 40, ROW_H - 6, canAfford ? 0x2a3a2a : 0x3a2a2a)
         .setStrokeStyle(1, 0x555555)
       objs.push(bg)
 
       objs.push(
-        this.scene.add.text(PANEL_X - 170, y, mat.name, {
+        this.scene.add.text(PANEL_X - 170, y, mat.display.name, {
           fontSize: '14px',
           color: '#ffffff',
         }).setOrigin(0, 0.5),
@@ -110,8 +151,7 @@ export class PurchaseMenu {
         btn.on('pointerdown', () => {
           if (this.economy.spend(totalCost)) {
             this.inventory.add(mat.id, BUY_QTY)
-            this.close()
-            this.open(materials)
+            this.rebuild()
           }
         })
         objs.push(btn)

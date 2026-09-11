@@ -1,58 +1,51 @@
 import type { GridCell, Rotation } from '../../types/index.js'
+import type { ItemDef, ItemId, RecipeDef, Shape } from '../../taxonomy/axes.js'
+import { tier, salePrice, purchasePrice, finalPrice } from '../../taxonomy/derive.js'
 
-export interface AdjacencyRule {
-  adjacentItemId: string
-  bonusType: 'sales_rate' | 'customer_attraction' | 'price_up'
-  multiplier: number
-}
+export type { ItemDef, ItemId, RecipeDef, Shape }
 
-export interface ItemDef {
-  id: string
-  name: string
-  itemType: 'material' | 'product'
-  shape: number[][]
-  color: number
-  category: string
-  price: number          // 販売単価（客が払う値段）
-  purchasePrice?: number // 仕入れ単価（プレイヤーが払う値段）
-  baseSaleProb?: number  // 商品ごとの基本売れやすさ (0.0〜1.0)
-  adjacencyBonuses?: AdjacencyRule[]
-}
-
-export interface RecipeDef {
-  id: string
-  name: string
-  outputItemId: string
-  outputQuantity: number
-  ingredients: { itemId: string; quantity: number }[]
-  durationMinutes: number
-}
-
+/**
+ * 品とレシピの引き当て。
+ *
+ * ⚠ **型は `src/taxonomy/axes.ts` のものをそのまま使う。**本体側に別の `ItemDef` を持たない。
+ *   以前は本体が `price` / `purchasePrice` / `baseSaleProb` / `adjacencyBonuses` を
+ *   **フィールドとして持っていた**が、これらは全て導出値か規則側の持ち物である。
+ *   フィールドに持つと `salePrice()` の結果を焼き付けることになり、
+ *   「導出結果を一次情報扱いする」型に戻る（#30 / 実行計画の技術判断）。
+ *
+ * 値段は `salePriceOf` / `purchasePriceOf` / `finalPriceOf` が **その都度導出する**。
+ */
 export class ItemRegistry {
-  private items: Map<string, ItemDef>
+  private items: Map<ItemId, ItemDef>
   private recipes: Map<string, RecipeDef>
 
-  constructor(items: ItemDef[], recipes: RecipeDef[] = []) {
+  constructor(items: readonly ItemDef[], recipes: readonly RecipeDef[] = []) {
     this.items = new Map(items.map(i => [i.id, i]))
     this.recipes = new Map(recipes.map(r => [r.id, r]))
   }
 
-  getItem(id: string): ItemDef {
+  getItem(id: ItemId): ItemDef {
     const item = this.items.get(id)
     if (!item) throw new Error(`Item not found: ${id}`)
     return item
+  }
+
+  has(id: ItemId): boolean {
+    return this.items.has(id)
   }
 
   getAllItems(): ItemDef[] {
     return Array.from(this.items.values())
   }
 
+  /** tier2以上 ＝ レシピを持つ品（旧 `itemType === 'product'`） */
   getProducts(): ItemDef[] {
-    return this.getAllItems().filter(i => i.itemType === 'product')
+    return this.getAllItems().filter(i => this.tierOf(i.id) >= 2)
   }
 
+  /** tier1 ＝ レシピを持たない品（旧 `itemType === 'material'`） */
   getMaterials(): ItemDef[] {
-    return this.getAllItems().filter(i => i.itemType === 'material')
+    return this.getAllItems().filter(i => this.tierOf(i.id) === 1)
   }
 
   getRecipe(id: string): RecipeDef {
@@ -65,15 +58,36 @@ export class ItemRegistry {
     return Array.from(this.recipes.values())
   }
 
-  getRotatedShape(shape: number[][], rotation: Rotation): number[][] {
-    let result = shape
+  // ─── 導出値（フィールドではない） ──────────────────────
+  tierOf(id: ItemId): number {
+    return tier(id)
+  }
+
+  /** 素の売値 */
+  salePriceOf(id: ItemId): number {
+    return salePrice(id)
+  }
+
+  /** 配置の効き目を乗せた実売値。倍率は加工利益にだけ乗る（derive.ts の注記を参照） */
+  finalPriceOf(id: ItemId, priceModifier: number): number {
+    return finalPrice(id, priceModifier)
+  }
+
+  /** 仕入れ値 */
+  purchasePriceOf(id: ItemId): number {
+    return purchasePrice(id)
+  }
+
+  // ─── かたち ───────────────────────────────────────────
+  getRotatedShape(shape: Shape, rotation: Rotation): number[][] {
+    let result: number[][] = shape.map(row => [...row])
     for (let r = 0; r < rotation; r++) {
       result = this.rotate90CW(result)
     }
     return result
   }
 
-  shapeToOffsets(shape: number[][]): GridCell[] {
+  shapeToOffsets(shape: Shape): GridCell[] {
     const offsets: GridCell[] = []
     for (let row = 0; row < shape.length; row++) {
       for (let col = 0; col < shape[row].length; col++) {
@@ -87,7 +101,7 @@ export class ItemRegistry {
 
   // Returns offset of the anchor cell (closest to centroid in rotation 0) after the given rotation.
   // The SAME physical cell is tracked across all rotations so the cursor never jumps.
-  getAnchorOffset(shape: number[][], rotation: Rotation): GridCell {
+  getAnchorOffset(shape: Shape, rotation: Rotation): GridCell {
     const rot0 = this.shapeToOffsets(shape)
     if (rot0.length === 0) return { x: 0, y: 0 }
 

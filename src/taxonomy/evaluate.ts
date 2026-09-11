@@ -183,6 +183,13 @@ export function evaluate(
   placements: readonly Placement[],
   state: GameState,
   lookup: (id: ItemId) => ItemDef = getItem,
+  /**
+   * 辺で接している2区画の組。
+   *
+   * ⚠ 既定の `adjacentPairs` は品の**回転前**のかたちで隣接を出す。`Placement` は回転を持たないため。
+   *   盤面が回転を持つ側（`FloorGrid`）は、実際の占有升目で出した組をここへ渡すこと（#30）。
+   */
+  pairs: readonly [Placement, Placement][] = adjacentPairs(placements, lookup),
 ): EvaluationResult {
   const perSlotAcc = new Map<string, Accumulator>()
   const shopAcc = new Accumulator()
@@ -216,7 +223,7 @@ export function evaluate(
   }
 
   // ── 取り合わせ 層1（隣接） ──
-  for (const [a, b] of adjacentPairs(placements, lookup)) {
+  for (const [a, b] of pairs) {
     for (const rule of PAIR_RULES) {
       for (const [target] of applyPairRule(rule, a, b, state, lookup)) {
         put(rule.effect, target.slotId, rule.id)
@@ -233,7 +240,7 @@ export function evaluate(
   }
 
   // ── 取り合わせ 層2（名物コンビ）。既定は空。全部消しても上の結果は変わらない（INV-4） ──
-  for (const [a, b] of adjacentPairs(placements, lookup)) {
+  for (const [a, b] of pairs) {
     for (const rule of SIGNATURE_PAIRS) {
       const match =
         (a.itemId === rule.甲 && b.itemId === rule.乙) ||

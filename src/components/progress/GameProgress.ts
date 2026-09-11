@@ -3,13 +3,19 @@ import type { EconomyManager } from '../economy/EconomyManager.js'
 import type { Inventory } from '../economy/Inventory.js'
 import type { FloorGrid } from '../floor/FloorGrid.js'
 import type { TimeManager } from '../core/TimeManager.js'
+import type { WorldState } from './WorldState.js'
 
 const SAVE_KEY = 'shop_puzzle_save'
 const slotKey = (slot: number) => `${SAVE_KEY}_${slot}`
 
 export class GameProgress {
   private unlockedFeatures: Set<string> = new Set()
-  private unlockedRecipes: Set<string> = new Set(['recipe_bread', 'recipe_wine', 'recipe_tomato_sauce', 'recipe_sandwich', 'recipe_book'])
+  /**
+   * ⚠ **空で始まる。**以前は旧13品時代のレシピID5本を直書きしていたが、そのIDは #30 で消えた。
+   *   この仕掛けは**どこからも読まれていない**（クラフトメニューは全レシピを並べる）。
+   *   レシピの解禁を実際に効かせるかは #30 のスコープ外 → issue #48。
+   */
+  private unlockedRecipes: Set<string> = new Set()
   private isEndlessMode = false
 
   constructor(
@@ -17,6 +23,7 @@ export class GameProgress {
     private inventory: Inventory,
     private floorGrid: FloorGrid,
     private timeManager: TimeManager,
+    private world: WorldState,
   ) {}
 
   save(slot = 0): void {
@@ -24,6 +31,8 @@ export class GameProgress {
       money: this.economy.getMoney(),
       totalRevenue: this.economy.getTotalRevenue(),
       inventory: this.inventory.getAllStock(),
+      // U2（売った実績で解禁）が読む。積まないとロードで解禁が巻き戻る
+      soldCounts: this.world.toRecord(),
       floor: this.floorGrid.getAllSlots(),
       unlockedFeatures: Array.from(this.unlockedFeatures),
       unlockedRecipes: Array.from(this.unlockedRecipes),
