@@ -1716,3 +1716,31 @@ Current Status も 2026-09-11 現在に更新（未コミット14ファイル・
 **Context**: セッション再開の後片付け。残るは実機確認 → コミット、その後 #30
 
 ---
+
+## Codex を司令塔にする話を取り下げ — 関連文書を削除
+**Timestamp**: 2026-09-11
+**User Input（原文）**: 「次、codexを司令塔にしてやるっていう話はなくなりました。必要なドキュメントを消してください。」
+**AI Response**: "**Codex 専用の2ファイルを削除し、CLAUDE.md から Codex 依存の記述を外した。**
+
+**削除**
+- `AGENTS.md`（Codex の質問整理・回答・レビューの役割。全文が Codex 前提）
+- `aidlc-docs/construction/plans/ai-collaboration-plan.md`（協働の運用設計。全文が Codex 前提）
+
+**書き換え**
+- `CLAUDE.md` — 第1章『AI-DLCとCodexとの協働』から Codex 依存の記述を削除し
+  『AI-DLC の進め方』に改題。外したのは、返却先を Codex とする規定／
+  『回答待ちで一旦終了する』（非対話実行の前提）／『Codex の回答を承認として監査ログへ書かない』／
+  ai-collaboration-plan.md への参照。
+  **残したのは Claude 内部の規則**（司令塔とサブへの委任、4区分表、委任前に目的を書く、
+  PO判断はサイクル末に1回）で、これらは Codex に依存していない。
+
+**触っていないもの**
+- `aidlc-docs/audit.md` と `aidlc-docs/sessions/` に残る Codex への言及は**過去の記録**であり、
+  AI-DLC の『過去の監査ログを後から書き換えない』に従って残した
+- `aidlc-docs/construction/plans/branch-review-handoff.md` は Codex の文書ではなく
+  ブランチのレビュー資料なので残した
+
+**検証**: aidlc-docs 配下の md リンク 194本すべて解決。削除した2ファイルへの参照は0件。"
+**Context**: 協働体制の変更に伴う文書整理
+
+---
