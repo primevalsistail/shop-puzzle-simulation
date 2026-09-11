@@ -51,6 +51,14 @@
 **仕入れ・加工の手間を勘定に入れていない。**実際の遊びではもっとかかる。
 それでも**桁として10日周期に収まってしまう**ことは変わらない。
 
+**⚠ 加工を入れて測り直した（2026-09-11）: 所持金100万まで 23日 → **20日**。**
+初出の測定も最初の訂正も**加工を一度もしていなかった**（素材を買って生のまま売るだけ）。
+時計どおりに回して朝の作業時間帯で加工すると 20日（売上¥1,862,716 ／ 仕入れ¥902,419）。
+**⚠ 加工時間は営業時間を1分も食っていない。**作業時間帯が 480分/日（朝240＋夜240）、
+航海日は 1,080分あり、そこに収めれば売る機会を失わないため。
+**これ自体が別の問題**として **issue #53**（加工がコストになっていない）へ。
+
+
 ## 受入条件
 
 1. `npx vitest run` 全件パス ／ `npx tsc --noEmit` ／ `npm run build`
@@ -89,6 +97,7 @@
 
 | 判断 | 理由 | issue |
 |---|---|---|
-| 目標に届くのが20日で2島しか回れない件を直さない | 原因は巡回ではなく客の判定（束C の #8・#11） | [#52](https://github.com/primevalsistail/shop-puzzle-simulation/issues/52) |
+| 目標に届くのが20〜23日で、ミフユリアに着かない件を直さない | 原因は巡回ではなく客の判定（束C の #8・#11） | [#52](https://github.com/primevalsistail/shop-puzzle-simulation/issues/52) |
+| 加工が営業時間を食わず、加工時間がコストになっていない | #25 の意図が時間帯をずらすだけで無効化できる。直すのは束D の判断 | [#53](https://github.com/primevalsistail/shop-puzzle-simulation/issues/53) |
 | 需要表4行の倍率が全部 1.3 のまま | 島は動くようになったが倍率は Phase 3 のまま | [#39](https://github.com/primevalsistail/shop-puzzle-simulation/issues/39) |
 | 実機確認 | この環境ではブラウザが動かない | [#47](https://github.com/primevalsistail/shop-puzzle-simulation/issues/47) |
