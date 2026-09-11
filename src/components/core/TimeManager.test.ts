@@ -11,8 +11,8 @@ describe('TimeManager', () => {
     tm = new TimeManager()
   })
 
-  it('初期時刻は Day1 08:00', () => {
-    expect(tm.getCurrentTime()).toEqual({ day: 1, hour: 8, minute: 0 })
+  it('初期時刻は Day1 06:00（#41）', () => {
+    expect(tm.getCurrentTime()).toEqual({ day: 1, hour: 6, minute: 0 })  // #41
   })
 
   it('startAdvancing で時間が進む（update に十分なdeltaを渡す）', () => {
@@ -59,12 +59,12 @@ describe('TimeManager', () => {
   it('60分で1時間進む', () => {
     tm.startAdvancing()
     tm.update(100 * 60) // 60分分のdelta
-    expect(tm.getCurrentTime()).toEqual({ day: 1, hour: 9, minute: 0 })
+    expect(tm.getCurrentTime()).toEqual({ day: 1, hour: 7, minute: 0 })
   })
 
   it('24時間で翌日になる', () => {
     tm.startAdvancing()
-    tm.update(100 * 60 * 16) // 16時間分（8時スタートなので24:00到達）
+    tm.update(100 * 60 * 18) // 18時間分（6時スタートなので24:00到達）
     expect(tm.getCurrentTime().day).toBe(2)
     expect(tm.getCurrentTime().hour).toBe(6) // 睡眠を飛ばして翌日6:00（#25）
   })
