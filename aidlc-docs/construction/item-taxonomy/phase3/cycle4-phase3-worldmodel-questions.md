@@ -48,7 +48,7 @@
 
 ## AI が付け加えた指摘 — **同じ欠陥が `向く土地` にもある**
 
-[Phase 2 §4-E](inception/application-design/cycle4-phase2-axes.md) で確定した `向く土地` の5値:
+[Phase 2 §4-E](../../../inception/application-design/cycle4-phase2-axes.md) で確定した `向く土地` の5値:
 
 | 値 | 定義 | 切り方 |
 |---|---|---|
@@ -59,7 +59,7 @@
 | `どこでも` | 土地を選ばないもの | （既定値） |
 
 **気候の定義で問題になっているのと同じ2つ**（温暖・実り）が、ここでも他の値と切り方が違う。
-これは [Phase 0 の INV-2b](inception/requirements/cycle4-phase0-invariants.md)
+これは [Phase 0 の INV-2b](../../../inception/requirements/cycle4-phase0-invariants.md)
 「1つの軸の値は**すべて**、その同じ問いへの答えになっている」に触れる可能性がある。
 
 **判定セッションは `向く土地` の存在を知らされていない。**世界観側だけを見て独立に同じ形の欠陥を

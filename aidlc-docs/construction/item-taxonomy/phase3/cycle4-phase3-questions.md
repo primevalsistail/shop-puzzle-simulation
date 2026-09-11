@@ -1,7 +1,7 @@
 # Cycle 4 / Phase 3 — 着手前の質問
 
 **作成**: 2026-09-06T07:00:00Z
-**対象**: [Code Generation 計画](construction/plans/item-taxonomy-code-generation-plan.md) の Part 2 着手前
+**対象**: [Code Generation 計画](../../plans/item-taxonomy-code-generation-plan.md) の Part 2 着手前
 
 いずれも**後から直すと手戻りが大きい**論点です。
 Q4 は Phase 3 の**出口判定の意味**そのものに関わるので、とくに重要です。
@@ -12,7 +12,7 @@ Q4 は Phase 3 の**出口判定の意味**そのものに関わるので、と�
 **現行13品**（item-system.md §5）を、新体系にどこまで引き継ぎますか？
 
 Cycle 3 で世界観が確定した結果、現行13品の一部は前提が変わっています。
-たとえば `本` は [Phase 2 §3](inception/application-design/cycle4-phase2-axes.md) が
+たとえば `本` は [Phase 2 §3](../../../inception/application-design/cycle4-phase2-axes.md) が
 分類としての「書物」を INV-2b 違反で落とした品であり、かつ item-system.md §5 の実測で
 **「最も時間がかかる上に最も儲からない」**（2.5倍/10分）と名指しされている品です。
 
@@ -34,7 +34,7 @@ D) Other (please describe after [Answer]: tag below)
 **tier を何段まで作りますか？**
 
 現行は**深さ3まで**しか使っていません（item-system.md §5）。
-[Phase 2 §4-B](inception/application-design/cycle4-phase2-axes.md) は「天井は10、運用は5〜6」としています。
+[Phase 2 §4-B](../../../inception/application-design/cycle4-phase2-axes.md) は「天井は10、運用は5〜6」としています。
 段が浅いと**積み上げ式価格（P2）が検査されません**。深いと20品では各段が薄くなります。
 
 A) **4段（推奨）** — 20品で各段に品が残る現実的な上限。積み上げが3回起きるので
@@ -72,7 +72,7 @@ D) Other (please describe after [Answer]: tag below)
 ## Question 4 ★もっとも重要
 **Step 10 で偏りが出たとき、どうしますか？**
 
-Step 10 は [Phase 2 §7](inception/application-design/cycle4-phase2-axes.md)「確かめること」5件の計測です
+Step 10 は [Phase 2 §7](../../../inception/application-design/cycle4-phase2-axes.md)「確かめること」5件の計測です
 （`道具` の品数／`どこでも` への偏り／産地 `なし` の割合／12通りへの散り方／U2 の解禁条件）。
 **これは Phase 3 の出口判定です。**
 
@@ -97,7 +97,7 @@ D) Other (please describe after [Answer]: tag below)
 ## Question 5
 **効き目の適用範囲 `店全体`（新機構）が複数同時に効いたとき、どう合成しますか？**
 
-[Phase 2 §5](inception/application-design/cycle4-phase2-axes.md) は「`店全体` は新しい機構」とだけ書き、
+[Phase 2 §5](../../../inception/application-design/cycle4-phase2-axes.md) は「`店全体` は新しい機構」とだけ書き、
 合成の規則は決めていません（倍率は Phase 3 送り）。
 R5「同じ島の産の品を並べると**店全体に**人が寄る」が複数の島で同時に成立しうるため、
 20品を船倉に並べると**この合成が実際に起きます**。

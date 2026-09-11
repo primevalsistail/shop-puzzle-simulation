@@ -521,7 +521,7 @@ Q4 は Phase 3 の出口判定の意味そのものに関わるため最重要�
 - Q5 = **Other**: "加算で積んで(1.1と1.1であれば1.2とする)"
 
 **AI Response**: "Q1 と Q4 が計画の構造を変えるため、計画書を改訂してから着手すると回答。
-Q4 は Cycle 3 の [worldbuilding/prompts/](inception/worldbuilding/prompts/) と同じ手法
+Q4 は Cycle 3 の [worldbuilding/prompts/](inception/worldbuilding/prompts) と同じ手法
 （自己完結した handoff プロンプトを書き、別セッションで実行する）で実現する。
 Step 10（§7『確かめること』5件の計測と判定）と Step 12（Phase 4 の可否判断）を
 **このセッションから外し、評価セッションへ渡す**。

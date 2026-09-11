@@ -7,9 +7,9 @@
 - **プロジェクト**: 在庫配置パズル型 店舗経営シミュレーション（Brownfield / TS + Phaser 3 + Vite）
 - **現在フェーズ**: INCEPTION — **Cycle 4「アイテム体系の再設計」**
 - **直前の完了**: Requirements Analysis（2026-09-06）
-  = [Phase 0 不変条件](inception/requirements/cycle4-phase0-invariants.md)（INV-1〜6 ＋ PR-1〜3）
-  ＋ [Phase 1 問いと軸](inception/requirements/cycle4-phase1-axes.md)（問い11件・軸は **3 + N 本**）
-- **次ステージ**: **Application Design = [Phase 2](inception/design-log/item-system.md)「各軸の定義を1行で書く」**
+  = [Phase 0 不変条件](../inception/requirements/cycle4-phase0-invariants.md)（INV-1〜6 ＋ PR-1〜3）
+  ＋ [Phase 1 問いと軸](../inception/requirements/cycle4-phase1-axes.md)（問い11件・軸は **3 + N 本**）
+- **次ステージ**: **Application Design = [Phase 2](../inception/design-log/item-system.md)「各軸の定義を1行で書く」**
   - **決めること**: 主種類の値（§4-A）／ **面の本数 N と各面の語彙**（§4-B。候補 保存／客層／価格感、2〜4本）／
     条件言語の形（§4-C。**アイテムの軸への述語** と **ゲーム状態への述語** の2種類が要る）
   - **決めないこと**: **数値**（Phase 3 で入れる）

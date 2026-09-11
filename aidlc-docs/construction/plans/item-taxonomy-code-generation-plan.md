@@ -50,7 +50,7 @@
 **INV-1〜6 は起こす側に残す。** Phase 0 が判定方法まで外部で先に定義しており（「ダンプ→追加→再ダンプ、
 差分が空」など）、後付けの余地がないため。**基準が未定義なものだけを評価セッションへ移す。**
 
-**手法の先例**: Cycle 3 の [worldbuilding/prompts/](../../inception/worldbuilding/prompts/)。
+**手法の先例**: Cycle 3 の [worldbuilding/prompts/](../../inception/worldbuilding/prompts)。
 依頼書は**そのファイルだけで判断できるように**書く（他の資料を読ませない）。
 
 ### この計画で決めないこと

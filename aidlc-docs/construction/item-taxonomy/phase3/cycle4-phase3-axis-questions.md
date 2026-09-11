@@ -4,8 +4,8 @@
 **きっかけ**: 110品に `贅沢さ` と `向く土地` を振らせた2セッションの報告
 
 > **⚠ この質問は Phase 2 の確定事項に触れます。**`向く土地` の5値は
-> [Phase 2 §4-E](inception/application-design/cycle4-phase2-axes.md) で確定済みです。
-> [Phase 0](inception/requirements/cycle4-phase0-invariants.md) が想定していた
+> [Phase 2 §4-E](../../../inception/application-design/cycle4-phase2-axes.md) で確定済みです。
+> [Phase 0](../../../inception/requirements/cycle4-phase0-invariants.md) が想定していた
 > **「破れたら Phase 1 に戻る」**に当たる可能性があります。
 
 ---
@@ -103,12 +103,12 @@ C) Other (please describe after [Answer]: tag below)
 > （贅沢さ）**材料は派生先の属性をなぞるだけになり、材料自体の独立性が失われる。**
 > 買う理由が「作るために買う」で、**定義の三択の外**にある
 
-A) **特別扱いしない（推奨）** — [Phase 1](inception/requirements/cycle4-phase1-axes.md) の確定事項
+A) **特別扱いしない（推奨）** — [Phase 1](../../../inception/requirements/cycle4-phase1-axes.md) の確定事項
    「**全品売れる**」により、中間品も客が買って**家で使う品**である。
    蕎麦粉を買う客はパンを焼く人であって、特別な存在ではない。
    両セッションの違和感は記録するが、軸は変えない
 B) **中間品という区分を作る** — 「それ自体が材料になる品」に別の扱いを与える。
-   ただし [Phase 0 INV-3](inception/requirements/cycle4-phase0-invariants.md) により
+   ただし [Phase 0 INV-3](../../../inception/requirements/cycle4-phase0-invariants.md) により
    「材料になるか」は**レシピから導出**できるので、軸を足す必要はない
 C) Other (please describe after [Answer]: tag below)
 
@@ -126,7 +126,7 @@ C) Other (please describe after [Answer]: tag below)
 > **「どんな土地で役立つか」属性と、この属性は独立ではない**可能性がある
 
 A) **品側は1つに固定したまま。土地による差は規則側（需要表）が担う（推奨）** —
-   [Phase 2 §3-B](inception/application-design/cycle4-phase2-axes.md)
+   [Phase 2 §3-B](../../../inception/application-design/cycle4-phase2-axes.md)
    「**誰に売れやすいかは品の事実ではなく意味づけ。規則側に置く**」と同じ形。
    氷が暑い島でよく売れるのは需要表4行が出す
 B) **贅沢さを土地ごとに持つ** — 品側に「島ごとの贅沢さ」を持たせる。
@@ -140,7 +140,7 @@ C) Other (please describe after [Answer]: tag below)
 ## 参考 — 振らせた結果の分布（判定はしていない）
 
 **これは計測であって評価ではない。**評価は別セッションの担当（→
-[評価セッションへの依頼書](construction/plans/item-taxonomy-evaluation-handoff.md)）。
+[評価セッションへの依頼書](../../plans/item-taxonomy-evaluation-handoff.md)）。
 
 | 贅沢さ | 品数 |
 |---|---|

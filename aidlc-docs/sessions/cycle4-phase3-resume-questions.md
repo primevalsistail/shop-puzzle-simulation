@@ -7,7 +7,7 @@
 - **プロジェクト**: 在庫配置パズル型 店舗経営シミュレーション（Brownfield / TS + Phaser 3 + Vite）
 - **現在フェーズ**: **CONSTRUCTION** — Cycle 4「アイテム体系の再設計」
 - **直前の完了**: Application Design ＝ **Phase 2**（2026-09-06）
-  → [各軸の定義](inception/application-design/cycle4-phase2-axes.md)。**軸は5本**
+  → [各軸の定義](../inception/application-design/cycle4-phase2-axes.md)。**軸は5本**
   （主種類4値 ／ tier導出 ／ 産地5値 ／ 贅沢さ3値 ／ 向く土地5値）
 - **現在ステージ**: **Code Generation ＝ Phase 3**（未着手）
   - **やること**（Phase 2 §7）: 型定義（5軸）／ 実アイテム20品 ／ 規則評価器 ／
@@ -22,7 +22,7 @@
 
 ### 論点1 — 前提が1件、未決のまま残っている
 
-[world.md §8](inception/worldbuilding/world.md) の未決「**島ごとの産物と需要**」が、
+[world.md §8](../inception/worldbuilding/world.md) の未決「**島ごとの産物と需要**」が、
 Cycle 3 完了時から「Phase 3 の前提」として持ち越されている。
 
 Phase 3 は `産地`（四島＋なし）と `向く土地`（寒い／暑い／温暖／実り／どこでも）に
@@ -30,7 +30,7 @@ Phase 3 は `産地`（四島＋なし）と `向く土地`（寒い／暑い／
 
 ### 論点2 — 現行コードは Phase 2 が落とした形をしている
 
-現行 [items.ts](src/data/items.ts) の 13 品は
+現行 [items.ts](../../src/data/items.ts) の 13 品は
 `adjacencyBonuses: [{ adjacentItemId: 'milk', ... }]` という **ItemId 直書き**。
 これは Phase 2 §6 が **INV-4 違反**として落とした形そのもの（＝取り合わせ層2に相当）。
 そして**既存101テストがこの形に依存している**ため、置き換え方に選択肢が出る。
@@ -57,7 +57,7 @@ A) **Phase 3 の最初の手順として、この場で決める（推奨）** �
 B) **20 品の割り当てと同時に、事実上そこで決める** — 先に「島ごとの傾向」を文書化せず、
    20 品に `産地` を振る作業の結果として島の性格が決まる。world.md §8 は後から追記して閉じる
 C) **別セッションに複数案を出させて比較する** — 島の性格は正解が1つに定まらない設計判断なので、
-   Cycle 3 の [worldbuilding/prompts/](inception/worldbuilding/prompts/) と同じ手法を使う
+   Cycle 3 の [worldbuilding/prompts/](../inception/worldbuilding/prompts) と同じ手法を使う
    （→ 先に fanout-prompt でプロンプトを作る。このセッションでは Phase 3 に入らない）
 D) Other (please describe after [Answer]: tag below)
 

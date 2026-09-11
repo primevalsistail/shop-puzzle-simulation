@@ -5,7 +5,7 @@
 
 **次にやること**: Phase 3 の評価。
 Phase 2 §7「確かめること」5件を計測・判定し、**Phase 4 へ進むか、軸の設計（Phase 1）に戻るか**を決める。
-依頼書は [item-taxonomy-evaluation-handoff.md](construction/plans/item-taxonomy-evaluation-handoff.md)（自己完結・合格ラインは未記載）。
+依頼書は [item-taxonomy-evaluation-handoff.md](../construction/plans/item-taxonomy-evaluation-handoff.md)（自己完結・合格ラインは未記載）。
 
 **⚠ この判定は「書いた側がやらない」という取り決めがある。**
 起こした側が判定すると、偏りが出たときに品を差し替えて偏りを消してしまい、自己採点になるため。
@@ -60,7 +60,7 @@ X) Other（[Answer]: の後に記述してください）
 
 A) **未コミットのクラフトUI変更を締める**（コミット。実機確認が未了であることを明記する）
 B) **#30 — `src/taxonomy` をゲーム本体に接続する**
-   （[実行計画](construction/plans/item-taxonomy-integration-plan.md) の Q1 に回答が要る。
+   （[実行計画](../construction/plans/item-taxonomy-integration-plan.md) の Q1 に回答が要る。
    122品・積み上げ価格・隣接規則が画面に出る。いま本体は旧13品で動いている）
 C) **Cycle 5（客と需要）を AI-DLC の新サイクルとして起票する**
    （客の来訪モデルはコードにも設計にも存在しない。Phase 2 が器だけ用意して切り出した）

@@ -141,7 +141,7 @@
 
 ### 状態
 - [x] 別セッション用プロンプトの検討ファイル作成 (2026-08-23)
-      → [worldbuilding/prompts/](inception/worldbuilding/prompts/)（実行済み4本。手法の先例として保存）
+      → [worldbuilding/prompts/](inception/worldbuilding/prompts)（実行済み4本。手法の先例として保存）
 - [x] 世界観を確定 (2026-08-30)
       → [worldbuilding/world.md](inception/worldbuilding/world.md) — 気候の違う四島を10日ごとに巡る店舟〈ペルラ号〉
 - [x] 主人公を確定 (2026-09-04)
@@ -349,7 +349,7 @@ Phase 3 の評価が付けた条件「**ストレステスト前に揺れを閉�
 - [x] NFR Design - SKIPPED（同上）
 - [x] Infrastructure Design - SKIPPED（静的ホスティング変更なし）
 - [x] **Code Generation** - COMPLETED (2026-09-06) — **Phase 3**
-      → **実装**: [`src/taxonomy/`](../src/taxonomy/) — axes.ts（5軸の型）／ islands.ts（四島＋**需要表4行**）／
+      → **実装**: [`src/taxonomy/`](../src/taxonomy) — axes.ts（5軸の型）／ islands.ts（四島＋**需要表4行**）／
         items.ts（**120品** ＝ 素材50＋加工品70。うち10品は 2026-09-07 の宿題B で追加）／
         recipes.ts（**70本**・tier1〜4）／
         derive.ts（tier・積み上げ価格）／ rules.ts（条件言語＋規則データ）／
