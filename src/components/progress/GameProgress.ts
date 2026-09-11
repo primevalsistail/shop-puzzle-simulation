@@ -13,7 +13,8 @@ export class GameProgress {
   /**
    * ⚠ **空で始まる。**以前は旧13品時代のレシピID5本を直書きしていたが、そのIDは #30 で消えた。
    *   この仕掛けは**どこからも読まれていない**（クラフトメニューは全レシピを並べる）。
-   *   レシピの解禁を実際に効かせるかは #30 のスコープ外 → issue #48。
+   *   **PO判断（2026-09-11）: 効かせる。条件は「そのレシピの材料を過去に取得したことがあるか」。**
+   *   ただし「取得したことがある」の記録がまだ無い（`Inventory` は現在の所持数しか持たない）→ issue #48。
    */
   private unlockedRecipes: Set<string> = new Set()
   private isEndlessMode = false
