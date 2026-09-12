@@ -36,7 +36,7 @@ import { GameEvents } from '../types/index.js'
 import type { DisplaySlot, GameTime, GridCell, GridSize, Rotation } from '../types/index.js'
 import { ALL_ITEMS } from '../taxonomy/items.js'
 import { ALL_RECIPES } from '../taxonomy/recipes.js'
-import { stockedByIslandMerchant, becameBuyable } from '../taxonomy/evaluate.js'
+import { becameBuyable, merchantListing } from '../taxonomy/evaluate.js'
 import type { IslandName } from '../taxonomy/islands.js'
 import { materialNeeds } from '../taxonomy/materials.js'
 
@@ -280,6 +280,10 @@ export class GameScene extends Phaser.Scene {
       }
       this.selectedItemId = id
       this.currentRotation = 0
+      // ⚠ **押した瞬間に盤面へかたちを出す**（#70・PO 指示 2026-09-13）。
+      //   これが無いと、**マウスを動かすまで盤面に何も出ない** —— 押しただけでは
+      //   「持てている」ことが分からず、「押しても何も起きない」に見える
+      this.showGrabbedShape()
       this.updateStatus()
     })
     this.refreshInventoryPanel()
@@ -498,17 +502,8 @@ export class GameScene extends Phaser.Scene {
         }
       }
 
-      // グリッド上ならプレビュー表示（中心基点で計算）
-      if (this.floorRenderer.isOverGrid(pointer.x, pointer.y, this.floorGrid.getGridSize())) {
-        const cell = this.floorRenderer.worldToGrid(pointer.x, pointer.y)
-        if (cell) {
-          const placementCell = this.calcPlacementCell(cell)
-          const valid = this.placementManager.canPlaceAt(this.selectedItemId, placementCell, this.currentRotation)
-          this.floorRenderer.drawPreview(this.selectedItemId, placementCell, this.currentRotation, valid)
-          return
-        }
-      }
-      this.floorRenderer.clearPreview()
+      // カーソルの下（盤面の外なら中央）にかたちを出す
+      this.showGrabbedShape()
     })
 
     // ── pointerdown: 右クリック=回転 / 左クリック=空スロットプロンプト ──
@@ -517,6 +512,8 @@ export class GameScene extends Phaser.Scene {
       if (pointer.rightButtonDown()) {
         if (this.selectedItemId) {
           this.currentRotation = ((this.currentRotation + 1) % 4) as Rotation
+          // 盤面の外で回しても、出しているかたちが向きに追いつくようにする（#70）
+          this.showGrabbedShape()
           this.updateStatus()
         }
         return
@@ -590,6 +587,38 @@ export class GameScene extends Phaser.Scene {
       x: cursorCell.x - anchor.x,
       y: cursorCell.y - anchor.y,
     }
+  }
+
+  /**
+   * **掴んでいる品のかたちを盤面へ出す**（#70）。
+   *
+   * ⚠ **カーソルが盤面の外にあるときは、盤面の中央へ出す。**
+   *   一覧を押した瞬間、カーソルは左パネルの上にあって**置き場所はまだ決まっていない。**
+   *   中央なら盤面のどの端からも等距離なので、「ここに置く」ではなく
+   *   「**こういうかたちを持っている**」と読める。
+   * ⚠ **棚の区画を動かしている最中は、中央へ出さない。**その品は元の場所から外してあり、
+   *   盤面の外で離せば元へ戻る。中央に出すと**そこへ移るように読める。**
+   * ⚠ **場所へ行っている間は何も出さない**（#58 の既決。判定は `isShelfBlocked()` の1つだけ）。
+   */
+  private showGrabbedShape(): void {
+    if (!this.selectedItemId || this.isShelfBlocked()) {
+      this.floorRenderer.clearPreview()
+      return
+    }
+    const size = this.floorGrid.getGridSize()
+    const p = this.input.activePointer
+    const cursorCell = this.floorRenderer.isOverGrid(p.x, p.y, size)
+      ? this.floorRenderer.worldToGrid(p.x, p.y)
+      : this.pendingMoveSlot
+        ? null
+        : { x: Math.floor(size.width / 2), y: Math.floor(size.height / 2) }
+    if (!cursorCell) {
+      this.floorRenderer.clearPreview()
+      return
+    }
+    const cell = this.calcPlacementCell(cursorCell)
+    const valid = this.placementManager.canPlaceAt(this.selectedItemId, cell, this.currentRotation)
+    this.floorRenderer.drawPreview(this.selectedItemId, cell, this.currentRotation, valid)
   }
 
   /**
@@ -811,11 +840,15 @@ export class GameScene extends Phaser.Scene {
    */
   private restock(itemId: string): void {
     const item = this.registry_.getItem(itemId)
-    const stocked = stockedByIslandMerchant(this.registry_.getAllItems(), this.world.getState())
+    const listing = this.merchantListing()
 
-    if (stocked.some(i => i.id === itemId)) {
+    // ⚠ **「もうすぐ買える」側へは飛ばさない。**そこからは買えないので、
+    //   補充の答えにならない。作れるならこの下で工房へ回る（#66）
+    if (listing.stocked.some(i => i.id === itemId)) {
       this.stopAdvancing()
-      this.purchaseMenu.open(stocked.slice(), this.world.getIsland(), itemId)
+      this.purchaseMenu.open(
+        listing.stocked.slice(), this.world.getIsland(), listing.upcoming, itemId,
+      )
       return
     }
 
@@ -850,8 +883,11 @@ export class GameScene extends Phaser.Scene {
    *   6px はみ出すので、覆う方式だとその帯だけ残る。
    */
   private setShopVisible(visible: boolean): void {
-    // 掴んだまま店を離れると、帰ってきたときその区画が宙に浮く（盤面から外してある）
-    if (!visible) this.cancelDrag()
+    // ⚠ **行きも帰りも掴んだものを離す**（main の技術判断。#70）。
+    //   行き: 掴んだまま店を離れると、帰ってきたときその区画が宙に浮く（盤面から外してある）。
+    //   帰り: 場所にいる間の `pointerup` は早期 return するので選択が残り、
+    //         **店に戻って最初にマウスを動かすといきなりゴーストが出る**
+    this.cancelDrag()
     this.floorRenderer.setVisible(visible)
     this.gridBackdrop.setVisible(visible)
     // ⚠ **キャラ帯も隠す。**商人のところに居るのに「店番」「来店客」の枠が出ているのは、
@@ -924,11 +960,26 @@ export class GameScene extends Phaser.Scene {
 
   private openPurchaseMenu(): void {
     this.stopAdvancing()
-    // 固定の材料一覧ではなく、**その島の商人が並べる品**（#30）。
-    // tier と累計販売数で解禁されるので、売るほど品揃えが増える
-    this.purchaseMenu.open(
-      stockedByIslandMerchant(this.registry_.getAllItems(), this.world.getState()).slice(),
-      this.world.getIsland(),
+    const listing = this.merchantListing()
+    this.purchaseMenu.open(listing.stocked.slice(), this.world.getIsland(), listing.upcoming)
+  }
+
+  /**
+   * 商人のところに出す行（#30・#66）。
+   *
+   * 固定の材料一覧ではなく、**その島の商人が並べる品**。tier と累計販売数で解禁されるので、
+   * 売るほど品揃えが増える。
+   *
+   * ⚠ **「買えるもの」だけではない**（PO 決定 2026-09-13）。**一度でも手にした品**は、
+   *   まだ U2 を通っていなくても `あとN個売れば並ぶ` の行として並ぶ。**その行は買えない。**
+   * ⚠ **「一度でも手にしたか」は `Inventory.hasEverHeld`。**いま持っている数ではない
+   *   （売り切って0個になった品も「手にした品」のまま）。
+   */
+  private merchantListing(): ReturnType<typeof merchantListing> {
+    return merchantListing(
+      this.registry_.getAllItems(),
+      this.world.getState(),
+      id => this.inventory.hasEverHeld(id),
     )
   }
 
@@ -950,7 +1001,10 @@ export class GameScene extends Phaser.Scene {
    */
   private savePreset(index: number): void {
     const slots = this.floorGrid.getAllSlots()
-    this.shelfPresets.save(index, slots)
+    // ⚠ **覚えるときの島を一緒に持たせる**（#67）。`12区画` が2つ並ぶと
+    //   文字が完全に同一になり、縮小図しか手がかりが無かった。
+    //   ⚠ **呼び出すときの島ではない。**型はどの島でも呼べる
+    this.shelfPresets.save(index, slots, this.world.getIsland())
     this.presetMenu.refresh()
     this.updateStatus(
       slots.length === 0 ? '「全部下ろす」を型に覚えた' : `いまの${slots.length}区画を型に覚えた`,

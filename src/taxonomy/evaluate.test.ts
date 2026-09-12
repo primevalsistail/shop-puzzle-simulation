@@ -10,7 +10,8 @@ import { tier, salePrice, purchasePrice } from './derive.js'
 import { ALL_RECIPES } from './recipes.js'
 import {
   adjacentPairs, evaluate, finalModifiers, stockedByIslandMerchant,
-  passesStockGates, becameBuyable,
+  passesStockGates, becameBuyable, salesUntilBuyable, merchantListing,
+  handledByIslandMerchant,
   type GameState, type Placement,
 } from './evaluate.js'
 import { ROUTE } from './islands.js'
@@ -337,5 +338,116 @@ describe('passesStockGates — 場所の条件を見ない', () => {
 
   it('売った数が届けば通る', () => {
     expect(passesStockGates(crafted, at('ミフユリア', new Map([[crafted.id, 100]])))).toBe(true)
+  })
+})
+
+/**
+ * **あと何個売れば買えるようになるか**（#66）。
+ *
+ * ⚠ **しきい値（100）をテストにも書き写さない。**`becameBuyable` が
+ *   「またいだ瞬間だけ true」であることを使い、**規則から出した残りと突き合わせる。**
+ */
+describe('salesUntilBuyable —「あとN個」（#66）', () => {
+  const crafted = ALL_ITEMS.find(i => tier(i.id) >= 2)!
+  const material = ALL_ITEMS.find(i => tier(i.id) === 1)!
+
+  it('すでに並んでいる品は 0', () => {
+    expect(salesUntilBuyable(material, 'ハルヴェラ', 0)).toBe(0)
+  })
+
+  /** ⚠ **画面へ書き写した数ではなく、規則を評価して出した数であることの検査** */
+  it('出した残りだけ売ると、ちょうど並ぶようになる', () => {
+    for (const sold of [0, 1, 37, 99]) {
+      const left = salesUntilBuyable(crafted, 'ハルヴェラ', sold)!
+      expect(left).toBeGreaterThan(0)
+      // 残りだけ売れば「並ぶようになった」が起きる
+      expect(becameBuyable(crafted, 'ハルヴェラ', sold, sold + left)).toBe(true)
+      // 1個手前では、まだ起きない
+      expect(becameBuyable(crafted, 'ハルヴェラ', sold, sold + left - 1)).toBe(false)
+    }
+  })
+
+  it('売るほど残りが1ずつ減る', () => {
+    const a = salesUntilBuyable(crafted, 'ハルヴェラ', 10)!
+    const b = salesUntilBuyable(crafted, 'ハルヴェラ', 11)!
+    expect(a - b).toBe(1)
+  })
+
+  it('届いたあとは 0 のまま', () => {
+    const left = salesUntilBuyable(crafted, 'ハルヴェラ', 0)!
+    expect(salesUntilBuyable(crafted, 'ハルヴェラ', left)).toBe(0)
+    expect(salesUntilBuyable(crafted, 'ハルヴェラ', left + 500)).toBe(0)
+  })
+
+  it('どの島でも同じ（U2 は現在地を読まない）', () => {
+    const left = salesUntilBuyable(crafted, ROUTE[0], 0)
+    for (const island of ROUTE) expect(salesUntilBuyable(crafted, island, 0)).toBe(left)
+  })
+})
+
+/**
+ * **商人のところに出す行**（#66）。
+ * **買えるもの ＋ もうすぐ買えるもの**（PO 決定 2026-09-13）。
+ */
+describe('merchantListing — 買えるもの ＋ もうすぐ買えるもの（#66）', () => {
+  const crafted = ALL_ITEMS.find(i => tier(i.id) >= 2)!
+  const everything = () => true
+  const nothing = () => false
+
+  it('一度手にした U2 待ちの品が、もうすぐ買える側に出る', () => {
+    const { upcoming } = merchantListing(ALL_ITEMS, at('ハルヴェラ'), everything)
+    const row = upcoming.find(u => u.item.id === crafted.id)
+    expect(row).toBeDefined()
+    expect(row!.salesLeft).toBe(salesUntilBuyable(crafted, 'ハルヴェラ', 0))
+  })
+
+  /** ⚠ **手にしたことのない品は出さない。**出すと商人の一覧が未見の品のカタログになる */
+  it('一度も手にしていない品は、どちらにも出ない', () => {
+    const { stocked, upcoming } = merchantListing(ALL_ITEMS, at('ハルヴェラ'), nothing)
+    expect(upcoming).toHaveLength(0)
+    // 買える側（U1 の素材）は everHeld に関わらず出る
+    expect(stocked.length).toBeGreaterThan(0)
+    expect(stocked.some(i => tier(i.id) >= 2)).toBe(false)
+  })
+
+  /**
+   * ⚠ **買う操作は `stocked` にしか無い**（`PurchaseMenu` は `upcoming` の行に
+   *   買う部品をそもそも作らない）。**同じ品が両側に出ないこと**がその前提。
+   */
+  it('もうすぐ買える品は、買える側に入っていない', () => {
+    const { stocked, upcoming } = merchantListing(ALL_ITEMS, at('ハルヴェラ'), everything)
+    const stockedIds = new Set(stocked.map(i => i.id))
+    for (const u of upcoming) {
+      expect(stockedIds.has(u.item.id)).toBe(false)
+      expect(passesStockGates(u.item, at('ハルヴェラ'))).toBe(false)
+      expect(u.salesLeft).toBeGreaterThan(0)
+    }
+  })
+
+  /** ⚠ **その島に並びようのない品に「あとN個」を出すと嘘になる**（U3・U4） */
+  it('その島の商人が扱わない品は、もうすぐ買える側にも出ない', () => {
+    for (const island of ROUTE) {
+      const { upcoming } = merchantListing(ALL_ITEMS, at(island), everything)
+      for (const u of upcoming) {
+        expect(handledByIslandMerchant(u.item, at(island))).toBe(true)
+      }
+    }
+  })
+
+  it('売って届いた品は、買える側へ移る', () => {
+    const left = salesUntilBuyable(crafted, 'ハルヴェラ', 0)!
+    const sold = new Map([[crafted.id, left]])
+    const { stocked, upcoming } = merchantListing(ALL_ITEMS, at('ハルヴェラ', sold), everything)
+    expect(stocked.some(i => i.id === crafted.id)).toBe(true)
+    expect(upcoming.some(u => u.item.id === crafted.id)).toBe(false)
+  })
+
+  /** 買える側は、これまでどおり `stockedByIslandMerchant` と同じ */
+  it('買える側は、これまでの品揃えと変わらない', () => {
+    for (const island of ROUTE) {
+      const { stocked } = merchantListing(ALL_ITEMS, at(island), everything)
+      expect(stocked.map(i => i.id))
+        .toEqual(stockedByIslandMerchant(ALL_ITEMS, at(island)).map(i => i.id))
+    }
   })
 })

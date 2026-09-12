@@ -7,6 +7,7 @@ import { MAX_QUANTITY } from '../components/economy/Inventory.js'
 import type { IslandName } from '../taxonomy/islands.js'
 import type { MaterialNeed } from '../taxonomy/materials.js'
 import type { ItemId } from '../taxonomy/axes.js'
+import type { UpcomingStock } from '../taxonomy/evaluate.js'
 import { SearchBox } from './SearchBox.js'
 import { money } from './money.js'
 import { createInput, tryAddDom, readCount } from './domInput.js'
@@ -16,6 +17,7 @@ import {
   PLACE_CX, CONTENT_L, CONTENT_R,
   SUBTITLE_Y, FILTER_Y, ROWS_TOP, PAGER_Y, rowsThatFit,
   BUY_W, BUY_FONT_PX, BUY_SUFFIX, INFO_MAX_W, INFO_FONT_PX, LOG_T,
+  UPCOMING_FONT_PX, upcomingLabel,
 } from './layout.js'
 
 const ROW_H = 56
@@ -64,9 +66,13 @@ interface Row {
 /**
  * 島の商人のところ。**ダイアログではなく「行く場所」**（#58）。
  *
- * ⚠ **品揃えは固定ではない。**`stockedByIslandMerchant` が現在地と累計販売数から出す（#30）。
+ * ⚠ **品揃えは固定ではない。**`merchantListing` が現在地と累計販売数から出す（#30・#66）。
  *   ハルヴェラ・累計販売0の時点で **18品**。売るほど U2 で増えるので、
  *   画面に収まらない。**ホイールで送れないと下の品に手が届かない。**
+ *
+ * ⚠ **並ぶのは「買えるもの」だけではない**（#66・PO 決定 2026-09-13）。
+ *   **一度でも手にした品**は、まだ U2 を通っていなくても `あとN個売れば並ぶ` の行として出る。
+ *   **その行は買えない。**買う部品（− ＋ 最大 買う ／ 個数の `<input>`）を**そもそも作らない。**
  */
 export class PurchaseMenu {
   private container: Phaser.GameObjects.Container | null = null
@@ -84,6 +90,12 @@ export class PurchaseMenu {
   private rows: Row[] = []
   /** 品ごとに打ち込んだ個数。買ったあとも覚えておく */
   private amounts = new Map<string, number>()
+  /**
+   * まだ買えない品の「あと何個」（#66）。**ここに載っている品の行は買えない。**
+   *
+   * ⚠ **しきい値（100）は持たない。**`salesUntilBuyable` が規則を評価して出した残りだけ。
+   */
+  private salesLeft = new Map<string, number>()
 
   constructor(
     private scene: Phaser.Scene,
@@ -111,10 +123,19 @@ export class PurchaseMenu {
     })
   }
 
-  open(materials: ItemDef[], islandName: IslandName, focusId?: string): void {
+  /**
+   * @param materials いま買える品（`merchantListing().stocked`）
+   * @param upcoming  もうすぐ買える品（同 `.upcoming`）。**買えない行**として並ぶ（#66）
+   */
+  open(
+    materials: ItemDef[], islandName: IslandName,
+    upcoming: readonly UpcomingStock[] = [], focusId?: string,
+  ): void {
     if (this.isOpen) return
     this.isOpen = true
-    this.materials = materials
+    // ⚠ **買えるものが先。**買えない行が上に来ると、開いた瞬間に「何も買えない」と読まれる
+    this.materials = [...materials, ...upcoming.map(u => u.item)]
+    this.salesLeft = new Map(upcoming.map(u => [u.item.id, u.salesLeft]))
     this.islandName = islandName
     this.focusId = focusId ?? null
     this.paging.clearKinds()
@@ -233,7 +254,12 @@ export class PurchaseMenu {
     })
 
     this.paging.slice(materials).forEach((mat, i) => {
-      this.buildRow(mat, ROWS_TOP + ROW_H / 2 + i * ROW_H, objs)
+      const y = ROWS_TOP + ROW_H / 2 + i * ROW_H
+      const left = this.salesLeft.get(mat.id)
+      // ⚠ **買えない行は別の組み立てを通す。**買う部品を作ってから無効にするのではなく、
+      //   **そもそも作らない**（`this.rows` にも入らないので `buy()` から手が届かない）
+      if (left !== undefined) this.buildUpcomingRow(mat, left, y, objs)
+      else this.buildRow(mat, y, objs)
     })
 
     // ⚠ **0件のまま何も言わないと、画面がまっさらで不具合に見える。**
@@ -279,6 +305,50 @@ export class PurchaseMenu {
     objs.push(this.scene.add.text(CONTENT_R, PAGER_Y, this.paging.rangeLabel(total), {
       fontSize: '13px', color: '#aa9977',
     }).setOrigin(1, 0.5))
+  }
+
+  /**
+   * **まだ買えないが、もうすぐ買える**品の行（#66）。
+   *
+   * ⚠ **買う部品を1つも作らない。**個数の `<input>`・− ＋ 最大・「買う」のどれも置かない。
+   *   「作ってから無効にする」ではなく**作らない**ので、押せてしまう経路が残らない。
+   * ⚠ **行そのものを暗くする。**買える行と同じ見た目で「あとN個」だけ違うと、
+   *   **買えるのに在庫が無いだけ**に読める。
+   * ⚠ **`この島の産` は出ない。**U2 待ちの品は必ず tier>=2 で、
+   *   **tier>=2 の品はすべて産地が `なし`**（実測・135品）。産地の島の行の 5.6px 問題には当たらない。
+   */
+  private buildUpcomingRow(
+    mat: ItemDef, salesLeft: number, y: number, objs: Phaser.GameObjects.GameObject[],
+  ): void {
+    objs.push(
+      this.scene.add.rectangle(PLACE_CX, y, ROW_W, ROW_H - 6, 0x2a2a2a)
+        .setStrokeStyle(1, 0x444444),
+    )
+
+    objs.push(
+      this.scene.add.text(NAME_X, y, mat.display.name, {
+        fontSize: '15px', color: '#998877',
+      }).setOrigin(0, 0.5),
+    )
+
+    // 作れる品の材料になっているなら、買える行と同じように言う（#23）。
+    // ⚠ **`⚠ 切らしている` は出さない。**急いでも買えないので、急かす意味が無い
+    const need = this.needOf(mat)
+    if (need) {
+      objs.push(
+        this.scene.add.text(NEED_R, y, `${need.recipes}品に要る`, {
+          fontSize: '12px', color: '#667788',
+        }).setOrigin(1, 0.5),
+      )
+    }
+
+    // ⚠ **「買う」ボタンと同じ右端に、ボタンを作らずに置く。**
+    //   文字とその大きさは `layout.ts`（`layout.test.ts` が幅を見ている）
+    objs.push(
+      this.scene.add.text(BUY_L + BUY_W, y, upcomingLabel(salesLeft), {
+        fontSize: `${UPCOMING_FONT_PX}px`, color: '#aa9977',
+      }).setOrigin(1, 0.5),
+    )
   }
 
   private buildRow(mat: ItemDef, y: number, objs: Phaser.GameObjects.GameObject[]): void {

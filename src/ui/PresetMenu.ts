@@ -1,11 +1,13 @@
 import Phaser from 'phaser'
 import type { ShelfPresets, PresetSlot } from '../components/floor/ShelfPresets.js'
-import { PRESET_COUNT } from '../components/floor/ShelfPresets.js'
+import { PRESET_COUNT, describePreset } from '../components/floor/ShelfPresets.js'
 import type { ItemRegistry } from '../components/items/ItemRegistry.js'
 import type { GridSize } from '../types/index.js'
 import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
-import { CONTENT_L, CONTENT_R, SUBTITLE_Y, ROWS_TOP, ROWS_BOTTOM } from './layout.js'
+import {
+  CONTENT_L, CONTENT_R, SUBTITLE_Y, ROWS_TOP, ROWS_BOTTOM, PRESET_TEXT_FONT_PX,
+} from './layout.js'
 
 /** 2列 × 5行。**型は10本**（`PRESET_COUNT`） */
 const COLS = 2
@@ -34,6 +36,10 @@ const BTN_GAP = 7
  *
  * ⚠ **番号で呼ばない**（PO 2026-09-12）。「型1」「型2」では**中身が思い出せない。**
  *   **盤面の縮小図**をそのまま出し、**見て選ばせる。**
+ *
+ * ⚠ **覚えたときの島を出す**（#67。PO 判断 Q5 のベース案 A）。`12区画` が2つ並ぶと
+ *   **文字が完全に同一**になり、縮小図しか手がかりが無かった。
+ *   ⚠ **文字は `describePreset`（`ShelfPresets.ts`）が組む。**ここで組むと検査できない。
  */
 export class PresetMenu {
   private container: Phaser.GameObjects.Container | null = null
@@ -123,8 +129,8 @@ export class PresetMenu {
 
     const textL = left + 10 + PREVIEW_W + 12
     objs.push(
-      this.scene.add.text(textL, cy - h / 2 + 15, this.describe(preset), {
-        fontSize: '12px', color: filled ? '#aabbcc' : '#667788',
+      this.scene.add.text(textL, cy - h / 2 + 15, describePreset(preset), {
+        fontSize: `${PRESET_TEXT_FONT_PX}px`, color: filled ? '#aabbcc' : '#667788',
       }).setOrigin(0, 0.5),
     )
 
@@ -177,13 +183,6 @@ export class PresetMenu {
     gfx.lineStyle(1, 0x6688aa, 0.8)
     gfx.strokeRect(ox, oy, w, h)
     objs.push(gfx)
-  }
-
-  private describe(preset: { savedAt: number; slots: readonly PresetSlot[] } | null): string {
-    if (!preset) return '空'
-    // ⚠ **現実の時刻は出さない。**「どの型を呼ぶか」の判断に一切効かない（束M・ペルソナ3人）
-    if (preset.slots.length === 0) return '全部下ろす'
-    return `${preset.slots.length}区画`
   }
 
   private button(

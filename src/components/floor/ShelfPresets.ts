@@ -1,4 +1,6 @@
 import type { DisplaySlot, GridCell, Rotation } from '../../types/index.js'
+import type { IslandName } from '../../taxonomy/islands.js'
+import { ROUTE } from '../../taxonomy/islands.js'
 
 /**
  * 品出しの型（マイセット。#27）。
@@ -24,6 +26,15 @@ export interface PresetSlot {
 
 export interface ShelfPreset {
   readonly savedAt: number
+  /**
+   * **覚えたときに居た島**（#67。PO 判断 Q5 のベース案 A）。
+   *
+   * ⚠ **任意。**型が島を持たない古いセーブがすでに手元にあるので、
+   *   **無いまま読めること**（先例は `SaveData.shelfPresets` / `orders`）。
+   * ⚠ **名前は打たせない。**ペルソナ4人中2人が「名前を付けると名前を読むようになり、
+   *   盤面を見なくなる」と反対している。**あとから編集できるようにするのは #83。**
+   */
+  readonly island?: IslandName
   readonly slots: readonly PresetSlot[]
 }
 
@@ -55,10 +66,17 @@ export class ShelfPresets {
     return this.inRange(index) ? this.presets[index] : null
   }
 
-  /** いまの並びを覚える。**空の盤面も覚えてよい**（「全部下ろす」型になる） */
-  save(index: number, slots: readonly DisplaySlot[], now = Date.now()): void {
+  /**
+   * いまの並びを覚える。**空の盤面も覚えてよい**（「全部下ろす」型になる）。
+   *
+   * ⚠ **島は覚えるときに渡す。**呼び出すときの島ではない（呼び出しはどの島でもできる）。
+   */
+  save(
+    index: number, slots: readonly DisplaySlot[],
+    island?: IslandName, now = Date.now(),
+  ): void {
     if (!this.inRange(index)) return
-    this.presets[index] = { savedAt: now, slots: capture(slots) }
+    this.presets[index] = { savedAt: now, island, slots: capture(slots) }
   }
 
   clear(index: number): void {
@@ -66,7 +84,8 @@ export class ShelfPresets {
   }
 
   toRecord(): (ShelfPreset | null)[] {
-    return this.presets.map(p => (p ? { savedAt: p.savedAt, slots: [...p.slots] } : null))
+    return this.presets.map(p =>
+      (p ? { savedAt: p.savedAt, island: p.island, slots: [...p.slots] } : null))
   }
 
   /**
@@ -86,13 +105,39 @@ export class ShelfPresets {
         position: { x: Math.floor(s.position.x), y: Math.floor(s.position.y) },
         rotation: s.rotation,
       }))
-      this.presets[i] = { savedAt: Number.isFinite(p.savedAt) ? p.savedAt : 0, slots }
+      this.presets[i] = {
+        savedAt: Number.isFinite(p.savedAt) ? p.savedAt : 0,
+        // ⚠ **4島に無い値は読み捨てる。**島の名前は変わりうるので、
+        //   古いセーブの知らない島名をそのまま画面へ出さない
+        island: isIslandName(p.island) ? p.island : undefined,
+        slots,
+      }
     }
   }
 
   private inRange(index: number): boolean {
     return Number.isInteger(index) && index >= 0 && index < PRESET_COUNT
   }
+}
+
+function isIslandName(v: unknown): v is IslandName {
+  return typeof v === 'string' && (ROUTE as readonly string[]).includes(v)
+}
+
+/**
+ * 升に出す1行（#67）。
+ *
+ * ⚠ **`PresetMenu` ではなくここに置く。**あちらは Phaser を読むので
+ *   node の単体テストから import できず、**文字を組み立てる側を純粋な側に置かないと
+ *   検査できない**（`layout.ts` の `upcomingLabel` と同じ理由）。
+ * ⚠ **現実の時刻は出さない。**「どの型を呼ぶか」の判断に一切効かない（束M・ペルソナ3人）。
+ * ⚠ **島を持たない古い型は、従来どおり区画数だけ。**「島なし」と書かない
+ *   （書くと、古いセーブの10本ぜんぶに意味のない字が並ぶ）。
+ */
+export function describePreset(preset: ShelfPreset | null): string {
+  if (!preset) return '空'
+  const what = preset.slots.length === 0 ? '全部下ろす' : `${preset.slots.length}区画`
+  return preset.island ? `${preset.island}島 ${what}` : what
 }
 
 function isPresetSlot(s: unknown): s is PresetSlot {

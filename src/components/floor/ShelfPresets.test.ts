@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ShelfPresets, capture, PRESET_COUNT } from './ShelfPresets.js'
+import { ShelfPresets, capture, PRESET_COUNT, describePreset } from './ShelfPresets.js'
 import type { DisplaySlot } from '../../types/index.js'
 
 const slot = (id: string, itemId: string, x: number, y: number): DisplaySlot => ({
@@ -39,7 +39,7 @@ describe('ShelfPresets', () => {
 
   it('覚えて、呼び出せる', () => {
     const p = new ShelfPresets()
-    p.save(1, LAYOUT, 12345)
+    p.save(1, LAYOUT, 'ハルヴェラ', 12345)
     expect(p.get(1)?.savedAt).toBe(12345)
     expect(p.get(1)?.slots).toHaveLength(2)
     expect(p.get(0)).toBeNull()
@@ -81,13 +81,15 @@ describe('ShelfPresets', () => {
 describe('セーブとの往復', () => {
   it('書き出して読み直すと同じ', () => {
     const p = new ShelfPresets()
-    p.save(0, LAYOUT, 111)
-    p.save(2, [slot('s9', 'milk', 4, 4)], 222)
+    p.save(0, LAYOUT, 'ハルヴェラ', 111)
+    p.save(2, [slot('s9', 'milk', 4, 4)], 'ノアキータ', 222)
 
     const back = new ShelfPresets()
     back.restore(p.toRecord())
     expect(back.get(0)?.slots).toEqual(p.get(0)?.slots)
     expect(back.get(2)?.savedAt).toBe(222)
+    expect(back.get(0)?.island).toBe('ハルヴェラ')
+    expect(back.get(2)?.island).toBe('ノアキータ')
     expect(back.get(1)).toBeNull()
   })
 
@@ -138,5 +140,70 @@ describe('セーブとの往復', () => {
     const p = new ShelfPresets()
     p.restore([{ savedAt: NaN, slots: [] }])
     expect(p.get(0)?.savedAt).toBe(0)
+  })
+})
+
+/**
+ * **型に島名を付ける**（#67。PO 判断 Q5 のベース案 A）。
+ *
+ * ⚠ **`12区画` が2つ並ぶと文字が完全に同一になる。**束M で保存日時を消したあと、
+ *   見分けは縮小図だけが背負っていた。
+ */
+describe('describePreset — 升に出す1行（#67）', () => {
+  it('覚えた島が出る', () => {
+    const p = new ShelfPresets()
+    p.save(0, LAYOUT, 'ハルヴェラ')
+    expect(describePreset(p.get(0))).toBe('ハルヴェラ島 2区画')
+  })
+
+  /** ⚠ **型が島を持たない古いセーブがすでに手元にある。**従来どおりでなければならない */
+  it('島を持たない古い型は、これまでどおり区画数だけ', () => {
+    const p = new ShelfPresets()
+    p.restore([{ savedAt: 1, slots: capture(LAYOUT) }])
+    expect(p.get(0)?.island).toBeUndefined()
+    expect(describePreset(p.get(0))).toBe('2区画')
+  })
+
+  it('空の型は「空」', () => {
+    expect(describePreset(null)).toBe('空')
+  })
+
+  it('「全部下ろす」型にも島が付く', () => {
+    const p = new ShelfPresets()
+    p.save(0, [], 'リナツィア')
+    expect(describePreset(p.get(0))).toBe('リナツィア島 全部下ろす')
+    const q = new ShelfPresets()
+    q.save(0, [])
+    expect(describePreset(q.get(0))).toBe('全部下ろす')
+  })
+
+  /** ⚠ **現実の時刻は出さない**（束M・ペルソナ3人。「どの型を呼ぶか」に効かない） */
+  it('保存日時は出さない', () => {
+    const p = new ShelfPresets()
+    p.save(0, LAYOUT, 'ハルヴェラ', 1_757_000_000_000)
+    expect(describePreset(p.get(0))).not.toMatch(/[0-9]{2}\/[0-9]{2}/)
+  })
+})
+
+describe('島はセーブを往復する（#67）', () => {
+  it('4島に無い値は読み捨てる', () => {
+    const p = new ShelfPresets()
+    p.restore([
+      { savedAt: 1, island: 'どこでもない島', slots: [] },
+      { savedAt: 1, island: 42, slots: [] },
+      { savedAt: 1, island: 'ノアキータ', slots: [] },
+    ])
+    expect(p.get(0)?.island).toBeUndefined()
+    expect(p.get(1)?.island).toBeUndefined()
+    expect(p.get(2)?.island).toBe('ノアキータ')
+  })
+
+  it('島を渡さずに覚えた型も読める', () => {
+    const p = new ShelfPresets()
+    p.save(0, LAYOUT)
+    const back = new ShelfPresets()
+    back.restore(p.toRecord())
+    expect(back.get(0)?.island).toBeUndefined()
+    expect(back.get(0)?.slots).toHaveLength(2)
   })
 })

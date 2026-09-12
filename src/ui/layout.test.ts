@@ -3,6 +3,7 @@ import {
   SCREEN_W, SCREEN_H,
   HUD_PANEL_W, HUD_MONEY_FONT_PX, estTextWidth,
   BUY_W, BUY_FONT_PX, BUY_SUFFIX, INFO_MAX_W, INFO_FONT_PX,
+  UPCOMING_FONT_PX, upcomingLabel, PRESET_TEXT_FONT_PX,
   CRAFT_TEXT_MAX_W, CRAFT_ROUTE_FONT_PX,
   LEFT_PANEL_R, STRIP_L, STRIP_W, RIGHT_PANEL_L, LOG_T,
   PLACE_L, PLACE_R, PLACE_T, PLACE_B, PLACE_W, PLACE_H, PLACE_CX, PLACE_CY,
@@ -10,7 +11,8 @@ import {
   TITLE_Y, SUBTITLE_Y, FILTER_Y, ROWS_TOP, PAGER_Y, ROWS_BOTTOM,
   rowsThatFit, TITLE_RULE_Y, FILTER_BAND_H, FILTER_Y_NO_SUBTITLE, ROWS_TOP_NO_SUBTITLE,} from './layout.js'
 import { money } from './money.js'
-import { PRESET_COUNT } from '../components/floor/ShelfPresets.js'
+import { PRESET_COUNT, describePreset } from '../components/floor/ShelfPresets.js'
+import { ROUTE } from '../taxonomy/islands.js'
 
 /**
  * **受入条件2（棚を覆わない）を機械で見る。**
@@ -135,6 +137,34 @@ describe('品出しの型が1画面に入る（2列 × 5行）', () => {
   it('全部の升が一覧の範囲に収まる', () => {
     expect(ROWS_TOP + rows * cellH).toBeLessThanOrEqual(ROWS_BOTTOM)
   })
+
+  /**
+   * **升に出す1行に、島名が入るか**（#67）。
+   *
+   * 文字欄は**升の幅から、縮小図（左余白10 ＋ 70 ＋ 間隔12）を引いた残り。**
+   * ⚠ **最悪値は区画数が3桁のとき。**盤面はいちばん広いとき 13×10 ＝ 130升で、
+   *   1升の品ばかり並べると `130区画` になる。**いまよく出る `12区画` で見てはいけない。**
+   */
+  const presetTextW = cellW - (10 + 70 + 12)
+
+  it('文字欄に「島名 ＋ 区画数」が収まる（3桁の区画数でも）', () => {
+    for (const island of ROUTE) {
+      const line = describePreset({ savedAt: 0, island, slots: Array(130).fill(null) as never })
+      expect(estTextWidth(line, PRESET_TEXT_FONT_PX)).toBeLessThanOrEqual(presetTextW)
+    }
+  })
+
+  it('文字欄に「島名 ＋ 全部下ろす」が収まる', () => {
+    for (const island of ROUTE) {
+      const line = describePreset({ savedAt: 0, island, slots: [] })
+      expect(estTextWidth(line, PRESET_TEXT_FONT_PX)).toBeLessThanOrEqual(presetTextW)
+    }
+  })
+
+  /** ⚠ **ボタン3つの行と同じ升に入る。**文字の行が伸びてもボタンの列は動かない */
+  it('文字欄は、ボタン3つの列より広い', () => {
+    expect(presetTextW).toBeGreaterThanOrEqual(76 * 3 + 7 * 2)
+  })
 })
 
 /**
@@ -211,6 +241,34 @@ describe('金額の文字が枠に収まる', () => {
   it('仕入れ値が4桁でも、左隣の「N品に要る」に重ならない', () => {
     expect(estTextWidth(`${money(1_234)}/個　在庫 100/999`, INFO_FONT_PX))
       .toBeLessThanOrEqual(INFO_MAX_W)
+  })
+
+  /**
+   * 商人のところの「もうすぐ買える」行（#66）。**「買う」ボタンと同じ右端に置く。**
+   *
+   * ⚠ **最悪値は3桁の残り。**U2 のしきい値は規則データの中の値なので、
+   *   **いまの 100 で見てはいけない**（`あと100個…` は2桁の行より狭い）。
+   *   しきい値を上げたときに黙ってはみ出す、という壊れ方をする。
+   */
+  it('「もうすぐ買える」は、3桁の残りでも「買う」ボタンの幅に収まる', () => {
+    expect(estTextWidth(upcomingLabel(999), UPCOMING_FONT_PX)).toBeLessThanOrEqual(BUY_W)
+  })
+
+  /**
+   * ⚠ **`BUY_FONT_PX`（12）へ上げると 1px はみ出す。**
+   *   「ボタンと大きさを揃えよう」と思ったときに落ちる検査。
+   */
+  it('⚠ 「買う」と同じ 12px では収まらない（だから 11px）', () => {
+    expect(estTextWidth(upcomingLabel(999), BUY_FONT_PX)).toBeGreaterThan(BUY_W)
+  })
+
+  /**
+   * ⚠ **しきい値（100）も分母も画面に出さない**（PO 判断 Q7=A ／ #60 の既決）。
+   *   `88/100` のような形へ変えると、規則を変えたとき画面の意味が変わる。
+   */
+  it('「もうすぐ買える」に分母が出ていない', () => {
+    expect(upcomingLabel(12)).toBe('あと12個売れば並ぶ')
+    expect(upcomingLabel(12)).not.toContain('/')
   })
 
   /**

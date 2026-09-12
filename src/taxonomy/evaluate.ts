@@ -305,12 +305,20 @@ export function stockedByIslandMerchant(
   state: GameState,
   rules: readonly UnlockRule[] = UNLOCK_RULES,
 ): readonly ItemDef[] {
-  return items.filter(item => {
-    const isLocal = item.origin === state.現在地   // U3（場所の条件。規則データには無い）
-    const isSeaborne = item.origin === 'なし'      // U4（同上）
-    if (!isLocal && !isSeaborne) return false
-    return passesStockGates(item, state, rules)
-  })
+  return items.filter(item =>
+    handledByIslandMerchant(item, state) && passesStockGates(item, state, rules))
+}
+
+/**
+ * その島の商人が**そもそも扱いうる**品か（U3・U4。**場所の条件だけ**で、解禁は見ない）。
+ *
+ * ⚠ **「もうすぐ買える」を出すのに要る**（#66）。解禁を通っていない品でも、
+ *   ここが false なら**その島にはどれだけ売っても並ばない。**「あとN個」は嘘になる。
+ */
+export function handledByIslandMerchant(item: ItemDef, state: GameState): boolean {
+  const isLocal = item.origin === state.現在地   // U3（場所の条件。規則データには無い）
+  const isSeaborne = item.origin === 'なし'      // U4（同上）
+  return isLocal || isSeaborne
 }
 
 /**
@@ -353,4 +361,87 @@ export function becameBuyable(
   const passesAt = (sold: number): boolean =>
     passesStockGates(item, { 現在地: island, 累計販売数: new Map([[item.id, sold]]) }, rules)
   return !passesAt(soldBefore) && passesAt(soldAfter)
+}
+
+/**
+ * **あと何個売れば、その島の商人が並べるようになるか**（#66）。
+ * すでに並んでいるなら 0。いくら売っても並ばないなら `null`。
+ *
+ * ⚠ **しきい値（100）をここに書き写さないこと。**`becameBuyable` と同じ理由で、
+ *   書き写すと**規則を変えたとき表示だけが古い数のまま**になる。
+ *   だから**販売数を動かしながら規則そのものを評価し、通り始める数を探す。**
+ *
+ * ⚠ **探索が成り立つのは、解禁が `累計販売数` に対して単調だから**
+ *   （進む解禁は U2 の `累計販売数 >= 一定数` ただ1つ。U1 は `tier == 1` で進まない）。
+ *   **`<=` のように「売りすぎると並ばなくなる」規則を足したら、ここは使えなくなる。**
+ *
+ * ⚠ **場所の条件（U3・U4）は見ない。**`handledByIslandMerchant` が false の品に
+ *   これを使うと「あとN個」が嘘になるので、**呼ぶ側が先に弾くこと。**
+ */
+export function salesUntilBuyable(
+  item: ItemDef,
+  island: IslandName,
+  sold: number,
+  rules: readonly UnlockRule[] = UNLOCK_RULES,
+): number | null {
+  const passesAt = (n: number): boolean =>
+    passesStockGates(item, { 現在地: island, 累計販売数: new Map([[item.id, n]]) }, rules)
+
+  const from = Math.max(0, Math.floor(sold))
+  if (passesAt(from)) return 0
+
+  // 通る数を倍々で探す。⚠ **上限を定数で書かない**（それも「しきい値の書き写し」になる）。
+  //   打ち切りは無限ループよけで、**遊びの値ではない**（2^40 ≒ 1.1兆個）
+  const MAX_DOUBLINGS = 40
+  let hi = from + 1
+  for (let i = 0; !passesAt(hi); i++) {
+    if (i >= MAX_DOUBLINGS) return null
+    hi *= 2
+  }
+
+  // `lo` は通らない・`hi` は通る。間を詰めて**通り始める最小の数**を出す
+  let lo = from
+  while (hi - lo > 1) {
+    const mid = Math.floor((lo + hi) / 2)
+    if (passesAt(mid)) hi = mid
+    else lo = mid
+  }
+  return hi - from
+}
+
+/** 「もうすぐ買える」1行ぶん */
+export interface UpcomingStock {
+  readonly item: ItemDef
+  /** あと何個売れば並ぶか。**1以上**（0 なら `stocked` の側に入っている） */
+  readonly salesLeft: number
+}
+
+/**
+ * 商人のところに出す行（#66）。**買えるもの ＋ もうすぐ買えるもの。**
+ *
+ * ⚠ **仕入れ画面の意味が変わっている**（「買えるものの一覧」→「買えるもの ＋ もうすぐ買えるもの」。
+ *   PO 決定 2026-09-13）。`upcoming` の行は**買えない。**買う操作は `stocked` にしか無い。
+ *
+ * ⚠ **`upcoming` は「一度でも手にした品」だけ。**手にしたことのない品まで出すと、
+ *   商人の一覧が**まだ存在を知らない品のカタログ**になり、作って驚く余地が消える（PO 指示）。
+ */
+export function merchantListing(
+  items: readonly ItemDef[],
+  state: GameState,
+  /** 一度でも手に入れたことがあるか（`Inventory.hasEverHeld`） */
+  everHeld: (id: ItemId) => boolean,
+  rules: readonly UnlockRule[] = UNLOCK_RULES,
+): { readonly stocked: readonly ItemDef[]; readonly upcoming: readonly UpcomingStock[] } {
+  const stocked: ItemDef[] = []
+  const upcoming: UpcomingStock[] = []
+
+  for (const item of items) {
+    if (!handledByIslandMerchant(item, state)) continue
+    if (passesStockGates(item, state, rules)) { stocked.push(item); continue }
+    if (!everHeld(item.id)) continue
+    const salesLeft = salesUntilBuyable(item, state.現在地, state.累計販売数.get(item.id) ?? 0, rules)
+    if (salesLeft === null || salesLeft <= 0) continue
+    upcoming.push({ item, salesLeft })
+  }
+  return { stocked, upcoming }
 }

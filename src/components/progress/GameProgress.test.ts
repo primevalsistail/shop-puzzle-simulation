@@ -100,7 +100,7 @@ describe('GameProgress', () => {
     const presets = new ShelfPresets()
     presets.save(1, [{
       id: 's1', itemId: 'apple', shape: [[1]], position: { x: 2, y: 3 }, rotation: 2,
-    }], 999)
+    }], 'ミフユリア', 999)
 
     new GameProgress(
       new EconomyManager(), new Inventory(), grid, makeTimeManagerMock(),
@@ -115,6 +115,8 @@ describe('GameProgress', () => {
     restored.restore(loaded!.shelfPresets)
 
     expect(restored.get(1)?.savedAt).toBe(999)
+    // ⚠ **覚えた島もセーブを往復する**（#67）。落ちると `12区画` が2つ並んで見分けられない
+    expect(restored.get(1)?.island).toBe('ミフユリア')
     expect(restored.get(1)?.slots).toEqual([
       { itemId: 'apple', position: { x: 2, y: 3 }, rotation: 2 },
     ])
