@@ -12,6 +12,7 @@ import { ShopService } from '../services/ShopService.js'
 import { GameService } from '../services/GameService.js'
 import { GameProgress } from '../components/progress/GameProgress.js'
 import { WorldState } from '../components/progress/WorldState.js'
+import { Upgrades } from '../components/progress/Upgrades.js'
 import { FloorRenderer, GRID_ORIGIN_X, GRID_ORIGIN_Y, CELL_SIZE, DISCARD_MARGIN } from '../ui/FloorRenderer.js'
 import { InventoryPanel } from '../ui/InventoryPanel.js'
 import { CraftMenu } from '../ui/CraftMenu.js'
@@ -29,6 +30,7 @@ import { ALL_ITEMS } from '../taxonomy/items.js'
 import { ALL_RECIPES } from '../taxonomy/recipes.js'
 import { stockedByIslandMerchant } from '../taxonomy/evaluate.js'
 
+/** 初期の盤面。**棚の強化で広がる**（`Upgrades.gridSize()`） */
 const INITIAL_GRID = { width: 6, height: 5 }
 
 /**
@@ -57,6 +59,7 @@ export class GameScene extends Phaser.Scene {
   private gameService!: GameService
   private progress!: GameProgress
   private world!: WorldState
+  private upgrades!: Upgrades
 
   private floorRenderer!: FloorRenderer
   private inventoryPanel!: InventoryPanel
@@ -85,12 +88,13 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     this.registry_ = new ItemRegistry(ALL_ITEMS, ALL_RECIPES)
     this.world = new WorldState()
+    this.upgrades = new Upgrades()
     this.floorGrid = new FloorGrid(INITIAL_GRID, this.registry_)
     this.placementManager = new PlacementManager(this.floorGrid, this.registry_)
     this.inventory = new Inventory()
     this.economy = new EconomyManager()
     this.timeManager = new TimeManager()
-    this.craftingSystem = new CraftingSystem(this.registry_, this.inventory, this.timeManager)
+    this.craftingSystem = new CraftingSystem(this.registry_, this.inventory, this.timeManager, this.upgrades)
     this.customerSim = new CustomerSimulator(this.registry_)
     this.shopService = new ShopService(this.floorGrid, this.placementManager, this.inventory, this.registry_)
     this.gameService = new GameService(
@@ -99,6 +103,7 @@ export class GameScene extends Phaser.Scene {
       this.customerSim,
       this.economy,
       this.world,
+      this.upgrades,
     )
     this.progress = new GameProgress(
       this.economy, this.inventory, this.floorGrid, this.timeManager, this.world,

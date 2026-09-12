@@ -43,8 +43,13 @@ export class CustomerSimulator {
     slots: DisplaySlot[],
     evaluation: EvaluationResult,
     rng: () => number = Math.random,
+    /**
+     * 強化の倍率。**配置の効き目とは別の掛け算にする。**
+     * 規則の合成は加算なので、ここに混ぜると配置の工夫が誤差になる。
+     */
+    upgrade: { 来客: number; 利益率: number } = { 来客: 1, 利益率: 1 },
   ): SaleResult[] {
-    if (rng() > CUSTOMER_ARRIVAL_RATE * evaluation.shopWide.集客) return []
+    if (rng() > CUSTOMER_ARRIVAL_RATE * evaluation.shopWide.集客 * upgrade.来客) return []
 
     const results: SaleResult[] = []
     // ⚠ **巡回順をランダムにする。**`getAllSlots()` の順は挿入順＝**置いた順**で、
@@ -61,7 +66,7 @@ export class CustomerSimulator {
           itemId: slot.itemId,
           qtySold: 1,
           // ⚠ 倍率は加工利益にだけ乗る。材料費には乗らない（derive.ts の finalPrice を参照）
-          revenue: this.registry.finalPriceOf(slot.itemId, final.値段),
+          revenue: this.registry.finalPriceOf(slot.itemId, final.値段 * upgrade.利益率),
         })
       }
     }

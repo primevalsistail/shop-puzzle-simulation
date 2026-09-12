@@ -3,6 +3,7 @@ import type { PlacementManager } from '../components/floor/PlacementManager.js'
 import type { CustomerSimulator } from '../components/simulation/CustomerSimulator.js'
 import type { EconomyManager } from '../components/economy/EconomyManager.js'
 import type { WorldState } from '../components/progress/WorldState.js'
+import type { Upgrades } from '../components/progress/Upgrades.js'
 import { EventBus } from './EventBus.js'
 import { GameEvents } from '../types/index.js'
 import type { DisplaySlot } from '../types/index.js'
@@ -26,6 +27,7 @@ export class GameService {
     private customerSim: CustomerSimulator,
     private economy: EconomyManager,
     private world: WorldState,
+    private upgrades: Upgrades,
   ) {}
 
   /**
@@ -43,7 +45,10 @@ export class GameService {
     if (slots.length === 0) return
 
     const evaluation = this.evaluateFloor(slots)
-    const sales = this.customerSim.simulateMinute(slots, evaluation, rng)
+    const sales = this.customerSim.simulateMinute(slots, evaluation, rng, {
+      来客: this.upgrades.customerMultiplier(),
+      利益率: this.upgrades.marginMultiplier(),
+    })
 
     for (const sale of sales) {
       this.placementManager.depleteOne(sale.slotId)

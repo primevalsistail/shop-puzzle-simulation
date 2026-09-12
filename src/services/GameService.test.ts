@@ -8,6 +8,7 @@ import { ItemRegistry } from '../components/items/ItemRegistry.js'
 import { EventBus } from './EventBus.js'
 import { GameEvents } from '../types/index.js'
 import { WorldState } from '../components/progress/WorldState.js'
+import { Upgrades } from '../components/progress/Upgrades.js'
 import { ALL_ITEMS } from '../taxonomy/items.js'
 import { ALL_RECIPES } from '../taxonomy/recipes.js'
 
@@ -18,8 +19,9 @@ function setup() {
   const sim = new CustomerSimulator(reg)
   const eco = new EconomyManager(50000)
   const world = new WorldState()
-  const gs = new GameService(grid, pm, sim, eco, world)
-  return { reg, grid, pm, sim, eco, world, gs }
+  const upgrades = new Upgrades()
+  const gs = new GameService(grid, pm, sim, eco, world, upgrades)
+  return { reg, grid, pm, sim, eco, world, upgrades, gs }
 }
 
 describe('GameService', () => {
@@ -139,6 +141,51 @@ describe('GameService', () => {
     }
     gs.onMinutePassed(rng, true)
     expect(world.getSoldCount('snap_pea')).toBe(1)
+  })
+
+  describe('強化の効き目', () => {
+    /** 1日ぶん（営業600分）回して売上を出す。乱数は固定なので毎回同じ結果になる */
+    const runDay = (gs: ReturnType<typeof setup>['gs']) => {
+      let seed = 1
+      const rng = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648 }
+      for (let m = 0; m < 600; m++) gs.onMinutePassed(rng, true)
+    }
+
+    it('来客の強化を上げると売上が増える', () => {
+      const a = setup(); a.pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 999); runDay(a.gs)
+      const b = setup(); b.pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 999)
+      for (let i = 0; i < 5; i++) b.upgrades.advance('来客')
+      runDay(b.gs)
+      expect(b.eco.getTotalRevenue()).toBeGreaterThan(a.eco.getTotalRevenue())
+    })
+
+    it('利益率の強化を上げると、1個あたりの売値が上がる', () => {
+      const a = setup(); a.pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 999); runDay(a.gs)
+      const soldA = 999 - a.grid.getAllSlots()[0].quantity
+
+      const b = setup(); b.pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 999)
+      for (let i = 0; i < 5; i++) b.upgrades.advance('利益率')
+      runDay(b.gs)
+      const soldB = 999 - b.grid.getAllSlots()[0].quantity
+
+      // 売れた個数は同じ（利益率は売れやすさに効かない）が、単価が上がる
+      expect(soldB).toBe(soldA)
+      expect(b.eco.getTotalRevenue()).toBeGreaterThan(a.eco.getTotalRevenue())
+    })
+
+    it('⚠ 強化は配置の効き目と別の掛け算になっている（加算の輪に入れない）', () => {
+      // 加算に混ぜると、取り合わせ（1.2倍）が強化（3.0倍）に飲まれて誤差になる
+      const plain = setup()
+      const boosted = setup()
+      for (let i = 0; i < 5; i++) boosted.upgrades.advance('利益率')
+      plain.pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 999)
+      boosted.pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 999)
+      runDay(plain.gs); runDay(boosted.gs)
+      const ratio = boosted.eco.getTotalRevenue() / plain.eco.getTotalRevenue()
+      // tier1 は粗利にだけ倍率が乗るので、売値そのものは3倍にはならない
+      expect(ratio).toBeGreaterThan(1.5)
+      expect(ratio).toBeLessThan(3.0)
+    })
   })
 
   it('getGoalAmountは1000万を返す', () => {

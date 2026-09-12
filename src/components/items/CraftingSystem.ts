@@ -3,6 +3,8 @@ import { GameEvents } from '../../types/index.js'
 import type { ItemRegistry, RecipeDef } from './ItemRegistry.js'
 import type { Inventory } from '../economy/Inventory.js'
 import type { TimeManager } from '../core/TimeManager.js'
+import type { Upgrades } from '../progress/Upgrades.js'
+import { craftMinutes, canAttempt } from '../../taxonomy/craft.js'
 
 /**
  * 加工はゲーム内時間を消費する（#25）。
@@ -45,10 +47,30 @@ export class CraftingSystem {
     private registry: ItemRegistry,
     private inventory: Inventory,
     private timeManager: TimeManager,
+    private upgrades?: Upgrades,
   ) {}
+
+  /**
+   * このレシピ1回の所要時間。**手際（作業効率の強化）で縮む。**
+   *
+   * ⚠ **利益額は素の `durationMinutes` から出る**（`derive.ts`）ので、
+   *   手際を上げると**時間あたりの儲けが増える。**
+   */
+  minutesFor(recipeId: string): number {
+    const recipe = this.registry.getRecipe(recipeId)
+    if (!this.upgrades) return recipe.durationMinutes
+    return craftMinutes(recipe.outputItemId, this.upgrades.skill())
+  }
+
+  /** 手際が足りていて着手できるか。深い品ほど高い手際が要る */
+  canAttemptRecipe(recipeId: string): boolean {
+    if (!this.upgrades) return true
+    return canAttempt(this.registry.getRecipe(recipeId).outputItemId, this.upgrades.skill())
+  }
 
   canCraft(recipeId: string, times = 1): boolean {
     if (!Number.isInteger(times) || times < 1) return false
+    if (!this.canAttemptRecipe(recipeId)) return false
     return this.hasIngredients(recipeId, times) && this.fitsInToday(recipeId, times)
   }
 
@@ -60,8 +82,7 @@ export class CraftingSystem {
 
   /** その日のうちに終わるか（#25 Q3 = B）。24:00 をまたぐ加工は着手できない */
   fitsInToday(recipeId: string, times = 1): boolean {
-    const recipe = this.registry.getRecipe(recipeId)
-    return recipe.durationMinutes * times <= this.timeManager.minutesUntilEndOfDay()
+    return this.minutesFor(recipeId) * times <= this.timeManager.minutesUntilEndOfDay()
   }
 
   /**
@@ -75,7 +96,8 @@ export class CraftingSystem {
         Math.floor(this.inventory.getQuantity(ing.itemId) / ing.quantity),
       ),
     )
-    const byTime = Math.floor(this.timeManager.minutesUntilEndOfDay() / recipe.durationMinutes)
+    if (!this.canAttemptRecipe(recipeId)) return 0
+    const byTime = Math.floor(this.timeManager.minutesUntilEndOfDay() / this.minutesFor(recipeId))
     return Math.max(0, Math.min(byIngredients, byTime))
   }
 
@@ -96,7 +118,7 @@ export class CraftingSystem {
     EventBus.emit(GameEvents.CRAFTING_STARTED, { recipeId, times, quantity })
 
     // ゲーム内時間を消費する。この間は客が来ない（＝店が閉まる）
-    this.timeManager.skipMinutes(recipe.durationMinutes * times)
+    this.timeManager.skipMinutes(this.minutesFor(recipeId) * times)
 
     this.inventory.add(recipe.outputItemId, quantity)
     EventBus.emit(GameEvents.CRAFTING_COMPLETED, { recipeId, times, quantity })
