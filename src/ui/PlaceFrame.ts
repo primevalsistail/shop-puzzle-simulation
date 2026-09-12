@@ -1,7 +1,7 @@
 import Phaser from 'phaser'
 import {
   PLACE_L, PLACE_W, PLACE_H, PLACE_CX, PLACE_CY,
-  CONTENT_L, CONTENT_R, TITLE_Y,
+  CONTENT_L, CONTENT_R, TITLE_Y, TITLE_RULE_Y,
 } from './layout.js'
 
 /** 枠の深さ。**中身は `CONTENT_DEPTH` に載せる** */
@@ -73,7 +73,7 @@ export class PlaceFrame {
     // 見出しと中身の区切り
     const rule = this.scene.add.graphics().setDepth(FRAME_DEPTH)
     rule.lineStyle(1, 0x3a3a5a, 0.9)
-    rule.lineBetween(PLACE_L + 12, TITLE_Y + 20, PLACE_L + PLACE_W - 12, TITLE_Y + 20)
+    rule.lineBetween(PLACE_L + 12, TITLE_RULE_Y, PLACE_L + PLACE_W - 12, TITLE_RULE_Y)
 
     this.objects = [bg, heading, backBg, backLabel, rule]
     this.back = onBack

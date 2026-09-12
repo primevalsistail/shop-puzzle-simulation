@@ -81,14 +81,36 @@ export const PAGER_Y = PLACE_B - 22
 /** 一覧に使える下端。ページ送りの行に食い込まない */
 export const ROWS_BOTTOM = PAGER_Y - 18
 
+/** 見出しの下に引く横線。`PlaceFrame` が引く。⚠ **ここより上へ物を置かない** */
+export const TITLE_RULE_Y = TITLE_Y + 20
+/** 絞り込みの行でいちばん高いもの（検索の入力欄）の高さ */
+export const FILTER_BAND_H = 24
+/** 横線と、その下に置くものとのあいだに残す余白 */
+const RULE_GAP = 6
+
+/**
+ * 見出しの下の1行が**無い**場所の、絞り込みの行と一覧の上端。
+ *
+ * ⚠ **工房だけ、見出しの下に置くものが無い**（他の3つは所持金が入る）。
+ *   説明文を消した跡が**空白の帯として残る**ので、上へ詰める（束M・PO 判断）。
+ * ⚠ **28px まるごと詰めないこと。**`SUBTITLE_Y`(62) まで上げると、
+ *   **検索の入力欄（高さ24）が y50〜74 になり、横線(54) を跨いで
+ *   「店に戻る」ボタン（下端49）に1pxまで近づく。**実際に「壊れて見える」と指摘が出た。
+ *   **横線の下から始める**のが上限。
+ */
+export const FILTER_Y_NO_SUBTITLE = TITLE_RULE_Y + RULE_GAP + FILTER_BAND_H / 2
+const NO_SUBTITLE_SHIFT = FILTER_Y - FILTER_Y_NO_SUBTITLE
+/** 見出しの下の1行が無い場所の、一覧の上端 */
+export const ROWS_TOP_NO_SUBTITLE = ROWS_TOP - NO_SUBTITLE_SHIFT
+
 /**
  * その行の高さなら何行入るか。
  *
  * ⚠ **行数を決め打ちしないこと。**領域を動かしたときに、
  *   最後の行がページ送りへ食い込んでいることに**気づけなくなる**。
  */
-export function rowsThatFit(rowH: number): number {
-  return Math.max(0, Math.floor((ROWS_BOTTOM - ROWS_TOP) / rowH))
+export function rowsThatFit(rowH: number, rowsTop: number = ROWS_TOP): number {
+  return Math.max(0, Math.floor((ROWS_BOTTOM - rowsTop) / rowH))
 }
 
 // ─── 文字が枠に収まるか ────────────────────────────────────────

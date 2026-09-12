@@ -13,7 +13,7 @@ import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
 import {
   PLACE_CX, CONTENT_L, CONTENT_R,
-  FILTER_Y, ROWS_TOP, PAGER_Y, rowsThatFit,
+  FILTER_Y_NO_SUBTITLE as FILTER_Y, ROWS_TOP_NO_SUBTITLE as ROWS_TOP, PAGER_Y, rowsThatFit,
   CRAFT_CONTROLS_L, CRAFT_TEXT_MAX_W, CRAFT_ROUTE_FONT_PX,
 } from './layout.js'
 
@@ -26,7 +26,8 @@ const ROW_H = 84
  * ⚠ **決め打ちしない。**領域の高さから出す（`layout.ts` の `rowsThatFit`）。
  *   手で書くと、領域を動かしたとき最後の行がページ送りへ食い込んでいても気づけない。
  */
-const VISIBLE_ROWS = rowsThatFit(ROW_H)
+// ⚠ **工房は見出しの下の1行が無いので、上端が他の3画面より上にある**（`layout.ts`）
+const VISIBLE_ROWS = rowsThatFit(ROW_H, ROWS_TOP)
 
 /**
  * 右側の操作列の左端。ここから右は数量入力とボタンの領域で、文字は入れない

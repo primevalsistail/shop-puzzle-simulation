@@ -8,8 +8,7 @@ import {
   PLACE_L, PLACE_R, PLACE_T, PLACE_B, PLACE_W, PLACE_H, PLACE_CX, PLACE_CY,
   CONTENT_L, CONTENT_R,
   TITLE_Y, SUBTITLE_Y, FILTER_Y, ROWS_TOP, PAGER_Y, ROWS_BOTTOM,
-  rowsThatFit,
-} from './layout.js'
+  rowsThatFit, TITLE_RULE_Y, FILTER_BAND_H, FILTER_Y_NO_SUBTITLE, ROWS_TOP_NO_SUBTITLE,} from './layout.js'
 import { money } from './money.js'
 import { PRESET_COUNT } from '../components/floor/ShelfPresets.js'
 
@@ -225,5 +224,29 @@ describe('金額の文字が枠に収まる', () => {
   it('3ルートの行が、7桁でも `…` に切られない', () => {
     const line = '転売+1,234,567レン → 作る+2,345,678レン → 材料も作る+3,456,789レン（計14064分）'
     expect(estTextWidth(line, CRAFT_ROUTE_FONT_PX)).toBeLessThanOrEqual(CRAFT_TEXT_MAX_W)
+  })
+})
+
+describe('見出しの下に1行が無い場所（工房）', () => {
+  // ⚠ **束M で「28px まるごと詰めて壊れた」ときの再発防止。**
+  //   検索の入力欄が横線を跨ぎ、「店に戻る」ボタンに1pxまで近づいた。
+  it('絞り込みの行が、見出しの横線より下から始まる', () => {
+    const bandTop = FILTER_Y_NO_SUBTITLE - FILTER_BAND_H / 2
+    expect(bandTop).toBeGreaterThan(TITLE_RULE_Y)
+  })
+
+  it('絞り込みの行が「店に戻る」ボタンに重ならない', () => {
+    // ボタンは TITLE_Y 中心・高さ30
+    const backBottom = TITLE_Y + 15
+    const bandTop = FILTER_Y_NO_SUBTITLE - FILTER_BAND_H / 2
+    expect(bandTop).toBeGreaterThan(backBottom)
+  })
+
+  it('詰めた結果、一覧の上端が絞り込みの行より下にある', () => {
+    expect(ROWS_TOP_NO_SUBTITLE).toBeGreaterThan(FILTER_Y_NO_SUBTITLE + FILTER_BAND_H / 2)
+  })
+
+  it('⚠ 詰めても、他の3画面より上にある（＝空白が減っている）', () => {
+    expect(ROWS_TOP_NO_SUBTITLE).toBeLessThan(ROWS_TOP)
   })
 })
