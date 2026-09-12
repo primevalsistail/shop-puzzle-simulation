@@ -202,7 +202,7 @@ export const SAME_ORIGIN_RULE: PairRule = {
    *   同じ島の産で敷き詰めて **1.98倍** ／ tier1 を雑に並べて 1.32倍 ／ 島の棚なしで 1.00倍。
    *   （以前は最大8.0倍で、しかも 9×8 以降は上限に貼り付いて**並べ方で動かなかった**）
    *
-   * ⚠ **この値は段6 で測り直す。**
+   * ⚠ **この値は段6 で測り直す（#61）。**
    */
   effect: { kind: '集客', multiplier: 1.6 },
 }
@@ -213,15 +213,27 @@ export const SAME_ORIGIN_RULE: PairRule = {
  */
 export const SIGNATURE_PAIRS: readonly SignaturePairRule[] = []
 
-/** 島の需要（D1）。islands.ts の需要表4行から機械的に作る。**調整はあの4行に集まる** */
+/**
+ * 島の需要（D1）。islands.ts の需要表4行から機械的に作る。**調整はあの4行に集まる**
+ *
+ * ⚠ **効き目は `値段` である（`売れやすさ` ではない。段4-5 で入れ替えた）。**
+ *   `売れやすさ` は「何個売れるか」を動かすので、効き目は**その品の売値に比例する**。
+ *   プールごとの平均売値が 259／200／163／129 と2倍開いているため、
+ *   1.3倍をもらった側が等倍の側に**絶対額で負ける島が出ていた**（ハルヴェラ。実測 6〜7%）。
+ *   倍率を上げても解けない（`129 × 1.4 = 180` < `259 × 1.0 = 259`）。
+ *
+ *   `値段` は `finalPrice()` の作りから**粗利にだけ乗る**ので、
+ *   「その島に向く品は、その島では**高く売れる**」＝ **取り分が増える**という読みになる。
+ *   → aidlc-docs/construction/plans/stage4-price-gradient-result.md
+ */
 export const DEMAND_RULES: readonly ConditionRule[] = DEMAND_TABLE.map(row => ({
   id: `D1_${row.island}`,
-  description: `${row.suitedLand}に向く品は${row.island}で売れやすい`,
+  description: `${row.suitedLand}に向く品は${row.island}で高く売れる`,
   condition: かつ(
     item({ axis: '向く土地', op: '==', value: row.suitedLand }),
     { metric: '現在地', op: '==', value: row.island },
   ),
-  effect: { kind: '売れやすさ', multiplier: row.multiplier },
+  effect: { kind: '値段', multiplier: row.multiplier },
 }))
 
 /**

@@ -170,13 +170,21 @@ describe('tier による按分（方針5・A案）', () => {
 })
 
 describe('島の需要（D1）— 需要表4行', () => {
-  it('向く土地が今いる島と合う品は売れやすい', () => {
+  it('向く土地が今いる島と合う品は、その島では高く売れる', () => {
     const p: Placement[] = [{ slotId: 's', itemId: 'reindeer_meat', x: 0, y: 0 }]  // 寒い土地
     const cold = evaluate(p, at('ミフユリア'))
     const warm = evaluate(p, at('ハルヴェラ'))
     expect(cold.firedRules).toContain('D1_ミフユリア')
-    expect(cold.perSlot.get('s')!.売れやすさ)
-      .toBeGreaterThan(warm.perSlot.get('s')!.売れやすさ)
+    // ⚠ **意図的に反転させた（段4-5）。**以前は `売れやすさ` を見ていた。
+    //   `売れやすさ` は「何個売れるか」なので効き目がその品の売値に比例し、
+    //   プールの平均売値が 259／200／163／129 と2倍開いている今の品では、
+    //   1.3倍をもらった側が等倍の側に**絶対額で負ける島が出る**（実測 ハルヴェラで 6〜7%）。
+    //   倍率を上げても解けない（129 × 1.4 = 180 < 259 × 1.0 = 259）ので、効き目のほうを変えた。
+    //   → aidlc-docs/construction/plans/stage4-persona-review.md
+    expect(cold.perSlot.get('s')!.値段)
+      .toBeGreaterThan(warm.perSlot.get('s')!.値段)
+    // ⚠ 売れやすさで比べないこと。よその島では D2（よその島の産は目に留まる）が別に効くので、
+    //   D1 とは無関係に差が付く
   })
 
   it('D2 — よその島の産の品は目に留まる。自分の島の産では効かない', () => {
