@@ -5,6 +5,8 @@ import type { Inventory } from '../components/economy/Inventory.js'
 import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
 import { MAX_QUANTITY } from '../components/economy/Inventory.js'
 import type { IslandName } from '../taxonomy/islands.js'
+import type { MaterialNeed } from '../taxonomy/materials.js'
+import type { ItemId } from '../taxonomy/axes.js'
 import { SearchBox } from './SearchBox.js'
 import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
@@ -26,6 +28,8 @@ const ROW_W = CONTENT_R - CONTENT_L
 const NAME_X = CONTENT_L + 16
 const STOCK_X = CONTENT_R - 250
 const BUY_CX = CONTENT_R - 80
+/** 「作れるN品に要る」。在庫の列に食い込まないよう右そろえ */
+const NEED_R = STOCK_X - 12
 
 /**
  * 島の商人のところ。**ダイアログではなく「行く場所」**（#58）。
@@ -44,6 +48,8 @@ export class PurchaseMenu {
   private focusId: string | null = null
   /** ⚠ **一覧とは別に持つ。**一緒に作り直すと打鍵のたびにカーソルが飛ぶ（#55） */
   private search: SearchBox
+  /** この島の素材が、作れる品の何本に要るか（#33）。`open()` で1度だけ数える */
+  private needs: Map<ItemId, MaterialNeed> = new Map()
 
   constructor(
     private scene: Phaser.Scene,
@@ -51,6 +57,10 @@ export class PurchaseMenu {
     private economy: EconomyManager,
     private inventory: Inventory,
     private frame: PlaceFrame,
+    /** 解禁済みのレシピが要する素材（#33）。**開くたびに数え直す** */
+    private materialNeeds: () => Map<ItemId, MaterialNeed>,
+    /** 次にこの島へ戻るまでの日数（#33） */
+    private daysUntilReturn: () => number,
     private onClose: () => void,
   ) {
     this.search = new SearchBox(scene)
@@ -71,6 +81,7 @@ export class PurchaseMenu {
     this.focusId = focusId ?? null
     this.paging.clearKinds()
     this.paging.setQuery('')
+    this.needs = this.materialNeeds()
     if (focusId) this.paging.jumpTo(this.shown().findIndex(m => m.id === focusId), this.shown().length)
     this.frame.show(`${islandName}島の商人のところ`, () => this.close())
     this.search.place(
@@ -95,6 +106,23 @@ export class PurchaseMenu {
     return this.isOpen
   }
 
+  /**
+   * その品が**この島でしか買えない素材**で、かつ作れる品に要るなら、その要り具合。
+   *
+   * ⚠ **産地が `なし` の品は対象外。**どの島でも買えるので、切らしても取り返せる。
+   */
+  private needOf(mat: ItemDef): MaterialNeed | null {
+    if (mat.origin !== this.islandName) return null
+    return this.needs.get(mat.id) ?? null
+  }
+
+  /** 商人が並べているもののうち、要るのに手持ちが0の素材の種類数 */
+  private shortMaterialCount(): number {
+    return this.materials.filter(
+      m => this.needOf(m) !== null && this.inventory.getQuantity(m.id) === 0,
+    ).length
+  }
+
   private shown(): ItemDef[] {
     return this.paging.filter(this.materials, m => m.mainKind, m => m.display.name)
   }
@@ -113,13 +141,21 @@ export class PurchaseMenu {
     const objs: Phaser.GameObjects.GameObject[] = []
     const total = materials.length
 
-    // ── 見出しの下の1行 — 所持金 ／ 何件目を見ているか ──
+    // ── 見出しの下の1行 — 所持金 ／ 切らしている素材 ／ 何件目を見ているか ──
+    const short = this.shortMaterialCount()
+    const days = this.daysUntilReturn()
     objs.push(
       this.scene.add.text(CONTENT_L, SUBTITLE_Y, `所持金: ¥${this.economy.getMoney().toLocaleString()}`, {
         fontSize: '15px', color: '#ffdd44',
       }).setOrigin(0, 0.5),
-      this.scene.add.text(CONTENT_R, SUBTITLE_Y, this.paging.rangeLabel(total), {
-        fontSize: '13px', color: '#aa9977',
+      // ⚠ **何個買うべきかは言わない**（#33「最適解を教えない」）。
+      //   言うのは「切れている」ことと「次は何日後か」だけ。
+      // ⚠ **右そろえにすること。**所持金は7桁まで伸びるので、中央に置くと重なる
+      this.scene.add.text(CONTENT_R, SUBTITLE_Y,
+        short > 0
+          ? `⚠ この島でしか買えない素材が ${short}種 切れている（次に戻るのは${days}日後）`
+          : `この島でしか買えない素材は揃っている（次に戻るのは${days}日後）`, {
+        fontSize: '13px', color: short > 0 ? '#ffaa66' : '#778899',
       }).setOrigin(1, 0.5),
     )
 
@@ -167,6 +203,10 @@ export class PurchaseMenu {
       fontSize: '13px', color: '#aa9977',
     }).setOrigin(0.5))
     arrow(PLACE_CX + 60, '▶', 1, cur < pages - 1)
+    // 件数はページ送りと同じ行に置く。見出しの下は所持金と不足の知らせで埋まっている
+    objs.push(this.scene.add.text(CONTENT_R, PAGER_Y, this.paging.rangeLabel(total), {
+      fontSize: '13px', color: '#aa9977',
+    }).setOrigin(1, 0.5))
   }
 
   private buildRow(mat: ItemDef, y: number, objs: Phaser.GameObjects.GameObject[]): void {
@@ -206,6 +246,18 @@ export class PurchaseMenu {
         fontSize: '13px', color: hasRoom ? '#aaaaaa' : '#dd8866',
       }).setOrigin(0, 0.5),
     )
+
+    // **この島でしか買えない素材**なら、作れる品の何本に要るかを出す（#33）。
+    // ⚠ **必要数は出さない。**誰も「1回ずつ」は作らないので嘘になる
+    const need = this.needOf(mat)
+    if (need) {
+      objs.push(
+        this.scene.add.text(NEED_R, y,
+          stock === 0 ? `⚠ 切らしている（${need.recipes}品に要る）` : `${need.recipes}品に要る`, {
+          fontSize: '12px', color: stock === 0 ? '#ffaa66' : '#8899aa',
+        }).setOrigin(1, 0.5),
+      )
+    }
 
     if (buyable) {
       const btn = this.scene.add

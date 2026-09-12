@@ -5,6 +5,7 @@ import type { ItemRegistry, RecipeDef } from '../components/items/ItemRegistry.j
 import type { RecipeUnlocks } from '../components/progress/RecipeUnlocks.js'
 import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
 import { SearchBox } from './SearchBox.js'
+import type { IslandName } from '../taxonomy/islands.js'
 import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
 import {
@@ -82,6 +83,8 @@ export class CraftMenu {
     /** 解禁済みのレシピ（#48）。**`registry.getAllRecipes()` を直に並べないこと** */
     private unlocks: RecipeUnlocks,
     private frame: PlaceFrame,
+    /** いまいる島（#33）。**ここで手に入らない材料に産地を出す**ため */
+    private islandOf: () => IslandName,
     private onClose: () => void,
   ) {
     this.search = new SearchBox(scene)
@@ -183,9 +186,6 @@ export class CraftMenu {
       this.scene.add.text(CONTENT_L, SUBTITLE_Y, '材料を組み合わせて、深く作るほど取り分が増える', {
         fontSize: '13px', color: '#8899aa',
       }).setOrigin(0, 0.5),
-      this.scene.add.text(CONTENT_R, SUBTITLE_Y, this.paging.rangeLabel(shown.length), {
-        fontSize: '13px', color: '#8899aa',
-      }).setOrigin(1, 0.5),
     )
 
     this.buildFilterBar(objs)
@@ -260,6 +260,10 @@ export class CraftMenu {
       fontSize: '13px', color: '#8899aa',
     }).setOrigin(0.5))
     arrow(PLACE_CX + 60, '▶', 1, cur < pages - 1)
+    // 件数はページ送りと同じ行。仕入れの画面と揃える
+    objs.push(this.scene.add.text(CONTENT_R, PAGER_Y, this.paging.rangeLabel(total), {
+      fontSize: '13px', color: '#8899aa',
+    }).setOrigin(1, 0.5))
   }
 
   private buildRecipeRow(recipe: RecipeDef, cy: number, objs: Phaser.GameObjects.GameObject[]): void {
@@ -427,10 +431,16 @@ export class CraftMenu {
     if (times !== null) {
       const out = this.registry.getItem(recipe.outputItemId)
       this.setText(row.outText, `${out.display.name}×${recipe.outputQuantity * times}(${this.inventory.getQuantity(out.id)})`)
+      // ⚠ **ここで手に入らない材料にだけ産地を付ける**（#33）。
+      //   全部に付けると行が溢れるうえ、**答えたいのは「ここで手に入るか」**である。
+      //   産地が `なし` の品はどの島でも買えるので付けない
+      const island = this.islandOf()
       this.setText(row.ingText, recipe.ingredients
         .map(ing => {
           const item = this.registry.getItem(ing.itemId)
-          return `${item.display.name}×${ing.quantity * times}(${this.inventory.getQuantity(ing.itemId)})`
+          const here = item.origin === 'なし' || item.origin === island
+          const at = here ? '' : `＠${item.origin}`
+          return `${item.display.name}×${ing.quantity * times}(${this.inventory.getQuantity(ing.itemId)})${at}`
         })
         .join('  '))
       this.setText(row.timeText, `${recipe.durationMinutes * times}分`)

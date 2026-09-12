@@ -69,6 +69,17 @@ export class WorldState {
     return this.getLocation().island
   }
 
+  /**
+   * 次にこの島へ戻るまでの日数（今日から数える）。
+   *
+   * ⚠ **島を出ると30日戻らない**（一周40日・寄港10日・航海日なし）。
+   *   素材は産地の島でしか買えないので、**いま買わないと次は30日後**になる。
+   *   これを仕入れの画面に出すのが #33。
+   */
+  daysUntilReturn(): number {
+    return this.getLocation().daysLeftAtPort + (ROUTE.length - 1) * DAYS_PER_CYCLE
+  }
+
   /** 航海中は店を開けない（#4）。客が来ず、島の商人からも買えない */
   isAtSea(): boolean {
     return this.getLocation().atSea

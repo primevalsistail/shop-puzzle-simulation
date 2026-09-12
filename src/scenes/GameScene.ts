@@ -32,6 +32,7 @@ import type { DisplaySlot, GameTime, GridCell, GridSize, Rotation } from '../typ
 import { ALL_ITEMS } from '../taxonomy/items.js'
 import { ALL_RECIPES } from '../taxonomy/recipes.js'
 import { stockedByIslandMerchant } from '../taxonomy/evaluate.js'
+import { materialNeeds } from '../taxonomy/materials.js'
 
 /** 初期の盤面。**棚の強化で広がる**（`Upgrades.gridSize()`） */
 const INITIAL_GRID = { width: 6, height: 5 }
@@ -146,6 +147,7 @@ export class GameScene extends Phaser.Scene {
       this.registry_,
       this.recipeUnlocks,
       this.placeFrame,
+      () => this.world.getIsland(),
       () => this.onCraftMenuClosed(),
     )
     this.purchaseMenu = new PurchaseMenu(
@@ -154,6 +156,10 @@ export class GameScene extends Phaser.Scene {
       this.economy,
       this.inventory,
       this.placeFrame,
+      // ⚠ **解禁済みのレシピだけで数える**（#33）。作り方を知らない品は買うしかないので、
+      //   そこで展開が止まり、それが実際の不足と一致する
+      () => materialNeeds(this.recipeUnlocks.unlockedRecipes()),
+      () => this.world.daysUntilReturn(),
       () => this.onPurchaseMenuClosed(),
     )
 

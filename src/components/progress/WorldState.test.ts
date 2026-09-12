@@ -78,3 +78,35 @@ describe('WorldState', () => {
     })
   })
 })
+
+describe('daysUntilReturn — 次にこの島へ戻るまで（#33）', () => {
+  it('着いた初日は、一周ぶん先', () => {
+    const w = new WorldState()
+    w.setDay(1)
+    expect(w.daysUntilReturn()).toBe(40)
+  })
+
+  /** ⚠ 出る直前がいちばん切実。ここで買わないと30日戻らない */
+  it('滞在の最終日は 31日後', () => {
+    const w = new WorldState()
+    w.setDay(10)
+    expect(w.daysUntilReturn()).toBe(31)
+  })
+
+  it('次の島へ移った初日も、一周ぶん先', () => {
+    const w = new WorldState()
+    w.setDay(11)
+    expect(w.getIsland()).toBe('リナツィア')
+    expect(w.daysUntilReturn()).toBe(40)
+  })
+
+  it('足すと本当にその島へ戻る', () => {
+    for (const day of [1, 5, 10, 11, 23, 37]) {
+      const now = new WorldState()
+      now.setDay(day)
+      const later = new WorldState()
+      later.setDay(day + now.daysUntilReturn())
+      expect(later.getIsland()).toBe(now.getIsland())
+    }
+  })
+})
