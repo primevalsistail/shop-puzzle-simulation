@@ -31,11 +31,45 @@ export interface ShelfPreset {
    *
    * ⚠ **任意。**型が島を持たない古いセーブがすでに手元にあるので、
    *   **無いまま読めること**（先例は `SaveData.shelfPresets` / `orders`）。
-   * ⚠ **名前は打たせない。**ペルソナ4人中2人が「名前を付けると名前を読むようになり、
-   *   盤面を見なくなる」と反対している。**あとから編集できるようにするのは #83。**
+   * ⚠ **これが既定値。**名前（`name`）を付けなければこれが出る（#83）。
    */
   readonly island?: IslandName
+  /**
+   * **プレイヤーが付けた名前**（#83。PO 判断 Q5「ベースはA、そのあとにユーザが編集できればいい」）。
+   *
+   * ⚠ **任意。空文字を持たない。**空にしたら `undefined` に戻し、**島名（既定値）へ戻す**
+   *   —— ペルソナ4人中2人が「名前を付けると名前を読むようになり、盤面を見なくなる」と
+   *   反対しているので、**名前を付けなければ従来どおりに見えること**が条件。
+   * ⚠ **長さは `PRESET_NAME_MAX`。**升の文字欄（308px）からはみ出させない。
+   */
+  readonly name?: string
   readonly slots: readonly PresetSlot[]
+}
+
+/**
+ * 型に付けられる名前の長さ（**文字数**）。⚠ **仮置き（#61）。**
+ *
+ * ⚠ **升の文字欄は 308px**（`layout.ts` の `PRESET_TEXT_W`）。
+ *   **全角ばかり 20文字で 240px** なので、いちばん長い既定値
+ *   `ミフユリア島 全部下ろす`（136.1px）の倍近くまで打てる。
+ *   収まるかは `src/ui/layout.test.ts` が `estTextWidth` で見ている。
+ */
+export const PRESET_NAME_MAX = 20
+
+/**
+ * 打たれた名前を、型に入れてよい形にする。
+ *
+ * ⚠ **空は `undefined`。**空文字を持たせると `describePreset` が空行を出し、
+ *   **既定値（島名）へ戻れなくなる。**
+ * ⚠ **打った文字を書き換えない**（`domInput.ts` の約束）。**落とすのは前後の空白と、
+ *   1行の升に出せない改行・タブだけ**（改行はセーブを手で書き換えたときにしか来ない）。
+ * ⚠ **数えるのはコードポイント。**`slice` で切ると絵文字が割れる。
+ */
+export function normalizePresetName(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined
+  const t = raw.replace(/[\r\n\t]/g, ' ').trim()
+  if (t === '') return undefined
+  return [...t].slice(0, PRESET_NAME_MAX).join('')
 }
 
 /**
@@ -46,7 +80,7 @@ export interface ShelfPreset {
  *
  * ⚠ **増やすと画面の行が縮む。**場所の一覧に使える高さは `ROWS_BOTTOM - ROWS_TOP`（454px）で、
  *   1行 = 454 / この数。**10 で 45px。**これ以上増やすなら**ページ送りが要る**
- *   （`src/ui/layout.test.ts` が、入らなくなったら落ちる。`PresetMenu.test.ts` は無い）。
+ *   （`src/ui/layout.test.ts` が、入らなくなったら落ちる）。
  */
 export const PRESET_COUNT = 10
 
@@ -76,7 +110,22 @@ export class ShelfPresets {
     island?: IslandName, now = Date.now(),
   ): void {
     if (!this.inRange(index)) return
-    this.presets[index] = { savedAt: now, island, slots: capture(slots) }
+    // ⚠ **上書きで名前を消さない**（#83）。島ごとの型は**寄港のたびに覚え直す**ので、
+    //   消すと付けた名前が周回ごとに毎回消える。名前を捨てるのは `clear`（削除）のほう
+    const name = this.presets[index]?.name
+    this.presets[index] = { savedAt: now, island, name, slots: capture(slots) }
+  }
+
+  /**
+   * 名前を書き換える（#83）。**空にしたら島名（既定値）へ戻る。**
+   *
+   * ⚠ **空の升には付けられない。**名前は型に付くもので、升に付くものではない
+   *   （空の升に名前だけ残ると、`削除` したはずの字が残る）。
+   */
+  setName(index: number, raw: string): void {
+    const preset = this.get(index)
+    if (!preset) return
+    this.presets[index] = { ...preset, name: normalizePresetName(raw) }
   }
 
   clear(index: number): void {
@@ -85,7 +134,7 @@ export class ShelfPresets {
 
   toRecord(): (ShelfPreset | null)[] {
     return this.presets.map(p =>
-      (p ? { savedAt: p.savedAt, island: p.island, slots: [...p.slots] } : null))
+      (p ? { savedAt: p.savedAt, island: p.island, name: p.name, slots: [...p.slots] } : null))
   }
 
   /**
@@ -110,6 +159,8 @@ export class ShelfPresets {
         // ⚠ **4島に無い値は読み捨てる。**島の名前は変わりうるので、
         //   古いセーブの知らない島名をそのまま画面へ出さない
         island: isIslandName(p.island) ? p.island : undefined,
+        // ⚠ **手で書き換えたセーブの長い名前をそのまま画面へ出さない**（升からはみ出す）
+        name: normalizePresetName(p.name),
         slots,
       }
     }
@@ -135,6 +186,16 @@ function isIslandName(v: unknown): v is IslandName {
  *   （書くと、古いセーブの10本ぜんぶに意味のない字が並ぶ）。
  */
 export function describePreset(preset: ShelfPreset | null): string {
+  return preset?.name ?? defaultPresetLabel(preset)
+}
+
+/**
+ * **名前を付けていない型に出す字**（#67）。名前を空にしたときに戻る先でもある（#83）。
+ *
+ * ⚠ **入力欄の `placeholder` もこれ。**打つ前から島名が見えているので、
+ *   **名前を付けなければ従来どおりに見える**（ペルソナ2人の反対への答え）。
+ */
+export function defaultPresetLabel(preset: ShelfPreset | null): string {
   if (!preset) return '空'
   const what = preset.slots.length === 0 ? '全部下ろす' : `${preset.slots.length}区画`
   return preset.island ? `${preset.island}島 ${what}` : what

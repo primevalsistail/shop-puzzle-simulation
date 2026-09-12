@@ -3,7 +3,9 @@ import {
   SCREEN_W, SCREEN_H,
   HUD_PANEL_W, HUD_MONEY_FONT_PX, estTextWidth,
   BUY_W, BUY_FONT_PX, BUY_SUFFIX, INFO_MAX_W, INFO_FONT_PX,
-  UPCOMING_FONT_PX, upcomingLabel, PRESET_TEXT_FONT_PX,
+  UPCOMING_FONT_PX, upcomingLabel, PRESET_TEXT_FONT_PX, PRESET_SUB_FONT_PX,
+  PRESET_COLS, PRESET_GAP_X, PRESET_CELL_W, PRESET_TEXT_L_OFFSET, PRESET_TEXT_W,
+  PRESET_NAME_INPUT_W, PRESET_NAME_INPUT_H,
   CRAFT_TEXT_MAX_W, CRAFT_ROUTE_FONT_PX,
   LEFT_PANEL_R, STRIP_L, STRIP_W, RIGHT_PANEL_L, LOG_T,
   PLACE_L, PLACE_R, PLACE_T, PLACE_B, PLACE_W, PLACE_H, PLACE_CX, PLACE_CY,
@@ -16,7 +18,7 @@ import {
 import { ALL_ITEMS } from '../taxonomy/items.js'
 import { PEDDLER_MAX_PER_KIND, peddlerPrice } from '../components/progress/PeddlerStock.js'
 import { money } from './money.js'
-import { PRESET_COUNT, describePreset } from '../components/floor/ShelfPresets.js'
+import { PRESET_COUNT, PRESET_NAME_MAX, describePreset } from '../components/floor/ShelfPresets.js'
 import { ROUTE } from '../taxonomy/islands.js'
 
 /**
@@ -121,10 +123,11 @@ describe('rowsThatFit — 行数は高さから出す', () => {
  *   縮みすぎて読めなくなったら、ページ送りに切り替える合図。
  */
 describe('品出しの型が1画面に入る（2列 × 5行）', () => {
-  const COLS = 2
+  const COLS = PRESET_COLS
   const rows = PRESET_COUNT / COLS
   const cellH = Math.floor((ROWS_BOTTOM - ROWS_TOP) / rows)
-  const cellW = Math.floor((CONTENT_R - CONTENT_L - 14 * (COLS - 1)) / COLS)
+  // ⚠ **升の横の寸法は `layout.ts` が持つ**（#83 で写しをやめた）。縦だけここで割る
+  const cellW = PRESET_CELL_W
 
   it('2で割り切れる本数である（2列に並べるため）', () => {
     expect(PRESET_COUNT % COLS).toBe(0)
@@ -150,7 +153,7 @@ describe('品出しの型が1画面に入る（2列 × 5行）', () => {
    * ⚠ **最悪値は区画数が3桁のとき。**盤面はいちばん広いとき 13×10 ＝ 130升で、
    *   1升の品ばかり並べると `130区画` になる。**いまよく出る `12区画` で見てはいけない。**
    */
-  const presetTextW = cellW - (10 + 70 + 12)
+  const presetTextW = PRESET_TEXT_W
 
   it('文字欄に「島名 ＋ 区画数」が収まる（3桁の区画数でも）', () => {
     for (const island of ROUTE) {
@@ -169,6 +172,51 @@ describe('品出しの型が1画面に入る（2列 × 5行）', () => {
   /** ⚠ **ボタン3つの行と同じ升に入る。**文字の行が伸びてもボタンの列は動かない */
   it('文字欄は、ボタン3つの列より広い', () => {
     expect(presetTextW).toBeGreaterThanOrEqual(76 * 3 + 7 * 2)
+  })
+
+  it('升の幅の式が、`layout.ts` と一致している', () => {
+    expect(cellW).toBe(
+      Math.floor((CONTENT_R - CONTENT_L - PRESET_GAP_X * (COLS - 1)) / COLS),
+    )
+    expect(PRESET_TEXT_L_OFFSET + presetTextW).toBe(cellW)
+  })
+
+  /**
+   * **プレイヤーが打った名前が升に収まるか**（#83・受入条件4）。
+   *
+   * ⚠ **最悪値は全角ばかりを上限まで打ったとき。**`estTextWidth` は全角を 1.0em と見るので、
+   *   `PRESET_NAME_MAX × PRESET_TEXT_FONT_PX` が上限になる。
+   * ⚠ **上限を上げるならここが先に落ちる。**落ちたら上げてはいけない合図。
+   */
+  it('名前を上限まで打っても文字欄に収まる（全角ばかりでも）', () => {
+    const worst = 'あ'.repeat(PRESET_NAME_MAX)
+    expect(estTextWidth(worst, PRESET_TEXT_FONT_PX)).toBeLessThanOrEqual(presetTextW)
+  })
+
+  /** ⚠ **既定値より長く打てること。**上限が既定値より短いと、島名を名前で書き写せない */
+  it('上限は、いちばん長い既定値より長い', () => {
+    const longest = Math.max(...ROUTE.map(island =>
+      estTextWidth(describePreset({ savedAt: 0, island, slots: [] }), PRESET_TEXT_FONT_PX)))
+    expect(estTextWidth('あ'.repeat(PRESET_NAME_MAX), PRESET_TEXT_FONT_PX))
+      .toBeGreaterThan(longest)
+  })
+
+  /** 名前の `<input>` は文字欄と同じ場所に置く。**升の縁からはみ出さない** */
+  it('名前の入力欄が升に収まる', () => {
+    expect(PRESET_NAME_INPUT_W).toBeLessThanOrEqual(presetTextW)
+    expect(PRESET_TEXT_L_OFFSET + PRESET_NAME_INPUT_W).toBeLessThanOrEqual(cellW)
+  })
+
+  /**
+   * ⚠ **入力欄は升の1行目に置き、その下のボタン列に重ならないこと。**
+   *   文字の行は升の上端から 15px（`PresetMenu.cellBox`）、ボタンは下端から 18px。
+   */
+  it('名前の入力欄が、升の上端とボタン列のあいだに収まる', () => {
+    const h = cellH - 8              // GAP_Y
+    const nameCy = -h / 2 + 15       // 升の中心から見た入力欄の中心
+    const btnCy = h / 2 - 18
+    expect(nameCy - PRESET_NAME_INPUT_H / 2).toBeGreaterThanOrEqual(-h / 2)
+    expect(nameCy + PRESET_NAME_INPUT_H / 2).toBeLessThanOrEqual(btnCy - 24 / 2)
   })
 })
 
@@ -383,5 +431,13 @@ describe('右パネルのボタン列とキャラ絵の枠（#9 で行を1つ足
   it('アイコン5つが列の幅に収まる', () => {
     expect(5 * BTN_ICON_W).toBeLessThanOrEqual(BTN_PANEL_W)
     expect(BTN_PANEL_L).toBeGreaterThanOrEqual(RIGHT_PANEL_L)
+  })
+
+  it('名前を付けても、2行目の島名と区画数が升に収まる（#83）', () => {
+    // いちばん長い既定値
+    const sub = estTextWidth('ミフユリア島 全部下ろす', PRESET_SUB_FONT_PX)
+    expect(sub).toBeLessThanOrEqual(PRESET_TEXT_W)
+    // 1行目（入力欄）と重ならない高さに置いてある
+    expect(PRESET_SUB_FONT_PX).toBeLessThan(PRESET_TEXT_FONT_PX)
   })
 })

@@ -267,6 +267,40 @@ export const PEDDLER_TITLE = '行商人バレン'
  */
 export const PRESET_TEXT_FONT_PX = 12
 
+/**
+ * 型の升の**2行目**（島名と区画数）。**名前を付けたときだけ出る**（#83）。
+ *
+ * ⚠ **名前が1行目を占めるので、これが無いと区画数が読めなくなる。**
+ */
+export const PRESET_SUB_FONT_PX = 11
+
+/**
+ * 品出しの型の升の**横の寸法**（`PresetMenu` が並べる 2列 × 5行 の升）。
+ *
+ * ⚠ **`PresetMenu` と `layout.test.ts` の両方が使う。**以前は両方が同じ式を書き写していて、
+ *   **片方を動かしてももう片方が気づかない**形だった（#83 で片付けた）。
+ * ⚠ **縦の寸法（升の高さ）はここに無い。**`PRESET_COUNT` から割るので `PresetMenu` に置いてある。
+ */
+export const PRESET_COLS = 2
+export const PRESET_GAP_X = 14
+export const PRESET_CELL_W =
+  Math.floor((CONTENT_R - CONTENT_L - PRESET_GAP_X * (PRESET_COLS - 1)) / PRESET_COLS)
+/** 盤面の縮小図を置く枠の幅 */
+export const PRESET_PREVIEW_W = 70
+/** 升の左端から、文字（と名前の入力欄）の左端までの距離。左余白10 ＋ 縮小図 ＋ 間隔12 */
+export const PRESET_TEXT_L_OFFSET = 10 + PRESET_PREVIEW_W + 12
+/** 升の文字欄の幅（**308px**）。⚠ **名前もここに収まること**（`layout.test.ts` が見ている） */
+export const PRESET_TEXT_W = PRESET_CELL_W - PRESET_TEXT_L_OFFSET
+
+/**
+ * 型の名前を打つ `<input>`（#83）。**文字欄と同じ場所に、同じ大きさで置く。**
+ *
+ * ⚠ **右端に 10px 残す。**升の縁にぴったり付けると枠線と重なって見える。
+ * ⚠ **高さは 24。**升の文字行（升の上端から15px）と、その下のボタン列のあいだに収まる。
+ */
+export const PRESET_NAME_INPUT_W = PRESET_TEXT_W - 10
+export const PRESET_NAME_INPUT_H = 24
+
 // ─── 右パネルのボタン列 ──────────────────────────────────
 /**
  * 右パネル下段のボタン列。**下から順に積む**（`進める` が最下段）。

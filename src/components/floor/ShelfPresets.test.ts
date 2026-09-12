@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { ShelfPresets, capture, PRESET_COUNT, describePreset } from './ShelfPresets.js'
+import {
+  ShelfPresets, capture, PRESET_COUNT, PRESET_NAME_MAX,
+  describePreset, defaultPresetLabel, normalizePresetName,
+} from './ShelfPresets.js'
 import type { DisplaySlot } from '../../types/index.js'
 
 const slot = (id: string, itemId: string, x: number, y: number): DisplaySlot => ({
@@ -205,5 +208,131 @@ describe('島はセーブを往復する（#67）', () => {
     back.restore(p.toRecord())
     expect(back.get(0)?.island).toBeUndefined()
     expect(back.get(0)?.slots).toHaveLength(2)
+  })
+})
+
+/**
+ * **型に名前を打てるようにする**（#83。PO 判断 Q5「ベースはA、そのあとにユーザが編集できればいい」）。
+ *
+ * ⚠ **ペルソナ4人中2人が名前そのものに反対している**
+ *   （「名前を付けると名前を読むようになり、盤面を見なくなる」）。
+ *   だから**既定値が消えないこと**——**空にしたら島名へ戻ること**がこの束の要になる。
+ */
+describe('名前（#83）', () => {
+  it('打った名前が升の字になる', () => {
+    const p = new ShelfPresets()
+    p.save(0, LAYOUT, 'ハルヴェラ')
+    p.setName(0, 'ミフユリア用')
+    expect(p.get(0)?.name).toBe('ミフユリア用')
+    expect(describePreset(p.get(0))).toBe('ミフユリア用')
+  })
+
+  /** ⚠ **受入条件3。**既定値が消えると、名前を付けない遊び方ができなくなる */
+  it('空にしたら島名（既定値）へ戻る', () => {
+    const p = new ShelfPresets()
+    p.save(0, LAYOUT, 'ハルヴェラ')
+    p.setName(0, 'ミフユリア用')
+    p.setName(0, '')
+    expect(p.get(0)?.name).toBeUndefined()
+    expect(describePreset(p.get(0))).toBe('ハルヴェラ島 2区画')
+  })
+
+  it('空白だけ打っても既定値へ戻る', () => {
+    const p = new ShelfPresets()
+    p.save(0, LAYOUT, 'ハルヴェラ')
+    p.setName(0, '　  ')
+    expect(p.get(0)?.name).toBeUndefined()
+    expect(describePreset(p.get(0))).toBe('ハルヴェラ島 2区画')
+  })
+
+  it('既定値は名前を見ない（入力欄の placeholder に出す字）', () => {
+    const p = new ShelfPresets()
+    p.save(0, LAYOUT, 'ハルヴェラ')
+    p.setName(0, 'ミフユリア用')
+    expect(defaultPresetLabel(p.get(0))).toBe('ハルヴェラ島 2区画')
+    expect(defaultPresetLabel(null)).toBe('空')
+  })
+
+  /** ⚠ **受入条件4。**升の文字欄は 308px しかない（幅は `layout.test.ts` が見ている） */
+  it(`上限（${PRESET_NAME_MAX}文字）で切る`, () => {
+    const p = new ShelfPresets()
+    p.save(0, LAYOUT)
+    p.setName(0, 'あ'.repeat(PRESET_NAME_MAX + 30))
+    expect([...(p.get(0)?.name ?? '')]).toHaveLength(PRESET_NAME_MAX)
+  })
+
+  /** ⚠ **`slice` で切ると絵文字が割れる**（コードポイントで数える） */
+  it('絵文字を割らずに切る', () => {
+    const name = '🍎'.repeat(PRESET_NAME_MAX + 5)
+    expect(normalizePresetName(name)).toBe('🍎'.repeat(PRESET_NAME_MAX))
+  })
+
+  it('前後の空白は落とすが、途中の空白は残す（打った文字を書き換えない）', () => {
+    expect(normalizePresetName('  ミフユリア 用  ')).toBe('ミフユリア 用')
+  })
+
+  it('文字列でないものは名前にしない', () => {
+    expect(normalizePresetName(42)).toBeUndefined()
+    expect(normalizePresetName(undefined)).toBeUndefined()
+  })
+
+  /** ⚠ **空の升に名前だけ残ると、`削除` したはずの字が残る** */
+  it('空の升には付けられない', () => {
+    const p = new ShelfPresets()
+    p.setName(0, 'あるはずのない名前')
+    expect(p.get(0)).toBeNull()
+    expect(describePreset(p.get(0))).toBe('空')
+  })
+
+  /**
+   * ⚠ **島ごとの型は寄港のたびに覚え直す。**上書きで名前が消えると、
+   *   付けた名前が**周回ごとに毎回消える。**
+   */
+  it('上書きしても名前は残る（消えるのは削除したとき）', () => {
+    const p = new ShelfPresets()
+    p.save(0, LAYOUT, 'ハルヴェラ')
+    p.setName(0, '作る日用')
+    p.save(0, [slot('s9', 'milk', 4, 4)], 'ノアキータ')
+    expect(describePreset(p.get(0))).toBe('作る日用')
+    expect(p.get(0)?.island).toBe('ノアキータ')
+
+    p.clear(0)
+    p.save(0, LAYOUT, 'ハルヴェラ')
+    expect(describePreset(p.get(0))).toBe('ハルヴェラ島 2区画')
+  })
+})
+
+/** ⚠ **受入条件5。**`name?` は任意フィールド（先例は `island?` ／ `orders?` ／ `peddler?`） */
+describe('名前はセーブを往復する（#83）', () => {
+  it('書き出して読み直しても残る', () => {
+    const p = new ShelfPresets()
+    p.save(0, LAYOUT, 'ハルヴェラ')
+    p.setName(0, 'ミフユリア用')
+    const back = new ShelfPresets()
+    back.restore(p.toRecord())
+    expect(back.get(0)?.name).toBe('ミフユリア用')
+    expect(back.get(0)?.island).toBe('ハルヴェラ')
+  })
+
+  it('名前を持たない古いセーブは、これまでどおり島名だけ', () => {
+    const p = new ShelfPresets()
+    p.restore([{ savedAt: 1, island: 'ハルヴェラ', slots: capture(LAYOUT) }])
+    expect(p.get(0)?.name).toBeUndefined()
+    expect(describePreset(p.get(0))).toBe('ハルヴェラ島 2区画')
+  })
+
+  /** ⚠ **手で書き換えたセーブの長い名前をそのまま画面へ出さない**（升からはみ出す） */
+  it('壊れた名前・長すぎる名前は読み直しで直す', () => {
+    const p = new ShelfPresets()
+    p.restore([
+      { savedAt: 1, name: 'あ'.repeat(200), slots: [] },
+      { savedAt: 1, name: 42, slots: [] },
+      { savedAt: 1, name: '  ', slots: [] },
+      { savedAt: 1, name: '改行\nあり', slots: [] },
+    ])
+    expect([...(p.get(0)?.name ?? '')]).toHaveLength(PRESET_NAME_MAX)
+    expect(p.get(1)?.name).toBeUndefined()
+    expect(p.get(2)?.name).toBeUndefined()
+    expect(p.get(3)?.name).toBe('改行 あり')
   })
 })

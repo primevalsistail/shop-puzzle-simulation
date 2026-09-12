@@ -1,25 +1,31 @@
 import Phaser from 'phaser'
 import type { ShelfPresets, PresetSlot } from '../components/floor/ShelfPresets.js'
-import { PRESET_COUNT, describePreset } from '../components/floor/ShelfPresets.js'
+import {
+  PRESET_COUNT, PRESET_NAME_MAX, describePreset, defaultPresetLabel,
+} from '../components/floor/ShelfPresets.js'
 import type { ItemRegistry } from '../components/items/ItemRegistry.js'
 import type { GridSize } from '../types/index.js'
 import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
+import { createInput, tryAddDom, setGameKeyboard } from './domInput.js'
 import {
-  CONTENT_L, CONTENT_R, SUBTITLE_Y, ROWS_TOP, ROWS_BOTTOM, PRESET_TEXT_FONT_PX,
+  CONTENT_L, SUBTITLE_Y, ROWS_TOP, ROWS_BOTTOM, PRESET_TEXT_FONT_PX, PRESET_SUB_FONT_PX,
+  PRESET_COLS, PRESET_GAP_X, PRESET_CELL_W, PRESET_PREVIEW_W,
+  PRESET_TEXT_L_OFFSET, PRESET_NAME_INPUT_W, PRESET_NAME_INPUT_H,
 } from './layout.js'
 
 /** 2列 × 5行。**型は10本**（`PRESET_COUNT`） */
-const COLS = 2
+const COLS = PRESET_COLS
 const ROWS = PRESET_COUNT / COLS
 
-const GAP_X = 14
+/** ⚠ **横の寸法は `layout.ts`。**名前の入力欄が入るかを `layout.test.ts` が見るため */
+const GAP_X = PRESET_GAP_X
 const GAP_Y = 8
-const CELL_W = Math.floor((CONTENT_R - CONTENT_L - GAP_X * (COLS - 1)) / COLS)
+const CELL_W = PRESET_CELL_W
 const CELL_H = Math.floor((ROWS_BOTTOM - ROWS_TOP) / ROWS)
 
 /** 盤面の縮小図を置く枠 */
-const PREVIEW_W = 70
+const PREVIEW_W = PRESET_PREVIEW_W
 const PREVIEW_H = CELL_H - 22
 
 /** セーブ ／ ロード ／ 削除 */
@@ -40,10 +46,24 @@ const BTN_GAP = 7
  * ⚠ **覚えたときの島を出す**（#67。PO 判断 Q5 のベース案 A）。`12区画` が2つ並ぶと
  *   **文字が完全に同一**になり、縮小図しか手がかりが無かった。
  *   ⚠ **文字は `describePreset`（`ShelfPresets.ts`）が組む。**ここで組むと検査できない。
+ *
+ * ⚠ **名前は `<input>` で直に打たせる**（#83。PO 判断 Q5「そのあとにユーザが編集できればいい」）。
+ *   **入力欄は `container` に入れない。**`refresh()` は中身をまるごと `destroy()` するので、
+ *   一緒に入れると**打鍵のたびに作り直されてカーソルが飛ぶ**（`SearchBox` と同じ地雷）。
+ *   **開くとき1度だけ置き、閉じるときに捨てる。**`refresh()` は値と `placeholder` を
+ *   合わせ直すだけ（`syncNameInputs`）。
+ * ⚠ **空にしたら島名（既定値）へ戻る。**`placeholder` に既定値を出しているので、
+ *   **名前を付けなければ従来どおりに見える**（ペルソナ2人が名前に反対している）。
  */
 export class PresetMenu {
   private container: Phaser.GameObjects.Container | null = null
   private isOpen = false
+  /**
+   * 名前の入力欄。**型1本につき1つ。**⚠ **`container` とは別に持つ**（作り直さないため）。
+   * DOM が使えないときは `null` のままで、そのときは升に文字を出す。
+   */
+  private nameDoms: (Phaser.GameObjects.DOMElement | null)[] = []
+  private nameInputs: (HTMLInputElement | null)[] = []
 
   constructor(
     private scene: Phaser.Scene,
@@ -58,12 +78,18 @@ export class PresetMenu {
     private onApply: (index: number) => void,
     private onDelete: (index: number) => void,
     private onClose: () => void,
-  ) {}
+  ) {
+    // シーンが終わるとき DOM が残らないようにする（`SearchBox` と同じ）
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroyNameInputs())
+    scene.events.once(Phaser.Scenes.Events.DESTROY, () => this.destroyNameInputs())
+  }
 
   open(): void {
     if (this.isOpen) return
     this.isOpen = true
     this.frame.show('品出しの型', () => this.close())
+    // ⚠ **入力欄はここで1度だけ置く。**`build()` から置くと打鍵ごとに作り直される
+    this.placeNameInputs()
     this.build()
   }
 
@@ -72,6 +98,7 @@ export class PresetMenu {
     this.isOpen = false
     this.container?.destroy()
     this.container = null
+    this.destroyNameInputs()
     this.frame.hide()
     this.onClose()
   }
@@ -80,12 +107,101 @@ export class PresetMenu {
     return this.isOpen
   }
 
-  /** 覚えた・呼び出した・消したあとに、表示を今の状態に合わせる */
+  /**
+   * 覚えた・呼び出した・消したあとに、表示を今の状態に合わせる。
+   *
+   * ⚠ **入力欄は作り直さない**（#83）。ここで作り直すと**打っている途中でカーソルが飛ぶ。**
+   *   値と `placeholder` を合わせ直すだけにする。
+   */
   refresh(): void {
     if (!this.isOpen) return
     this.container?.destroy()
     this.container = null
     this.build()
+    this.syncNameInputs()
+  }
+
+  /**
+   * 名前の入力欄を置く。**開くとき1度だけ。**
+   *
+   * ⚠ **位置は升から決まる固定値。**型の中身では動かないので、置き直す理由が無い。
+   * ⚠ **DOM が使えないときは何も置かない**（`tryAddDom` が `null`）。
+   *   そのときは升に `describePreset` の文字を出す（`buildCell`）。
+   */
+  private placeNameInputs(): void {
+    if (this.nameDoms.length > 0) return
+    this.nameDoms = Array(PRESET_COUNT).fill(null)
+    this.nameInputs = Array(PRESET_COUNT).fill(null)
+
+    for (let i = 0; i < PRESET_COUNT; i++) {
+      const box = this.cellBox(i)
+      const preset = this.presets.get(i)
+      const el = createInput(this.scene, {
+        width: PRESET_NAME_INPUT_W,
+        height: PRESET_NAME_INPUT_H,
+        value: preset?.name ?? '',
+        // ⚠ **既定値を薄く出し続ける。**名前を付けなければ従来どおりに見える
+        placeholder: defaultPresetLabel(preset),
+        onInput: value => this.presets.setName(i, value),
+      })
+      // ⚠ **升からはみ出させない**（`PRESET_NAME_MAX`）。長さの根拠は `ShelfPresets.ts`
+      el.maxLength = PRESET_NAME_MAX
+      const dom = tryAddDom(
+        this.scene, box.textL + PRESET_NAME_INPUT_W / 2, box.nameCy, el, '型の名前',
+      )
+      if (!dom) continue
+      this.nameDoms[i] = dom.setDepth(CONTENT_DEPTH)
+      this.nameInputs[i] = el
+    }
+    this.syncNameInputs()
+  }
+
+  /**
+   * 入力欄を今の型に合わせ直す。**作り直さない。**
+   *
+   * ⚠ **打っている最中の欄には触らない。**`value` を入れ直すとカーソルが末尾へ飛ぶ。
+   * ⚠ **空の升では隠す。**名前は型に付くもので、空の升に打たせる意味が無い。
+   */
+  private syncNameInputs(): void {
+    for (let i = 0; i < this.nameInputs.length; i++) {
+      const el = this.nameInputs[i]
+      const dom = this.nameDoms[i]
+      if (!el || !dom) continue
+      const preset = this.presets.get(i)
+      dom.setVisible(preset !== null)
+      el.placeholder = defaultPresetLabel(preset)
+      if (typeof document !== 'undefined' && document.activeElement === el) continue
+      el.value = preset?.name ?? ''
+    }
+  }
+
+  /**
+   * 入力欄を片付ける。
+   *
+   * ⚠ **ゲームのキー入力を必ず戻すこと。**入力中の要素を消すと `blur` が来ないことがあり、
+   *   止めたままだと **ESC も速度切り替えも効かなくなる**（`SearchBox.destroy` と同じ）。
+   */
+  private destroyNameInputs(): void {
+    for (const dom of this.nameDoms) dom?.destroy()
+    this.nameDoms = []
+    this.nameInputs = []
+    setGameKeyboard(this.scene, true)
+  }
+
+  /** 升の位置。**`build` と `placeNameInputs` が同じ式を使う**（写しを作らない） */
+  private cellBox(index: number): {
+    left: number; top: number; h: number; cy: number; textL: number; nameCy: number; subCy: number
+  } {
+    const col = index % COLS
+    const row = Math.floor(index / COLS)
+    const left = CONTENT_L + col * (CELL_W + GAP_X)
+    const top = ROWS_TOP + row * CELL_H
+    const h = CELL_H - GAP_Y
+    const cy = top + h / 2
+    const nameCy = cy - h / 2 + 15
+    // ⚠ **2行目は「名前を付けたときだけ」出す**（下の `buildCell`）。
+    //   名前が無いときは入力欄の `placeholder` が同じ文字を出しているので、二重になる
+    return { left, top, h, cy, textL: left + PRESET_TEXT_L_OFFSET, nameCy, subCy: nameCy + 17 }
   }
 
   private build(): void {
@@ -98,26 +214,16 @@ export class PresetMenu {
       }).setOrigin(0, 0.5),
     )
 
-    for (let i = 0; i < PRESET_COUNT; i++) {
-      const col = i % COLS
-      const row = Math.floor(i / COLS)
-      this.buildCell(
-        i,
-        CONTENT_L + col * (CELL_W + GAP_X),
-        ROWS_TOP + row * CELL_H,
-        objs,
-      )
-    }
+    for (let i = 0; i < PRESET_COUNT; i++) this.buildCell(i, objs)
 
     this.container = this.scene.add.container(0, 0, objs)
     this.container.setDepth(CONTENT_DEPTH)
   }
 
-  private buildCell(index: number, left: number, top: number, objs: Phaser.GameObjects.GameObject[]): void {
+  private buildCell(index: number, objs: Phaser.GameObjects.GameObject[]): void {
     const preset = this.presets.get(index)
     const filled = preset !== null
-    const h = CELL_H - GAP_Y
-    const cy = top + h / 2
+    const { left, cy, h, textL, nameCy, subCy } = this.cellBox(index)
 
     objs.push(
       this.scene.add.rectangle(left + CELL_W / 2, cy, CELL_W, h, filled ? 0x232344 : 0x25252f)
@@ -127,12 +233,28 @@ export class PresetMenu {
     // ── 盤面の縮小図 ──
     this.buildPreview(preset, left + 10, cy - PREVIEW_H / 2, objs)
 
-    const textL = left + 10 + PREVIEW_W + 12
-    objs.push(
-      this.scene.add.text(textL, cy - h / 2 + 15, describePreset(preset), {
-        fontSize: `${PRESET_TEXT_FONT_PX}px`, color: filled ? '#aabbcc' : '#667788',
-      }).setOrigin(0, 0.5),
-    )
+    // ── 1行目（名前） ──
+    // ⚠ **入力欄が置けているなら、字はそれが出す。**両方出すと二重に重なる。
+    //   置けないとき（DOM 無し）と、空の升（入力欄は隠してある）だけ文字を出す
+    if (!this.nameInputs[index] || !filled) {
+      objs.push(
+        this.scene.add.text(textL, nameCy, describePreset(preset), {
+          fontSize: `${PRESET_TEXT_FONT_PX}px`, color: filled ? '#aabbcc' : '#667788',
+        }).setOrigin(0, 0.5),
+      )
+    }
+
+    // ── 2行目（島名と区画数）──
+    // ⚠ **名前を付けると、名前が1行目を占める。**区画数まで消えると
+    //   **型を呼ぶときに盤面ではなく名前だけを読むようになる**（ペルソナ2人の反対点）。
+    //   **付けた人にだけ、元の文字を薄く残す。**
+    if (filled && preset.name) {
+      objs.push(
+        this.scene.add.text(textL, subCy, defaultPresetLabel(preset), {
+          fontSize: `${PRESET_SUB_FONT_PX}px`, color: '#667788',
+        }).setOrigin(0, 0.5),
+      )
+    }
 
     // ── セーブ ／ ロード ／ 削除 ──
     const by = cy + h / 2 - 18
