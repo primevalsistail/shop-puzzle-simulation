@@ -76,7 +76,6 @@ export interface SaveData {
    *   いまは常に0件か1件だが、**配列のまま**にしてある（件数を増やしても形が変わらない）。
    */
   orders?: DeliveryOrder[]
-  unlockedFeatures: string[]
   unlockedRecipes: string[]
   currentTime: GameTime
   isEndlessMode: boolean

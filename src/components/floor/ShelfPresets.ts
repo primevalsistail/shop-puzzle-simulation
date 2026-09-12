@@ -46,7 +46,7 @@ export interface ShelfPreset {
  *
  * ⚠ **増やすと画面の行が縮む。**場所の一覧に使える高さは `ROWS_BOTTOM - ROWS_TOP`（454px）で、
  *   1行 = 454 / この数。**10 で 45px。**これ以上増やすなら**ページ送りが要る**
- *   （`PresetMenu` のテストが、入らなくなったら落ちる）。
+ *   （`src/ui/layout.test.ts` が、入らなくなったら落ちる。`PresetMenu.test.ts` は無い）。
  */
 export const PRESET_COUNT = 10
 

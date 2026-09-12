@@ -239,6 +239,12 @@ export class GameScene extends Phaser.Scene {
         this.shelfPresets.restore(data.shelfPresets)
         this.deliveryOrders.restore(data.orders)
         this.progress.restoreUnlockedRecipes(data.unlockedRecipes ?? [])
+        // ⚠ **クリア後の状態を戻す**（#80）。読まないと**エンドレスが解け、達成の幕がまた出る**
+        //   （所持金は 1000万を超えたままなので、次の1分で `GameService` がまた出す）
+        if (data.isEndlessMode) {
+          this.gameService.enterEndlessMode()
+          this.progress.setEndlessMode(true)
+        }
         this.applyShelfSize()
         this.timeManager.setTime(data.currentTime)
         // 解禁が無かった頃のセーブは空で来る。枠は日付から出るのでここで追いつく（#48）
@@ -1061,7 +1067,7 @@ export class GameScene extends Phaser.Scene {
    *   序盤は素材だけ（U1）なので、素材を出さないと**買った品を1つも置けない。**
    */
   private refreshInventoryPanel(): void {
-    // ⚠ **手に入れたことがある品だけ出す。**122品すべてを「在庫0」で並べると、
+    // ⚠ **手に入れたことがある品だけ出す。**135品すべてを「在庫0」で並べると、
     //   何が手元にあるのか読めなくなる。減って0になった品は残す（また仕入れられるので）
     const items = this.registry_.getAllItems().filter(i => this.inventory.hasEverHeld(i.id))
     const stock = this.inventory.getAllStock()

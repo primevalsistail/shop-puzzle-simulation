@@ -38,27 +38,24 @@ describe('GameProgress', () => {
     expect(gp.isRecipeUnlocked('recipe_buckwheat_flour')).toBe(true)
   })
 
-  it('unlockFeatureで機能をアンロックできる', () => {
+  it('エンドレスはセーブに載り、読み直すと戻る（戻らないと達成の幕がまた出る。#80）', () => {
     const eco = new EconomyManager()
     const inv = new Inventory()
     const reg = new ItemRegistry(ALL_ITEMS)
     const grid = new FloorGrid({ width: 6, height: 5 }, reg)
-    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), new Upgrades(), new ShelfPresets(), new DeliveryOrders(inv, eco))
-    gp.unlockFeature('second_floor')
-    expect(gp.isFeatureUnlocked('second_floor')).toBe(true)
-    expect(gp.isFeatureUnlocked('other')).toBe(false)
-  })
+    const storageMock: Record<string, string> = {}
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => storageMock[k] ?? null,
+      setItem: (k: string, v: string) => { storageMock[k] = v },
+      removeItem: (k: string) => { delete storageMock[k] },
+    })
 
-  it('売上に応じてグリッドサイズが拡張される', () => {
-    const eco = new EconomyManager()
-    const inv = new Inventory()
-    const reg = new ItemRegistry(ALL_ITEMS)
-    const grid = new FloorGrid({ width: 6, height: 5 }, reg)
     const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), new Upgrades(), new ShelfPresets(), new DeliveryOrders(inv, eco))
+    gp.setEndlessMode(true)
+    gp.save(0)
 
-    expect(gp.getGridSizeForRevenue(0)).toEqual({ width: 6, height: 5 })
-    expect(gp.getGridSizeForRevenue(200000)).toEqual({ width: 9, height: 7 })
-    expect(gp.getGridSizeForRevenue(500000)).toEqual({ width: 13, height: 10 })
+    const loaded = gp.load(0)
+    expect(loaded!.isEndlessMode).toBe(true)
   })
 
   it('save/loadがLocalStorageを使う (モック)', () => {

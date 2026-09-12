@@ -12,7 +12,6 @@ const SAVE_KEY = 'shop_puzzle_save'
 const slotKey = (slot: number) => `${SAVE_KEY}_${slot}`
 
 export class GameProgress {
-  private unlockedFeatures: Set<string> = new Set()
   /**
    * 解禁済みのレシピ。**クラフトメニューはここにあるものだけを並べる**（#48 ／ 段4-3）。
    *
@@ -47,7 +46,6 @@ export class GameProgress {
       floor: this.floorGrid.getAllSlots(),
       shelfPresets: this.presets.toRecord(),
       orders: this.orders.toRecord(),
-      unlockedFeatures: Array.from(this.unlockedFeatures),
       unlockedRecipes: Array.from(this.unlockedRecipes),
       currentTime: this.timeManager.getCurrentTime(),
       isEndlessMode: this.isEndlessMode,
@@ -118,21 +116,7 @@ export class GameProgress {
     this.unlockedRecipes = new Set(ids)
   }
 
-  isFeatureUnlocked(feature: string): boolean {
-    return this.unlockedFeatures.has(feature)
-  }
-
-  unlockFeature(feature: string): void {
-    this.unlockedFeatures.add(feature)
-  }
-
   setEndlessMode(value: boolean): void {
     this.isEndlessMode = value
-  }
-
-  getGridSizeForRevenue(totalRevenue: number): { width: number; height: number } {
-    if (totalRevenue >= 500000) return { width: 13, height: 10 }
-    if (totalRevenue >= 200000) return { width: 9, height: 7 }
-    return { width: 6, height: 5 }
   }
 }

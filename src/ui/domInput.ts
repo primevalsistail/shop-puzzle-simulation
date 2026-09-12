@@ -85,7 +85,20 @@ export function createInput(scene: Phaser.Scene, opts: InputOptions): HTMLInputE
   })
   el.addEventListener('focus', () => setGameKeyboard(scene, false))
   el.addEventListener('blur', () => setGameKeyboard(scene, true))
-  el.addEventListener('input', () => opts.onInput(el.value))
+  // ⚠ **IME の変換中は絞り込みを走らせない**（#84）。
+  //   `input` だけを見ていると `ひ` → `ひつ` → `ひつｊ` と**1打鍵ごとに候補が動き**、
+  //   中間状態で0件になって「そもそも無い」の文言がちらつく。
+  //   ⚠ **ここは3画面（持ち物・仕入れ・工房）が通る唯一の口。**直せば3箇所とも直る
+  let composing = false
+  el.addEventListener('compositionstart', () => { composing = true })
+  el.addEventListener('compositionend', () => {
+    composing = false
+    opts.onInput(el.value)
+  })
+  el.addEventListener('input', () => {
+    if (composing) return
+    opts.onInput(el.value)
+  })
   return el
 }
 
