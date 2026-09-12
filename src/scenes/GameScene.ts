@@ -24,6 +24,7 @@ import { Tutorial } from '../ui/Tutorial.js'
 import { SaveLoadMenu } from '../ui/SaveLoadMenu.js'
 import { CharacterStrip } from '../ui/CharacterStrip.js'
 import { MessageLog } from '../ui/MessageLog.js'
+import { installDebugTools } from '../debug/DebugTools.js'
 import { EventBus } from '../services/EventBus.js'
 import { GameEvents } from '../types/index.js'
 import type { DisplaySlot, GameTime, GridCell, Rotation } from '../types/index.js'
@@ -234,6 +235,28 @@ export class GameScene extends Phaser.Scene {
 
     // 右クリックのブラウザメニューを無効化
     this.input.mouse?.disableContextMenu()
+
+    // ⚠ 確認用の道具。**出荷前に丸ごと外す**（issue #51）。外すのはこの1行と `src/debug/` だけ
+    installDebugTools(this, {
+      economy: this.economy,
+      inventory: this.inventory,
+      timeManager: this.timeManager,
+      registry: this.registry_,
+      world: this.world,
+      upgrades: this.upgrades,
+      refresh: (message: string) => {
+        const t = this.timeManager.getCurrentTime()
+        this.world.setDay(t.day)
+        this.hud.updateTime(t.day, t.hour, t.minute)
+        this.hud.updateLocation(this.world.getLocation())
+        this.hud.updateMoney(this.economy.getMoney())
+        this.refreshInventoryPanel()
+        this.updateStatus(message)
+      },
+      applyShelfSize: () => this.applyShelfSize(),
+      isMenuOpen: () => this.craftMenu.isVisible() || this.purchaseMenu.isVisible()
+        || this.saveLoadMenu.isVisible() || this.upgradeMenu.isVisible(),
+    })
 
     if (this.tutorial.shouldShow()) {
       this.tutorial.show(() => this.updateStatus())
@@ -457,16 +480,6 @@ export class GameScene extends Phaser.Scene {
       }
       // グリッド外で離した → キャンセル（元の位置に戻す）
       this.cancelDrag()
-    })
-
-    // ⚠ テスト用（#43）。いまの日を切り上げて翌朝へ飛ばす。撤去は #51 がまとめて扱う。
-    //    skipMinutes は TIME_MINUTE_PASSED を出さない＝飛ばした分に客は来ない（#25）
-    this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.N).on('down', () => {
-      if (this.craftMenu.isVisible() || this.purchaseMenu.isVisible() || this.saveLoadMenu.isVisible() || this.upgradeMenu.isVisible()) return
-      this.timeManager.skipMinutes(this.timeManager.minutesUntilEndOfDay())
-      const t = this.timeManager.getCurrentTime()
-      this.hud.updateTime(t.day, t.hour, t.minute)
-      this.updateStatus(`[テスト用] Day ${t.day} へ飛ばしました`)
     })
 
     // ESC: メニューを閉じる（ドラッグキャンセルは左ボタン離しで行う）
