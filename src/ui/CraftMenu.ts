@@ -4,6 +4,7 @@ import type { Inventory } from '../components/economy/Inventory.js'
 import type { ItemRegistry, RecipeDef } from '../components/items/ItemRegistry.js'
 import type { RecipeUnlocks } from '../components/progress/RecipeUnlocks.js'
 import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
+import { SearchBox } from './SearchBox.js'
 import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
 import {
@@ -32,6 +33,10 @@ const TEXT_MAX_W = CONTROLS_L - CONTENT_L - 22
 
 const INPUT_W = 52
 const INPUT_H = 22
+
+/** 検索の入力欄。絞り込みの行の右端に置く */
+const SEARCH_W = 160
+const SEARCH_H = 24
 
 /** 1行ぶんの、あとから書き換える部品 */
 interface Row {
@@ -66,6 +71,8 @@ export class CraftMenu {
   private onlyCraftable = false
   /** 棚から「これを作りたい」と来たレシピ */
   private focusId: string | null = null
+  /** ⚠ **行とは別に持つ。**一緒に作り直すと打鍵のたびにカーソルが飛ぶ（#55） */
+  private search: SearchBox
 
   constructor(
     private scene: Phaser.Scene,
@@ -77,6 +84,7 @@ export class CraftMenu {
     private frame: PlaceFrame,
     private onClose: () => void,
   ) {
+    this.search = new SearchBox(scene)
     // シーンが終わるとき DOM が残らないようにする
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown())
     scene.events.once(Phaser.Scenes.Events.DESTROY, () => this.teardown())
@@ -93,12 +101,18 @@ export class CraftMenu {
   open(focusRecipeId?: string): void {
     if (this.isOpen) return
     this.isOpen = true
+    this.paging.setQuery('')
     this.focusId = focusRecipeId ?? null
     if (focusRecipeId) {
       const shown = this.shown()
       this.paging.jumpTo(shown.findIndex(r => r.id === focusRecipeId), shown.length)
     }
     this.frame.show('工房', () => this.close())
+    this.search.place(
+      CONTENT_R - SEARCH_W / 2, FILTER_Y, SEARCH_W, SEARCH_H, '名前で探す',
+      q => { this.paging.setQuery(q); this.rebuild() },
+      CONTENT_DEPTH,
+    )
     this.build()
   }
 
@@ -106,6 +120,7 @@ export class CraftMenu {
     if (!this.isOpen) return
     this.isOpen = false
     this.teardown()
+    this.search.destroy()
     this.frame.hide()
     this.onClose()
   }
@@ -121,9 +136,11 @@ export class CraftMenu {
    * ⚠ **母集合は解禁済みのレシピ**（#48）。全72本を並べない。
    */
   private shown(): RecipeDef[] {
+    // ⚠ **主種類も名前も「出来上がる品」で見る**（材料ではない）。行に出ているのが出来上がる品なので
     const byKind = this.paging.filter(
       this.unlocks.unlockedRecipes(),
       r => this.registry.getItem(r.outputItemId).mainKind,
+      r => this.registry.getItem(r.outputItemId).display.name,
     )
     return this.onlyCraftable
       ? byKind.filter(r => this.craftingSystem.maxCraftTimes(r.id) > 0)

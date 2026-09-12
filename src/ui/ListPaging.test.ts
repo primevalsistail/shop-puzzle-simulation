@@ -117,3 +117,76 @@ describe('ListPaging — 指定した位置へ飛ぶ（棚から「これを補�
     expect(p.currentPage(7)).toBe(2)
   })
 })
+
+describe('名前での検索（#55）', () => {
+  type Named = { name: string; kind: MainKind }
+  const shelf: Named[] = [
+    { name: '羊の乳',      kind: '飲みもの' },
+    { name: '山羊の乳',    kind: '飲みもの' },
+    { name: '蕎麦粉のパン', kind: '食料' },
+    { name: 'りんご',      kind: '食料' },
+    { name: '麻のシャツ',  kind: '衣類' },
+  ]
+  const nameOf = (r: Named) => r.name
+  const kindOf = (r: Named) => r.kind
+
+  it('既定では効かない（全部出る）', () => {
+    const p = new ListPaging(3)
+    expect(p.hasQuery()).toBe(false)
+    expect(p.filter(shelf, kindOf, nameOf)).toHaveLength(5)
+  })
+
+  it('名前の一部で絞れる', () => {
+    const p = new ListPaging(3)
+    p.setQuery('乳')
+    expect(p.filter(shelf, kindOf, nameOf).map(nameOf)).toEqual(['羊の乳', '山羊の乳'])
+  })
+
+  it('前後の空白は落とす', () => {
+    const p = new ListPaging(3)
+    p.setQuery('  りんご  ')
+    expect(p.getQuery()).toBe('りんご')
+    expect(p.filter(shelf, kindOf, nameOf)).toHaveLength(1)
+  })
+
+  it('空文字に戻すと全部出る', () => {
+    const p = new ListPaging(3)
+    p.setQuery('乳')
+    p.setQuery('')
+    expect(p.hasQuery()).toBe(false)
+    expect(p.filter(shelf, kindOf, nameOf)).toHaveLength(5)
+  })
+
+  /** ⚠ 片方だけで絞ると、押した絞り込みが無視されたように見える */
+  it('主種類の絞り込みと AND で効く', () => {
+    const p = new ListPaging(3)
+    p.toggleKind('飲みもの')
+    p.setQuery('羊')
+    expect(p.filter(shelf, kindOf, nameOf).map(nameOf)).toEqual(['羊の乳', '山羊の乳'])
+    p.setQuery('パン')  // 食料なので、飲みものの絞り込みとは両立しない
+    expect(p.filter(shelf, kindOf, nameOf)).toHaveLength(0)
+  })
+
+  it('nameOf を渡さない画面では効かない', () => {
+    const p = new ListPaging(3)
+    p.setQuery('乳')
+    expect(p.filter(shelf, kindOf)).toHaveLength(5)
+  })
+
+  /** ⚠ 絞った結果が1ページに収まるのに、2ページ目のままだと空に見える */
+  it('問い合わせが変わるとページが先頭へ戻る', () => {
+    const p = new ListPaging(2)
+    p.setPage(1, 5)
+    expect(p.currentPage(5)).toBe(1)
+    p.setQuery('乳')
+    expect(p.currentPage(2)).toBe(0)
+  })
+
+  it('同じ文字で呼び直してもページは動かない', () => {
+    const p = new ListPaging(2)
+    p.setQuery('の')
+    p.setPage(1, 4)
+    p.setQuery('の')
+    expect(p.currentPage(4)).toBe(1)
+  })
+})

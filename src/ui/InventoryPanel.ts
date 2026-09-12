@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import type { ItemDef, ItemRegistry } from '../components/items/ItemRegistry.js'
 import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
 import { MAX_QUANTITY } from '../components/economy/Inventory.js'
+import { SearchBox } from './SearchBox.js'
 import type { IslandName } from '../taxonomy/islands.js'
 
 const PANEL_X = 20
@@ -24,6 +25,17 @@ const PREVIEW_CX = PANEL_X + 27
  */
 const PAGER_Y = 108
 
+/**
+ * 検索の入力欄（#55）。**見出しの行に置く。**
+ *
+ * ⚠ **行を1本足さないこと。**品の行は `ITEM_START_Y`(150) から `ITEM_HEIGHT`(70) 刻みなので、
+ *   間に1行入れると **8行 → 7行に減る。**「アイテム」という見出しの語は無くても分かる。
+ */
+const SEARCH_X = PANEL_X
+const SEARCH_W = 110
+const SEARCH_H = 20
+const HEAD_Y = 52
+
 export class InventoryPanel {
   private allObjects: Phaser.GameObjects.GameObject[] = []
   private filterObjects: Phaser.GameObjects.GameObject[] = []
@@ -44,11 +56,14 @@ export class InventoryPanel {
    * ⚠ 渡さないと仕入れ画面と**同じ品に別の値段**が出る。`GameScene` が毎回渡す。
    */
   private storedIsland: IslandName | undefined
+  /** ⚠ **`filterObjects` に入れないこと。**打鍵のたびに作り直されてカーソルが飛ぶ（#55） */
+  private search: SearchBox
 
   constructor(
     private scene: Phaser.Scene,
     private registry: ItemRegistry,
   ) {
+    this.search = new SearchBox(scene)
     // ホイールでもページを送れる（ボタンを押さずに流し見できるように）
     this.scene.input.on('wheel', (
       pointer: Phaser.Input.Pointer,
@@ -119,7 +134,7 @@ export class InventoryPanel {
   }
 
   private filtered(): ItemDef[] {
-    return this.paging.filter(this.storedItems, it => it.mainKind)
+    return this.paging.filter(this.storedItems, it => it.mainKind, it => it.display.name)
   }
 
   private rebuildFilterBar(total: number): void {
@@ -128,11 +143,16 @@ export class InventoryPanel {
 
     const cx = PANEL_X + PANEL_WIDTH / 2
 
-    // タイトル（右に件数。122品あるので位置が要る）
+    // 見出しの行 — 検索の入力欄 ＋ 件数（135品あるので位置が要る）
+    this.search.place(
+      SEARCH_X + SEARCH_W / 2, HEAD_Y, SEARCH_W, SEARCH_H, '名前で探す',
+      q => { this.paging.setQuery(q); this.redraw() },
+      20,
+    )
     this.filterObjects.push(
-      this.scene.add.text(cx, 52, `アイテム  ${this.paging.rangeLabel(total)}`, {
-        fontSize: '15px', color: '#ffffff',
-      }).setOrigin(0.5),
+      this.scene.add.text(PANEL_X + ITEM_WIDTH, HEAD_Y, this.paging.rangeLabel(total), {
+        fontSize: '11px', color: '#aabbcc',
+      }).setOrigin(1, 0.5),
     )
 
     // 絞り込み（1行 × 4種類、横幅をアイテムに揃える）

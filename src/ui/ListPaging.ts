@@ -22,9 +22,18 @@ export const KIND_BUTTONS: { id: MainKind; label: string }[] = [
  *
  * 「全部選ぶ」と「全部外す」が同じ結果になるのは意図。
  * どちらも『どれかに限る』を言っていないため。
+ *
+ * ## 名前での検索（#55）
+ *
+ * 主種類の絞り込みと **AND** で効く（`食料` を押しつつ `パン` で引ける）。
+ *
+ * ⚠ **表示されている名前の部分一致だけ。**品に読みの欄が無いので、
+ *   `羊の乳` を `ひつじ` では引けない（→ 別 issue）。
  */
 export class ListPaging {
   private kinds = new Set<MainKind>()
+  /** 名前の問い合わせ。空文字なら効かない */
+  private query = ''
   private page = 0
 
   constructor(private pageSize: number) {}
@@ -50,9 +59,43 @@ export class ListPaging {
     this.page = 0
   }
 
-  filter<T>(items: readonly T[], kindOf: (item: T) => MainKind): T[] {
-    if (!this.hasFilter()) return [...items]
-    return items.filter(i => this.kinds.has(kindOf(i)))
+  // ─── 名前での検索（#55） ───────────────────────────
+  /**
+   * 問い合わせを差し替える。**変わったときだけ**ページを先頭へ戻す
+   * （同じ文字で呼ばれてもページを飛ばさない）。
+   */
+  setQuery(query: string): void {
+    const next = query.trim()
+    if (next === this.query) return
+    this.query = next
+    this.page = 0
+  }
+
+  getQuery(): string {
+    return this.query
+  }
+
+  hasQuery(): boolean {
+    return this.query.length > 0
+  }
+
+  /**
+   * 主種類と名前の両方で絞る。**2つは AND。**
+   *
+   * `nameOf` を渡さなければ名前の絞り込みは効かない（呼ぶ側が名前を持たない画面のため）。
+   */
+  filter<T>(
+    items: readonly T[],
+    kindOf: (item: T) => MainKind,
+    nameOf?: (item: T) => string,
+  ): T[] {
+    const byKind = this.hasFilter()
+      ? items.filter(i => this.kinds.has(kindOf(i)))
+      : [...items]
+    if (!this.hasQuery() || !nameOf) return byKind
+    // 大小の違いは無視する。日本語の名前には効かないが、英数字の品名で効く
+    const q = this.query.toLowerCase()
+    return byKind.filter(i => nameOf(i).toLowerCase().includes(q))
   }
 
   // ─── ページ ───────────────────────────────────────

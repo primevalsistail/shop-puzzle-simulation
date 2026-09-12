@@ -5,6 +5,7 @@ import type { Inventory } from '../components/economy/Inventory.js'
 import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
 import { MAX_QUANTITY } from '../components/economy/Inventory.js'
 import type { IslandName } from '../taxonomy/islands.js'
+import { SearchBox } from './SearchBox.js'
 import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
 import {
@@ -16,6 +17,9 @@ const ROW_H = 52
 /** ⚠ **決め打ちしない。**領域の高さから出す（`layout.ts`） */
 const VISIBLE_COUNT = rowsThatFit(ROW_H)
 const BUY_QTY = 5
+/** 検索の入力欄。絞り込みの行の右端に置く */
+const SEARCH_W = 160
+const SEARCH_H = 24
 
 /** 1行の中の列 */
 const ROW_W = CONTENT_R - CONTENT_L
@@ -38,6 +42,8 @@ export class PurchaseMenu {
   private paging = new ListPaging(VISIBLE_COUNT)
   /** 棚から「これを補充したい」と来た品。1行だけ目立たせる */
   private focusId: string | null = null
+  /** ⚠ **一覧とは別に持つ。**一緒に作り直すと打鍵のたびにカーソルが飛ぶ（#55） */
+  private search: SearchBox
 
   constructor(
     private scene: Phaser.Scene,
@@ -47,6 +53,7 @@ export class PurchaseMenu {
     private frame: PlaceFrame,
     private onClose: () => void,
   ) {
+    this.search = new SearchBox(scene)
     this.scene.input.on('wheel', (
       _pointer: Phaser.Input.Pointer,
       _over: unknown, _dx: number, dy: number,
@@ -63,8 +70,14 @@ export class PurchaseMenu {
     this.islandName = islandName
     this.focusId = focusId ?? null
     this.paging.clearKinds()
+    this.paging.setQuery('')
     if (focusId) this.paging.jumpTo(this.shown().findIndex(m => m.id === focusId), this.shown().length)
     this.frame.show(`${islandName}島の商人のところ`, () => this.close())
+    this.search.place(
+      CONTENT_R - SEARCH_W / 2, FILTER_Y, SEARCH_W, SEARCH_H, '名前で探す',
+      q => { this.paging.setQuery(q); this.rebuild() },
+      CONTENT_DEPTH,
+    )
     this.rebuild()
   }
 
@@ -73,6 +86,7 @@ export class PurchaseMenu {
     this.isOpen = false
     this.container?.destroy()
     this.container = null
+    this.search.destroy()
     this.frame.hide()
     this.onClose()
   }
@@ -82,7 +96,7 @@ export class PurchaseMenu {
   }
 
   private shown(): ItemDef[] {
-    return this.paging.filter(this.materials, m => m.mainKind)
+    return this.paging.filter(this.materials, m => m.mainKind, m => m.display.name)
   }
 
   private turnPage(delta: number): void {
