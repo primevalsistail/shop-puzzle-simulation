@@ -14,7 +14,7 @@ import { CONTENT_DEPTH } from './PlaceFrame.js'
 import {
   PLACE_CX, CONTENT_L, CONTENT_R,
   FILTER_Y_NO_SUBTITLE as FILTER_Y, ROWS_TOP_NO_SUBTITLE as ROWS_TOP, PAGER_Y, rowsThatFit,
-  CRAFT_CONTROLS_L, CRAFT_TEXT_MAX_W, CRAFT_ROUTE_FONT_PX,
+  CRAFT_CONTROLS_L, CRAFT_TEXT_MAX_W, CRAFT_ROUTE_FONT_PX, LOG_T,
 } from './layout.js'
 
 const ROW_H = 84
@@ -100,10 +100,12 @@ export class CraftMenu {
     scene.events.once(Phaser.Scenes.Events.DESTROY, () => this.teardown())
 
     scene.input.on('wheel', (
-      _pointer: Phaser.Input.Pointer,
+      pointer: Phaser.Input.Pointer,
       _over: unknown, _dx: number, dy: number,
     ) => {
       if (!this.isOpen) return
+      // ⚠ **ログ欄の上でのホイールはログの遡り**（#40）。ここでページを送らない
+      if (pointer.y >= LOG_T) return
       if (this.paging.movePage(dy > 0 ? 1 : -1, this.shown().length)) this.rebuild()
     })
   }
@@ -151,6 +153,8 @@ export class CraftMenu {
       this.unlocks.unlockedRecipes(),
       r => this.registry.getItem(r.outputItemId).mainKind,
       r => this.registry.getItem(r.outputItemId).display.name,
+      // ⚠ **レシピ側に読みは書かない。**出来上がる品の読みで引く（#65）
+      r => this.registry.getItem(r.outputItemId).display.reading,
     )
     return this.onlyCraftable
       ? byKind.filter(r => this.craftingSystem.maxCraftTimes(r.id) > 0)

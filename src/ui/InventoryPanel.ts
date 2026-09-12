@@ -129,7 +129,12 @@ export class InventoryPanel {
   }
 
   private filtered(): ItemDef[] {
-    return this.paging.filter(this.storedItems, it => it.mainKind, it => it.display.name)
+    return this.paging.filter(
+      this.storedItems,
+      it => it.mainKind,
+      it => it.display.name,
+      it => it.display.reading,   // 読みでも引ける（#65）。⚠ 画面には出さない
+    )
   }
 
   private rebuildFilterBar(total: number): void {

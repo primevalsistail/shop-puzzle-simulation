@@ -26,7 +26,7 @@ describe('INV-1 追加しても、既存は変わらない', () => {
 
     const added: ItemDef = {
       id: 'test_new_item',
-      display: { name: '試しの品', color: 0x000000 },
+      display: { name: '試しの品', reading: 'ためしのしな', color: 0x000000 },
       mainKind: '道具', origin: 'なし', luxury: '上等', suitedLand: 'どこでも',
       shape: [[1]], basePrice: 40,
       originReason: 'INV-1 の判定のためだけに足した品',
@@ -43,7 +43,7 @@ describe('INV-1 追加しても、既存は変わらない', () => {
 
     const newItem: ItemDef = {
       id: 'test_flatbread',
-      display: { name: '試しの焼きもの', color: 0x000000 },
+      display: { name: '試しの焼きもの', reading: 'ためしのやきもの', color: 0x000000 },
       mainKind: '食料', origin: 'ノアキータ', luxury: '日用', suitedLand: 'どこでも',
       shape: [[1]],
       originReason: 'INV-1（レシピ版）の判定のためだけに足した品',
@@ -145,7 +145,7 @@ describe('INV-5 追加コストが定数', () => {
   it('品を1つ足すのに書くのは定義1件だけで、既存の定義も規則も需要表も触らない', () => {
     const added: ItemDef = {
       id: 'test_cost_item',
-      display: { name: '試しの品', color: 0x111111 },
+      display: { name: '試しの品', reading: 'ためしのしな', color: 0x111111 },
       mainKind: '飲みもの', origin: 'リナツィア', luxury: '上等', suitedLand: '暑い土地',
       shape: [[1]], basePrice: 33,
       originReason: 'INV-5 の判定のためだけに足した品',
@@ -171,6 +171,32 @@ describe('INV-5 追加コストが定数', () => {
     const max = Math.max(...keyCounts)
     // basePrice の有無（tier1 かどうか）だけが差
     expect(max - min).toBeLessThanOrEqual(1)
+  })
+})
+
+// ══ 検索用の読み（#65） ═════════════════════════════════
+describe('検索用の読み（#65）', () => {
+  /** ひらがな（U+3041〜U+3096）と長音符だけ。⚠ カタカナ・漢字・ローマ字を混ぜない */
+  const KANA_ONLY = /^[\u3041-\u3096\u30FC]+$/
+
+  it('全品に読みがある（1品でも欠けると、その品だけ検索から黙って外れる）', () => {
+    const missing = ALL_ITEMS.filter(i => !i.display.reading)
+    expect(missing.map(i => i.id)).toEqual([])
+    expect(ALL_ITEMS).toHaveLength(135)
+  })
+
+  it('読みはひらがな（と長音符）だけ', () => {
+    // ⚠ カタカナの品にもひらがなで持たせる（`あすぱらがす` で引けるように）。
+    //   ローマ字は入れない（`shi`/`si` のどちらかを選ぶことになる）
+    const bad = ALL_ITEMS.filter(i => !KANA_ONLY.test(i.display.reading))
+    expect(bad.map(i => `${i.id}:${i.display.reading}`)).toEqual([])
+  })
+
+  it('読みは `display` の中にある（品の定義のキー数を増やさない）', () => {
+    // ⚠ INV-5「1件あたりに書く行数は増えない」を壊さないための置き場所
+    for (const item of ALL_ITEMS) {
+      expect(item).not.toHaveProperty('reading')
+    }
   })
 })
 
@@ -217,7 +243,7 @@ describe('異常入力は必ず落ちる', () => {
 
   it('tier1 なのに basePrice が無い品は落ちる', () => {
     const broken: ItemDef = {
-      id: 'broken', display: { name: '壊れた品', color: 0 },
+      id: 'broken', display: { name: '壊れた品', reading: 'こわれたしな', color: 0 },
       mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: 'どこでも',
       shape: [[1]], originReason: '判定用',
     }

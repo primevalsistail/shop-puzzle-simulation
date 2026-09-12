@@ -3,26 +3,11 @@ import type { IslandName } from '../../taxonomy/islands.js'
 import { ROUTE, DAYS_PER_PORT } from '../../taxonomy/islands.js'
 import type { ItemId } from '../../taxonomy/axes.js'
 
-/**
- * 航海に使う日数。**0 ＝ 航海日は無い。**
- *
- * ⚠ **航海日を作らない。**このゲームは「毎日どこに投じるか決める」のが骨格で、
- *   営業も仕入れもできない日は**判断の無い日**になる。
- *   周期10日・4島一周40日で、`world.md` の「10日ごとに移る」と一致する。
- *   **200日 ＝ 20回の寄港・5周。**
- */
-export const DAYS_AT_SEA = 0
-
-/** 1島ぶんの周期（寄港＋航海） */
-export const DAYS_PER_CYCLE = DAYS_PER_PORT + DAYS_AT_SEA
-
 export interface Location {
   readonly island: IslandName
-  /** `DAYS_AT_SEA` が 0 の間は常に false */
-  readonly atSea: boolean
   /** 次の寄港地 */
   readonly next: IslandName
-  /** 寄港中はあと何日この島にいるか（今日を含む）。航海中は 0 */
+  /** あと何日この島にいるか（今日を含む） */
   readonly daysLeftAtPort: number
 }
 
@@ -31,7 +16,12 @@ export interface Location {
  *
  * **現在地は日付から決まる**（#2）。順序は固定で、プレイヤーは選べない。
  *
- *   Day 1-10 ハルヴェラ ／ Day 11 航海 ／ Day 12-21 リナツィア ／ Day 22 航海 ／ …
+ *   Day 1-10 ハルヴェラ ／ Day 11-20 リナツィア ／ Day 21-30 ノアキータ ／ …
+ *
+ * ⚠ **航海日は作らない**（#74）。このゲームは「毎日どこに投じるか決める」のが骨格で、
+ *   営業も仕入れもできない日は**判断の無い日**になる。
+ *   周期10日・4島一周40日で、`world.md` の「10日ごとに移る」と一致する。
+ *   **200日 ＝ 20回の寄港・5周。**
  *
  * `累計販売数` は U2（その品を一定数売ると買えるようになる）が読む。
  */
@@ -50,14 +40,12 @@ export class WorldState {
 
   getLocation(): Location {
     const elapsed = this.day - 1
-    const indexInCycle = elapsed % DAYS_PER_CYCLE
-    const portIndex = Math.floor(elapsed / DAYS_PER_CYCLE) % ROUTE.length
-    const atSea = indexInCycle >= DAYS_PER_PORT
+    const indexInPort = elapsed % DAYS_PER_PORT
+    const portIndex = Math.floor(elapsed / DAYS_PER_PORT) % ROUTE.length
     return {
       island: ROUTE[portIndex],
-      atSea,
       next: ROUTE[(portIndex + 1) % ROUTE.length],
-      daysLeftAtPort: atSea ? 0 : DAYS_PER_PORT - indexInCycle,
+      daysLeftAtPort: DAYS_PER_PORT - indexInPort,
     }
   }
 
@@ -72,17 +60,12 @@ export class WorldState {
   /**
    * 次にこの島へ戻るまでの日数（今日から数える）。
    *
-   * ⚠ **島を出ると30日戻らない**（一周40日・寄港10日・航海日なし）。
+   * ⚠ **島を出ると30日戻らない**（一周40日・寄港10日）。
    *   素材は産地の島でしか買えないので、**いま買わないと次は30日後**になる。
    *   これを仕入れの画面に出すのが #33。
    */
   daysUntilReturn(): number {
-    return this.getLocation().daysLeftAtPort + (ROUTE.length - 1) * DAYS_PER_CYCLE
-  }
-
-  /** 航海中は店を開けない（#4）。客が来ず、島の商人からも買えない */
-  isAtSea(): boolean {
-    return this.getLocation().atSea
+    return this.getLocation().daysLeftAtPort + (ROUTE.length - 1) * DAYS_PER_PORT
   }
 
   recordSale(itemId: ItemId, quantity = 1): void {

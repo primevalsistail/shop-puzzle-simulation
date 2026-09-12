@@ -208,3 +208,32 @@ export const CRAFT_TEXT_MAX_W = CRAFT_CONTROLS_L - CONTENT_L - 22
  *   収まるかは `layout.test.ts` が見ている。
  */
 export const CRAFT_ROUTE_FONT_PX = 12
+
+// ─── 納品の帯（#28） ──────────────────────────────────
+/**
+ * いま受けている注文を**1行**で出す帯。**盤面の下端とメッセージ欄の上端のあいだ。**
+ *
+ * ⚠ **右パネルには置けない。**HUD の枠は y8〜134 で、そのすぐ下（135〜335）がキャラ絵の枠、
+ *   さらに下はボタン列（346〜593）で埋まっている。**1行ぶんの隙間が無い。**
+ * ⚠ **上へ広げないこと。**盤面はいちばん広いとき（13×10）下地が y590 まで来る
+ *   （`GRID_ORIGIN_Y + 10 * CELL_SIZE + 2`）。広げると盤面と重なる。
+ * ⚠ **右は `STRIP_L` まで。**そこから先はキャラ帯（980〜1090）。
+ */
+export const ORDER_BAR_T = GRID_ORIGIN_Y + 10 * CELL_SIZE + 2
+export const ORDER_BAR_B = LOG_T - 2
+export const ORDER_BAR_L = GRID_ORIGIN_X
+export const ORDER_BAR_R = STRIP_L - 4
+export const ORDER_BAR_W = ORDER_BAR_R - ORDER_BAR_L
+export const ORDER_BAR_H = ORDER_BAR_B - ORDER_BAR_T
+export const ORDER_BAR_CY = (ORDER_BAR_T + ORDER_BAR_B) / 2
+/** 帯の内側の余白 */
+export const ORDER_BAR_PAD = 10
+/**
+ * 帯の文字に使える幅。
+ *
+ * ⚠ **`レン` は全角2文字。**金額を出す場所なので、`OrderBar.test.ts` が
+ *   **注文に出うる全品の最悪値**を `estTextWidth` で測っている。
+ */
+export const ORDER_TEXT_MAX_W = ORDER_BAR_W - ORDER_BAR_PAD * 2
+/** 帯の文字の大きさ。⚠ 帯の高さが 18px しかないので、これ以上大きくしない */
+export const ORDER_BAR_FONT_PX = 12

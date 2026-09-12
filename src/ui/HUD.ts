@@ -106,10 +106,8 @@ export class HUD {
    *   出すのは正式名（ハルヴェラ島…）と、次の寄港までの残り日数だけ。
    */
   updateLocation(location: Location): void {
-    this.placeText.setText(location.atSea
-      ? `航海中 → ${location.next}島`
-      : `${location.island}島  あと${location.daysLeftAtPort}日`)
-    this.placeText.setStyle({ color: location.atSea ? '#7799cc' : '#88bbdd' })
+    this.placeText.setText(`${location.island}島  あと${location.daysLeftAtPort}日`)
+    this.placeText.setStyle({ color: '#88bbdd' })
   }
 
   updateTime(day: number, hour: number, minute: number): void {

@@ -11,6 +11,7 @@ import { CustomerSimulator } from '../components/simulation/CustomerSimulator.js
 import { GameService } from '../services/GameService.js'
 import { GameProgress } from '../components/progress/GameProgress.js'
 import { WorldState } from '../components/progress/WorldState.js'
+import { DeliveryOrders } from '../components/progress/DeliveryOrders.js'
 import { RecipeUnlocks, groupLabel } from '../components/progress/RecipeUnlocks.js'
 import { Upgrades } from '../components/progress/Upgrades.js'
 import { FloorRenderer, GRID_ORIGIN_X, GRID_ORIGIN_Y, CELL_SIZE } from '../ui/FloorRenderer.js'
@@ -27,6 +28,7 @@ import { CharacterStrip } from '../ui/CharacterStrip.js'
 import { PlaceFrame } from '../ui/PlaceFrame.js'
 import { LEFT_PANEL_R, RIGHT_PANEL_L, LOG_T, SCREEN_W, SCREEN_H } from '../ui/layout.js'
 import { MessageLog } from '../ui/MessageLog.js'
+import { OrderBar } from '../ui/OrderBar.js'
 import { money } from '../ui/money.js'
 import { installDebugTools } from '../debug/DebugTools.js'
 import { EventBus } from '../services/EventBus.js'
@@ -35,6 +37,7 @@ import type { DisplaySlot, GameTime, GridCell, GridSize, Rotation } from '../typ
 import { ALL_ITEMS } from '../taxonomy/items.js'
 import { ALL_RECIPES } from '../taxonomy/recipes.js'
 import { stockedByIslandMerchant, becameBuyable } from '../taxonomy/evaluate.js'
+import type { IslandName } from '../taxonomy/islands.js'
 import { materialNeeds } from '../taxonomy/materials.js'
 
 /** 初期の盤面。**棚の強化で広がる**（`Upgrades.gridSize()`） */
@@ -70,6 +73,8 @@ export class GameScene extends Phaser.Scene {
   private recipeUnlocks!: RecipeUnlocks
   private world!: WorldState
   private upgrades!: Upgrades
+  /** 納品の注文（#28）。**寄港ごとに1件、自動で出る** */
+  private deliveryOrders!: DeliveryOrders
   /** 品出しの型（マイセット。#27） */
   private shelfPresets = new ShelfPresets()
 
@@ -83,6 +88,8 @@ export class GameScene extends Phaser.Scene {
   private tutorial!: Tutorial
   private characterStrip!: CharacterStrip
   private messageLog!: MessageLog
+  /** いま受けている注文の1行（#28） */
+  private orderBar!: OrderBar
   /** 「行く場所」の枠（#58）。**いまどこに居るかはこれが持つ** */
   private placeFrame!: PlaceFrame
   private presetMenu!: PresetMenu
@@ -124,9 +131,10 @@ export class GameScene extends Phaser.Scene {
       this.world,
       this.upgrades,
     )
+    this.deliveryOrders = new DeliveryOrders(this.inventory, this.economy)
     this.progress = new GameProgress(
       this.economy, this.inventory, this.floorGrid, this.timeManager, this.world, this.upgrades,
-      this.shelfPresets,
+      this.shelfPresets, this.deliveryOrders,
     )
     this.recipeUnlocks = new RecipeUnlocks(this.registry_, this.inventory, this.progress)
 
@@ -146,6 +154,8 @@ export class GameScene extends Phaser.Scene {
     this.characterStrip.create()
     this.messageLog = new MessageLog(this)
     this.messageLog.create()
+    this.orderBar = new OrderBar(this)
+    this.orderBar.create()
 
     this.craftMenu = new CraftMenu(
       this,
@@ -227,6 +237,7 @@ export class GameScene extends Phaser.Scene {
         this.world.setDay(data.currentTime.day)  // 現在地は日付から決まる（#2）
         this.upgrades.restore(data.upgrades ?? {})
         this.shelfPresets.restore(data.shelfPresets)
+        this.deliveryOrders.restore(data.orders)
         this.progress.restoreUnlockedRecipes(data.unlockedRecipes ?? [])
         this.applyShelfSize()
         this.timeManager.setTime(data.currentTime)
@@ -238,6 +249,9 @@ export class GameScene extends Phaser.Scene {
         this.hud.updateRevenue(data.totalRevenue, this.gameService.isInEndlessMode())
         this.hud.updateTime(data.currentTime.day, data.currentTime.hour, data.currentTime.minute)
         this.hud.updateLocation(this.world.getLocation())
+        // ⚠ **注文が無かった頃のセーブは空で来る。**寄港中は必ず1件ある状態なので、
+        //   空なら**その寄港ぶんを出し直す**（出し直さないと、次の島へ着くまで納品が消える）
+        if (!this.deliveryOrders.getActive()) this.issueOrder()
         this.refreshInventoryPanel()
         this.updateStatus(`スロット ${slot + 1}からロードしました`)
       },
@@ -254,6 +268,8 @@ export class GameScene extends Phaser.Scene {
     this.hud.updateLocation(this.world.getLocation())
     this.hud.updateMoney(this.economy.getMoney())
     this.hud.updateRevenue(this.economy.getTotalRevenue(), false)
+    // 初日ぶんの注文。**寄港したら必ず1件ある**（#28）
+    this.issueOrder()
     this.inventoryPanel.onSelect(id => {
       // 1つの品は棚に1区画まで。**掴んだ時点で知らせる**（どこへ持って行っても置けないため）
       if (this.placementManager.isDisplayed(id)) {
@@ -628,8 +644,7 @@ export class GameScene extends Phaser.Scene {
     EventBus.on(GameEvents.TIME_MINUTE_PASSED, (time: unknown) => {
       const t = time as GameTime
       this.hud.updateTime(t.day, t.hour, t.minute)
-      // ⚠ 航海中は店が開かない（#4）。営業時間帯かどうかとは別の条件
-      this.gameService.onMinutePassed(Math.random, this.timeManager.isOpen() && !this.world.isAtSea())
+      this.gameService.onMinutePassed(Math.random, this.timeManager.isOpen())
       this.hud.updateRevenue(this.economy.getTotalRevenue(), this.gameService.isInEndlessMode())
     })
 
@@ -724,7 +739,6 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * 日が変わったとき。現在地は日付から決まる（#2）ので、ここで `WorldState` に日を渡すだけでよい。
-   * 島が変わった／航海に出た／着いた、はそのあとの表示の話。
    */
   private onDayChanged(day: number): void {
     const before = this.world.getLocation()
@@ -732,13 +746,12 @@ export class GameScene extends Phaser.Scene {
     const after = this.world.getLocation()
     this.hud.updateLocation(after)
 
-    if (!before.atSea && after.atSea) {
-      this.messageLog.addMessage(`${after.island}島を出た。${after.next}島へ向かう`, 'event')
-    } else if (before.atSea && !after.atSea) {
-      this.messageLog.addMessage(`${after.island}島に着いた`, 'event')
-    }
     // 島が変われば商人の品揃えも需要も変わるので、開いているメニューは閉じる
-    if (before.island !== after.island && this.purchaseMenu.isVisible()) this.purchaseMenu.close()
+    if (before.island !== after.island) {
+      if (this.purchaseMenu.isVisible()) this.purchaseMenu.close()
+      this.settleDelivery(after.island)
+      this.issueOrder()
+    }
 
     // 滞在中にも解禁が起きる（段4-4）。枠は4日に1つ増える ＝ 1寄港あたり2〜3回
     this.checkRecipeUnlocks()
@@ -845,6 +858,7 @@ export class GameScene extends Phaser.Scene {
     //   そこに居ないのだからおかしい（PO 2026-09-12）。
     //   場所の領域はこの帯に重なるので、隠さないと下から覗く
     this.characterStrip.setVisible(visible)
+    this.orderBar.setShopVisible(visible)
   }
 
   /** 時間が進んでいたら止める。場所へ移る前に必ず呼ぶ */
@@ -910,11 +924,6 @@ export class GameScene extends Phaser.Scene {
 
   private openPurchaseMenu(): void {
     this.stopAdvancing()
-    // 航海中は島の商人がいない（#4）
-    if (this.world.isAtSea()) {
-      this.updateStatus(`航海中です。${this.world.getLocation().next}島に着くまで仕入れられません`)
-      return
-    }
     // 固定の材料一覧ではなく、**その島の商人が並べる品**（#30）。
     // tier と累計販売数で解禁されるので、売るほど品揃えが増える
     this.purchaseMenu.open(
@@ -1010,6 +1019,60 @@ export class GameScene extends Phaser.Scene {
     const onShelf = new Set(this.floorGrid.getAllSlots().map(s => s.itemId))
     // 現在地も渡す。**買値は島で変わる**ので、渡さないと仕入れ画面と食い違う（段4-6）
     this.inventoryPanel.render(items, quantities, onShelf)
+    // ⚠ **帯の「手持ち」も持ち物の表示である。**別の経路で更新すると片方だけ古くなる
+    this.refreshOrderBar()
+  }
+
+  /** 納品の帯を引き直す。**注文が無ければ帯ごと消える** */
+  private refreshOrderBar(): void {
+    const order = this.deliveryOrders.getActive()
+    if (!order) {
+      this.orderBar.update(null, '', 0)
+      return
+    }
+    const item = this.registry_.getItem(order.itemId)
+    this.orderBar.update(order, item.display.name, this.inventory.getQuantity(order.itemId))
+  }
+
+  /**
+   * この寄港ぶんの注文を出す（#28）。**納品先は次の島。**
+   *
+   * ⚠ **知らせは `event` で出す。**`info` は同じ文が続くと抑止されるので、
+   *   注文のような「1回きりで、見落とすと困る」知らせには使わない。
+   */
+  private issueOrder(): void {
+    const order = this.deliveryOrders.issue(
+      this.registry_.getAllItems(),
+      this.world.getState(),
+      this.world.getLocation().next,
+      this.timeManager.getCurrentTime().day,
+    )
+    if (order) {
+      const item = this.registry_.getItem(order.itemId)
+      this.messageLog.addMessage(
+        `${order.island}島へ ${item.display.name} ×${order.quantity} の注文が入った`
+        + `（納めると ${money(order.reward)}）`,
+        'event',
+      )
+    }
+    this.refreshOrderBar()
+  }
+
+  /**
+   * 納品先に着いた（#28）。**積んであれば自動で納まる。**
+   *
+   * ⚠ **果たせなくても罰は無い**（PO 判断 Q4=A）。注文が流れるだけ。
+   */
+  private settleDelivery(island: IslandName): void {
+    const result = this.deliveryOrders.settleArrival(island)
+    if (!result) return
+    const item = this.registry_.getItem(result.order.itemId)
+    this.messageLog.addMessage(
+      result.delivered
+        ? `${item.display.name} ×${result.order.quantity} を納めた　+${money(result.order.reward)}`
+        : `${item.display.name} ×${result.order.quantity} の注文は流れた`,
+      'event',
+    )
   }
 
   private showSalePopup(revenue: number, slot: DisplaySlot): void {

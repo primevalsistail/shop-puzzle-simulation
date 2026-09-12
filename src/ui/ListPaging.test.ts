@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { ListPaging } from './ListPaging.js'
-import type { MainKind } from '../taxonomy/axes.js'
+import type { ItemDef, MainKind } from '../taxonomy/axes.js'
+import { ALL_ITEMS } from '../taxonomy/items.js'
 
 type Row = { id: string; kind: MainKind }
 const rows: Row[] = [
@@ -188,5 +189,91 @@ describe('名前での検索（#55）', () => {
     p.setPage(1, 4)
     p.setQuery('の')
     expect(p.currentPage(4)).toBe(1)
+  })
+})
+
+describe('読みでの検索（#65）', () => {
+  type Yomi = { name: string; reading: string; kind: MainKind }
+  const shelf: Yomi[] = [
+    { name: '羊の乳',        reading: 'ひつじのちち',   kind: '飲みもの' },
+    { name: '蕎麦粉のパン',  reading: 'そばこのぱん',   kind: '食料' },
+    { name: 'アスパラガス',  reading: 'あすぱらがす',   kind: '食料' },
+    { name: 'りんご',        reading: 'りんご',         kind: '食料' },
+    { name: '毛皮裏の外套',  reading: 'けがわうらのがいとう', kind: '衣類' },
+  ]
+  const kindOf = (r: Yomi) => r.kind
+  const nameOf = (r: Yomi) => r.name
+  const readingOf = (r: Yomi) => r.reading
+  const names = (rows: Yomi[]) => rows.map(nameOf)
+
+  it('漢字の品をかなで引ける（#65 本文の例）', () => {
+    const p = new ListPaging(5)
+    p.setQuery('ひつじ')
+    expect(names(p.filter(shelf, kindOf, nameOf, readingOf))).toEqual(['羊の乳'])
+    p.setQuery('そば')
+    expect(names(p.filter(shelf, kindOf, nameOf, readingOf))).toEqual(['蕎麦粉のパン'])
+  })
+
+  it('カタカナだけの品もかなで引ける（一律に持たせた効き目）', () => {
+    const p = new ListPaging(5)
+    p.setQuery('あすぱら')
+    expect(names(p.filter(shelf, kindOf, nameOf, readingOf))).toEqual(['アスパラガス'])
+  })
+
+  it('名前でも従来どおり引ける（退行防止）', () => {
+    const p = new ListPaging(5)
+    p.setQuery('羊')
+    expect(names(p.filter(shelf, kindOf, nameOf, readingOf))).toEqual(['羊の乳'])
+    p.setQuery('パン')
+    expect(names(p.filter(shelf, kindOf, nameOf, readingOf))).toEqual(['蕎麦粉のパン'])
+    p.setQuery('アスパラ')
+    expect(names(p.filter(shelf, kindOf, nameOf, readingOf))).toEqual(['アスパラガス'])
+  })
+
+  it('読みを渡さない呼び方なら、従来どおり名前だけで引く', () => {
+    const p = new ListPaging(5)
+    p.setQuery('ひつじ')
+    expect(p.filter(shelf, kindOf, nameOf)).toHaveLength(0)
+  })
+
+  it('主種類の絞り込みとは AND のまま', () => {
+    const p = new ListPaging(5)
+    p.toggleKind('衣類')
+    p.setQuery('けがわ')
+    expect(names(p.filter(shelf, kindOf, nameOf, readingOf))).toEqual(['毛皮裏の外套'])
+    p.setQuery('ひつじ')   // 飲みものなので両立しない
+    expect(p.filter(shelf, kindOf, nameOf, readingOf)).toHaveLength(0)
+  })
+})
+
+describe('読みでの検索 — 実データ（#65）', () => {
+  const kindOf = (i: ItemDef) => i.mainKind
+  const nameOf = (i: ItemDef) => i.display.name
+  const readingOf = (i: ItemDef) => i.display.reading
+  const hit = (q: string): string[] => {
+    const p = new ListPaging(ALL_ITEMS.length)
+    p.setQuery(q)
+    return p.filter(ALL_ITEMS, kindOf, nameOf, readingOf).map(nameOf)
+  }
+
+  it('漢字の品をかなで引ける', () => {
+    expect(hit('ひつじのちち')).toContain('羊の乳')
+    expect(hit('そば')).toEqual(expect.arrayContaining(['蕎麦の実', '蕎麦粉', '蕎麦粉のパン']))
+    expect(hit('はちみつ')).toEqual(expect.arrayContaining(['蜂蜜', '蜂蜜レモン', '蜂蜜の乳']))
+    expect(hit('こおり')).toContain('氷')
+  })
+
+  it('カタカナの品もかなで引ける', () => {
+    expect(hit('あすぱらがす')).toEqual(['アスパラガス'])
+    expect(hit('ちーず')).toEqual(['チーズ'])
+    expect(hit('となかい')).toEqual(
+      expect.arrayContaining(['トナカイの肉', 'トナカイの角', 'トナカイの革']))
+  })
+
+  it('名前でも従来どおり引ける（退行防止）', () => {
+    expect(hit('羊')).toEqual(expect.arrayContaining(['羊毛', '羊の乳', '羊毛のフェルト']))
+    expect(hit('パン')).toEqual(expect.arrayContaining(['蕎麦粉のパン', 'ジャムパン']))
+    expect(hit('アスパラガス')).toEqual(['アスパラガス'])
+    expect(hit('氷')).toEqual(expect.arrayContaining(['氷', 'いちごのかき氷']))
   })
 })

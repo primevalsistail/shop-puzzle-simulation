@@ -17,12 +17,12 @@ describe('WorldState', () => {
     }
 
     it('Day1-10 はハルヴェラに寄港している', () => {
-      expect(at(1)).toMatchObject({ island: 'ハルヴェラ', atSea: false, daysLeftAtPort: 10 })
-      expect(at(10)).toMatchObject({ island: 'ハルヴェラ', atSea: false, daysLeftAtPort: 1 })
+      expect(at(1)).toMatchObject({ island: 'ハルヴェラ', daysLeftAtPort: 10 })
+      expect(at(10)).toMatchObject({ island: 'ハルヴェラ', daysLeftAtPort: 1 })
     })
 
     it('Day11 にはもうリナツィアにいる（航海日を挟まない）', () => {
-      expect(at(11)).toMatchObject({ island: 'リナツィア', atSea: false, daysLeftAtPort: 10 })
+      expect(at(11)).toMatchObject({ island: 'リナツィア', daysLeftAtPort: 10 })
     })
 
     it('Day21 ノアキータ、Day31 ミフユリア', () => {
@@ -36,11 +36,9 @@ describe('WorldState', () => {
       expect(at(200).island).toBe('ミフユリア')
     })
 
-    it('航海日は存在しない（isAtSea は常に false）', () => {
-      const w = new WorldState()
+    it('どの日も必ずどこかの島に寄港している（航海日は無い・#74）', () => {
       for (const d of [1, 10, 11, 20, 21, 40, 41, 200]) {
-        w.setDay(d)
-        expect(w.isAtSea()).toBe(false)
+        expect(at(d).daysLeftAtPort).toBeGreaterThan(0)
       }
     })
 

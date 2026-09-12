@@ -32,6 +32,19 @@ export class EconomyManager {
     EventBus.emit(GameEvents.ECONOMY_MONEY_CHANGED, this.money)
   }
 
+  /**
+   * **売上に積まない入金**（#28 の納品報酬）。
+   *
+   * ⚠ **`addRevenue` と分けてある理由**: `totalRevenue` は
+   * **「客に売れた額」**であって「入った金」ではない。進捗バー（`HUD.updateRevenue`）と
+   * 目標達成の幕がこれを読むので、**納品ぶんを積むと『どれだけ売ったか』が嘘になる。**
+   * ⚠ **客に売れた経路以外の入金は、必ずこちらを通すこと。**
+   */
+  addIncome(amount: number): void {
+    this.money += amount
+    EventBus.emit(GameEvents.ECONOMY_MONEY_CHANGED, this.money)
+  }
+
   spend(amount: number): boolean {
     if (this.money < amount) {
       EventBus.emit(GameEvents.ECONOMY_PURCHASE_FAILED, amount)

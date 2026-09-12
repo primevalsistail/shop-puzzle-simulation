@@ -1,5 +1,6 @@
 import type { Shape } from '../taxonomy/axes.js'
 import type { ShelfPreset } from '../components/floor/ShelfPresets.js'
+import type { DeliveryOrder } from '../components/progress/DeliveryOrders.js'
 
 // ─── グリッド ─────────────────────────────────────────
 export type GridCell = { x: number; y: number }
@@ -70,6 +71,11 @@ export interface SaveData {
    * （型が入る前のセーブがすでに手元にある）
    */
   shelfPresets?: (ShelfPreset | null)[]
+  /**
+   * 納品の注文（#28）。⚠ **無いセーブを読めるようにしておくこと**（`shelfPresets` と同じ）。
+   *   いまは常に0件か1件だが、**配列のまま**にしてある（件数を増やしても形が変わらない）。
+   */
+  orders?: DeliveryOrder[]
   unlockedFeatures: string[]
   unlockedRecipes: string[]
   currentTime: GameTime

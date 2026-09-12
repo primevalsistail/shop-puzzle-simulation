@@ -23,12 +23,16 @@ export const KIND_BUTTONS: { id: MainKind; label: string }[] = [
  * 「全部選ぶ」と「全部外す」が同じ結果になるのは意図。
  * どちらも『どれかに限る』を言っていないため。
  *
- * ## 名前での検索（#55）
+ * ## 名前での検索（#55）／読みでの検索（#65）
  *
  * 主種類の絞り込みと **AND** で効く（`食料` を押しつつ `パン` で引ける）。
  *
- * ⚠ **表示されている名前の部分一致だけ。**品に読みの欄が無いので、
- *   `羊の乳` を `ひつじ` では引けない（→ 別 issue）。
+ * **名前か読みのどちらかに当たれば通る。**`羊の乳` は `羊` でも `ひつじ` でも引ける。
+ * 読みは `ItemDef.display.reading`（全135品にひらがなで持たせてある）。
+ *
+ * ⚠ **読みは画面に出さない。**引くためだけのデータ。
+ * ⚠ **工房もここを通る。**`CraftMenu` はレシピを「出来上がる品」で引くので、
+ *   レシピ側（85本）に読みを書く必要は無い。
  */
 export class ListPaging {
   private kinds = new Set<MainKind>()
@@ -83,11 +87,13 @@ export class ListPaging {
    * 主種類と名前の両方で絞る。**2つは AND。**
    *
    * `nameOf` を渡さなければ名前の絞り込みは効かない（呼ぶ側が名前を持たない画面のため）。
+   * `readingOf` を渡すと**読みでも引ける**（#65）。⚠ **名前は必ず引ける**（渡しても退行しない）。
    */
   filter<T>(
     items: readonly T[],
     kindOf: (item: T) => MainKind,
     nameOf?: (item: T) => string,
+    readingOf?: (item: T) => string,
   ): T[] {
     const byKind = this.hasFilter()
       ? items.filter(i => this.kinds.has(kindOf(i)))
@@ -95,7 +101,11 @@ export class ListPaging {
     if (!this.hasQuery() || !nameOf) return byKind
     // 大小の違いは無視する。日本語の名前には効かないが、英数字の品名で効く
     const q = this.query.toLowerCase()
-    return byKind.filter(i => nameOf(i).toLowerCase().includes(q))
+    return byKind.filter(i => {
+      if (nameOf(i).toLowerCase().includes(q)) return true
+      const yomi = readingOf?.(i)
+      return yomi !== undefined && yomi.toLowerCase().includes(q)
+    })
   }
 
   // ─── ページ ───────────────────────────────────────

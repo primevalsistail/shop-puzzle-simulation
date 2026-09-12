@@ -15,7 +15,7 @@ import { CONTENT_DEPTH } from './PlaceFrame.js'
 import {
   PLACE_CX, CONTENT_L, CONTENT_R,
   SUBTITLE_Y, FILTER_Y, ROWS_TOP, PAGER_Y, rowsThatFit,
-  BUY_W, BUY_FONT_PX, BUY_SUFFIX, INFO_MAX_W, INFO_FONT_PX,
+  BUY_W, BUY_FONT_PX, BUY_SUFFIX, INFO_MAX_W, INFO_FONT_PX, LOG_T,
 } from './layout.js'
 
 const ROW_H = 56
@@ -101,10 +101,12 @@ export class PurchaseMenu {
   ) {
     this.search = new SearchBox(scene)
     this.scene.input.on('wheel', (
-      _pointer: Phaser.Input.Pointer,
+      pointer: Phaser.Input.Pointer,
       _over: unknown, _dx: number, dy: number,
     ) => {
       if (!this.isOpen) return
+      // ⚠ **ログ欄の上でのホイールはログの遡り**（#40）。ここでページを送らない
+      if (pointer.y >= LOG_T) return
       if (this.paging.movePage(dy > 0 ? 1 : -1, this.shown().length)) this.rebuild()
     })
   }
@@ -164,7 +166,12 @@ export class PurchaseMenu {
   }
 
   private shown(): ItemDef[] {
-    return this.paging.filter(this.materials, m => m.mainKind, m => m.display.name)
+    return this.paging.filter(
+      this.materials,
+      m => m.mainKind,
+      m => m.display.name,
+      m => m.display.reading,   // 読みでも引ける（#65）。⚠ 画面には出さない
+    )
   }
 
   private turnPage(delta: number): void {

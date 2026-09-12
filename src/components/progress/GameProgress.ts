@@ -6,6 +6,7 @@ import type { TimeManager } from '../core/TimeManager.js'
 import type { WorldState } from './WorldState.js'
 import type { Upgrades } from './Upgrades.js'
 import type { ShelfPresets } from '../floor/ShelfPresets.js'
+import type { DeliveryOrders } from './DeliveryOrders.js'
 
 const SAVE_KEY = 'shop_puzzle_save'
 const slotKey = (slot: number) => `${SAVE_KEY}_${slot}`
@@ -30,6 +31,8 @@ export class GameProgress {
     private upgrades: Upgrades,
     /** 品出しの型（#27）。⚠ 積まないとロードで覚えた型が消える */
     private presets: ShelfPresets,
+    /** 納品の注文（#28）。⚠ **必須。**任意にすると渡し忘れてもコンパイルが通り、ロードで注文が消える */
+    private orders: DeliveryOrders,
   ) {}
 
   save(slot = 0): void {
@@ -43,6 +46,7 @@ export class GameProgress {
       everHeld: this.inventory.getEverHeld(),
       floor: this.floorGrid.getAllSlots(),
       shelfPresets: this.presets.toRecord(),
+      orders: this.orders.toRecord(),
       unlockedFeatures: Array.from(this.unlockedFeatures),
       unlockedRecipes: Array.from(this.unlockedRecipes),
       currentTime: this.timeManager.getCurrentTime(),

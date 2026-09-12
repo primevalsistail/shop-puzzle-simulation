@@ -150,6 +150,17 @@ export type Shape = readonly (readonly number[])[]
 export interface Display {
   /** 普通名詞のみ。固有名詞を作らない（world.md §7） */
   readonly name: string
+  /**
+   * 検索用の読み。**ひらがな（と長音符）だけ**（#65）。
+   *
+   * ⚠ **画面には出さない。**検索で引くためだけのデータで、行に文字を足すものではない
+   *   （持ち物一覧も商人の行も余白がほとんど無い）。
+   * ⚠ **全135品に必ず持たせる**（型で必須。`invariants.test.ts` でも判定する）。
+   *   欠けている品があると、その品だけ検索から黙って外れる。
+   * ⚠ **ローマ字は入れない。**`shi`/`si`・`tsu`/`tu` のどちらかを選ぶことになり、
+   *   選ばなかった側で打った人には出ない。
+   */
+  readonly reading: string
   readonly color: number
 }
 

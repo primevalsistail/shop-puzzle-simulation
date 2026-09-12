@@ -57,4 +57,19 @@ describe('EconomyManager', () => {
     em.spend(500)
     expect(em.getTotalRevenue()).toBe(1000)
   })
+
+  it('addIncome は金を増やすが累計売上には積まない（#28 の納品報酬）', () => {
+    const before = em.getMoney()
+    em.addIncome(1000)
+    expect(em.getMoney()).toBe(before + 1000)
+    // ⚠ ここが積まれると、進捗バーと目標達成の幕が読む「累計売上」が嘘になる
+    expect(em.getTotalRevenue()).toBe(0)
+  })
+
+  it('addIncome も MONEY_CHANGED を出す（画面の所持金が追従しないと困る）', () => {
+    const listener = vi.fn()
+    EventBus.on(GameEvents.ECONOMY_MONEY_CHANGED, listener)
+    em.addIncome(250)
+    expect(listener).toHaveBeenCalledWith(em.getMoney())
+  })
 })
