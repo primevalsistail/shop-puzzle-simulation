@@ -831,6 +831,10 @@ export class GameScene extends Phaser.Scene {
     if (!visible) this.cancelDrag()
     this.floorRenderer.setVisible(visible)
     this.gridBackdrop.setVisible(visible)
+    // ⚠ **キャラ帯も隠す。**商人のところに居るのに「店番」「来店客」の枠が出ているのは、
+    //   そこに居ないのだからおかしい（PO 2026-09-12）。
+    //   場所の領域はこの帯に重なるので、隠さないと下から覗く
+    this.characterStrip.setVisible(visible)
   }
 
   /** 時間が進んでいたら止める。場所へ移る前に必ず呼ぶ */

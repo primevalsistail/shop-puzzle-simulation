@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { createInput, tryAddDom, setGameKeyboard } from './domInput.js'
 
 /**
  * 名前で一覧を絞る入力欄（#55）。仕入れ・工房・持ち物の3画面で使い回す。
@@ -41,36 +42,12 @@ export class SearchBox {
   ): void {
     if (this.dom) return
 
-    const el = document.createElement('input')
-    el.type = 'text'
-    el.placeholder = placeholder
-    el.style.cssText = [
-      `width: ${w - 10}px`,
-      `height: ${h - 6}px`,
-      'padding: 0 4px',
-      'font-size: 12px',
-      'font-family: sans-serif',
-      'color: #ffffff',
-      'background: #15152a',
-      'border: 1px solid #4a4a8a',
-      // DOM コンテナ自体は pointer-events: none（クリックをゲームへ通す）なので、
-      // この入力だけ受け取れるようにする
-      'pointer-events: auto',
-    ].join(';')
-
-    // 打鍵をゲーム側のキー処理へ漏らさない（ESC でメニューが閉じる、など）
-    el.addEventListener('keyup', e => e.stopPropagation())
-    el.addEventListener('keydown', e => {
-      e.stopPropagation()
-      // ⚠ **ESC の逃げ道を残す。**入力中はゲームのキーを止めているので、
-      //   ここで外さないと ESC で店に戻れない（もう一度 ESC を押せば戻れる）
-      if (e.key === 'Escape') el.blur()
+    const el = createInput(this.scene, {
+      width: w, height: h, placeholder,
+      onInput: value => onChange(value),
     })
-    el.addEventListener('focus', () => this.setGameKeyboard(false))
-    el.addEventListener('blur', () => this.setGameKeyboard(true))
-    el.addEventListener('input', () => onChange(el.value))
 
-    const dom = this.tryAddDom(x, y, el)
+    const dom = tryAddDom(this.scene, x, y, el, '一覧の検索')
     if (!dom) return
     this.dom = dom.setDepth(depth)
     this.input = el
@@ -86,24 +63,7 @@ export class SearchBox {
     this.dom?.destroy()
     this.dom = null
     this.input = null
-    this.setGameKeyboard(true)
+    setGameKeyboard(this.scene, true)
   }
 
-  /**
-   * `<input>` を画面に載せる。載せられなければ null を返す
-   * （`dom.createContainer` と `parent` が揃っていないと Phaser が例外を投げる）。
-   */
-  private tryAddDom(x: number, y: number, el: HTMLInputElement): Phaser.GameObjects.DOMElement | null {
-    try {
-      return this.scene.add.dom(x, y, el)
-    } catch (e) {
-      console.warn('SearchBox: 検索に DOM を使えません（絞り込みとページ送りで探してください）', e)
-      return null
-    }
-  }
-
-  private setGameKeyboard(enabled: boolean): void {
-    const keyboard = this.scene.input?.keyboard
-    if (keyboard) keyboard.enabled = enabled
-  }
 }

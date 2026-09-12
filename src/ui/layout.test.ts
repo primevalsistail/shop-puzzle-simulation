@@ -19,14 +19,19 @@ describe('場所の領域は、隣の区画を侵さない', () => {
     expect(PLACE_L).toBeGreaterThanOrEqual(LEFT_PANEL_R)
   })
 
-  it('キャラ帯より左にある（#21・#15 の置き場所を潰さない）', () => {
-    expect(PLACE_R).toBeLessThanOrEqual(STRIP_L)
-  })
-
   it('右パネル（HUD・ボタン列）に届かない', () => {
     expect(PLACE_R).toBeLessThanOrEqual(RIGHT_PANEL_L)
     // キャラ帯と右パネルが隙間なく並んでいることも見ておく
     expect(STRIP_L + STRIP_W).toBe(RIGHT_PANEL_L)
+  })
+
+  /**
+   * ⚠ **重なってよい。ただし隠すことが条件。**
+   *   店にいないのに「店番」「来店客」の枠が出ているのはおかしいので、
+   *   場所へ行っている間はキャラ帯を隠し、その領域も場所が使う（PO 2026-09-12）。
+   */
+  it('キャラ帯に重なる（だから場所へ行く間はキャラ帯を隠す）', () => {
+    expect(PLACE_R).toBeGreaterThan(STRIP_L)
   })
 
   it('メッセージ欄より上にある', () => {

@@ -5,6 +5,7 @@ import type { ItemRegistry, RecipeDef } from '../components/items/ItemRegistry.j
 import type { RecipeUnlocks } from '../components/progress/RecipeUnlocks.js'
 import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
 import { SearchBox } from './SearchBox.js'
+import { createInput, tryAddDom, setGameKeyboard, readCount } from './domInput.js'
 import type { IslandName } from '../taxonomy/islands.js'
 import { routeValues } from '../taxonomy/routes.js'
 import type { PlaceFrame } from './PlaceFrame.js'
@@ -160,7 +161,7 @@ export class CraftMenu {
     this.container?.destroy() // DOMElement も子なので一緒に消える
     this.container = null
     this.rows = []
-    this.setGameKeyboard(true)
+    setGameKeyboard(this.scene, true)
   }
 
   /** 中身だけ作り直す（閉じたことにはしない）。打鍵のたびには呼ばない */
@@ -169,14 +170,8 @@ export class CraftMenu {
     this.container = null
     this.rows = []
     // 入力中の要素を消すと blur が来ないことがあるので、ここで必ず戻す
-    this.setGameKeyboard(true)
+    setGameKeyboard(this.scene, true)
     this.build()
-  }
-
-  /** 入力中はゲームのショートカット（ESC など）を止める */
-  private setGameKeyboard(enabled: boolean): void {
-    const keyboard = this.scene.input?.keyboard
-    if (keyboard) keyboard.enabled = enabled
   }
 
   private build(): void {
@@ -301,7 +296,7 @@ export class CraftMenu {
     // DOM が使えない設定でも**メニュー全体を道連れにしない**。
     // 使えないときは数字を表示するだけにして、− ＋ 最大 で操作できるようにする
     let valueText: Phaser.GameObjects.Text | undefined
-    const domEl = this.tryAddDom(inputAt + INPUT_W / 2, cy - 17, input)
+    const domEl = tryAddDom(this.scene, inputAt + INPUT_W / 2, cy - 17, input, '工房の回数入力')
     if (domEl) {
       objs.push(domEl)
     } else {
@@ -343,60 +338,21 @@ export class CraftMenu {
     this.rows.push(row)
   }
 
-  /**
-   * `<input>` を画面に載せる。載せられなければ null を返す
-   * （`dom.createContainer` と `parent` が揃っていないと Phaser が例外を投げる）。
-   */
-  private tryAddDom(x: number, y: number, el: HTMLInputElement): Phaser.GameObjects.DOMElement | null {
-    try {
-      return this.scene.add.dom(x, y, el)
-    } catch (e) {
-      console.warn('CraftMenu: 数量入力に DOM を使えません（− ＋ 最大 で操作してください）', e)
-      return null
-    }
-  }
-
   /** 回数入力の `<input>`。打鍵ではこの要素を作り直さない（カーソルが飛ぶため） */
   private createInput(recipe: RecipeDef): HTMLInputElement {
-    const el = document.createElement('input')
-    el.type = 'text'
-    el.inputMode = 'numeric'
-    el.value = String(this.times.get(recipe.id) ?? 1)
-    el.style.cssText = [
-      `width: ${INPUT_W - 8}px`,
-      `height: ${INPUT_H - 6}px`,
-      'padding: 0 3px',
-      'font-size: 12px',
-      'font-family: sans-serif',
-      'color: #ffffff',
-      'background: #15152a',
-      'border: 1px solid #4a4a8a',
-      'text-align: right',
-      // DOM コンテナ自体は pointer-events: none（クリックをゲームへ通す）なので、
-      // この入力だけ受け取れるようにする
-      'pointer-events: auto',
-    ].join(';')
-
-    // 打鍵をゲーム側のキー処理へ漏らさない
-    el.addEventListener('keydown', e => e.stopPropagation())
-    el.addEventListener('keyup', e => e.stopPropagation())
-    el.addEventListener('focus', () => this.setGameKeyboard(false))
-    el.addEventListener('blur', () => this.setGameKeyboard(true))
-    el.addEventListener('input', () => {
-      // ⚠ 打った文字は**書き換えない**。`-1` → `1`、`1.5` → `15` のように
-      //   意図しない回数に化けるため。整数でなければ「作る」を無効にするだけ
-      const row = this.rows.find(r => r.input === el)
-      if (row) this.refreshRow(row)
+    return createInput(this.scene, {
+      width: INPUT_W, height: INPUT_H, numeric: true,
+      value: String(this.times.get(recipe.id) ?? 1),
+      onInput: () => {
+        const row = this.rows.find(r => r.recipe.id === recipe.id)
+        if (row) this.refreshRow(row)
+      },
     })
-    return el
   }
 
   /** いま入力されている回数。整数として読めなければ null（＝作れない） */
   private readTimes(row: Row): number | null {
-    const raw = row.input.value.trim()
-    if (!/^\d+$/.test(raw)) return null
-    const n = Number(raw)
-    return Number.isSafeInteger(n) && n >= 1 ? n : null
+    return readCount(row.input.value)
   }
 
   /** 入力の値を差し替えて表示を更新する（作り直さない） */

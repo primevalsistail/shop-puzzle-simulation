@@ -8,6 +8,7 @@ import type { IslandName } from '../taxonomy/islands.js'
 import type { MaterialNeed } from '../taxonomy/materials.js'
 import type { ItemId } from '../taxonomy/axes.js'
 import { SearchBox } from './SearchBox.js'
+import { createInput, tryAddDom, readCount } from './domInput.js'
 import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
 import {
@@ -15,21 +16,48 @@ import {
   SUBTITLE_Y, FILTER_Y, ROWS_TOP, PAGER_Y, rowsThatFit,
 } from './layout.js'
 
-const ROW_H = 52
+const ROW_H = 56
 /** ⚠ **決め打ちしない。**領域の高さから出す（`layout.ts`） */
 const VISIBLE_COUNT = rowsThatFit(ROW_H)
-const BUY_QTY = 5
+/** 何個買うかの初期値。**固定ではない**（打ち込める） */
+const DEFAULT_QTY = 5
 /** 検索の入力欄。絞り込みの行の右端に置く */
 const SEARCH_W = 160
 const SEARCH_H = 24
 
-/** 1行の中の列 */
+const INPUT_W = 52
+const INPUT_H = 22
+const STEP_W = 26
+
+/**
+ * 1行の中の列。**右端から順に決める。**
+ * こうしておくと領域の幅が変わっても、操作列が name に食い込まない。
+ */
 const ROW_W = CONTENT_R - CONTENT_L
 const NAME_X = CONTENT_L + 16
-const STOCK_X = CONTENT_R - 250
-const BUY_CX = CONTENT_R - 80
-/** 「作れるN品に要る」。在庫の列に食い込まないよう右そろえ */
-const NEED_R = STOCK_X - 12
+const BUY_W = 118
+const BUY_L = CONTENT_R - 8 - BUY_W
+const MAX_W = 40
+const MAX_L = BUY_L - 6 - MAX_W
+const PLUS_L = MAX_L - 6 - STEP_W
+const INPUT_L = PLUS_L - 4 - INPUT_W
+const MINUS_L = INPUT_L - 4 - STEP_W
+/** 「¥51/個　在庫 100/999」。右そろえ */
+const INFO_R = MINUS_L - 14
+/** 「作れるN品に要る」。右そろえ */
+const NEED_R = INFO_R - 160
+
+/** 1行ぶんの、あとから書き換える部品 */
+interface Row {
+  readonly item: ItemDef
+  readonly unitCost: number
+  readonly input: HTMLInputElement
+  /** DOM が使えないときの数字表示 */
+  readonly valueText?: Phaser.GameObjects.Text
+  readonly infoText: Phaser.GameObjects.Text
+  readonly buyBg: Phaser.GameObjects.Rectangle
+  readonly buyLabel: Phaser.GameObjects.Text
+}
 
 /**
  * 島の商人のところ。**ダイアログではなく「行く場所」**（#58）。
@@ -50,6 +78,10 @@ export class PurchaseMenu {
   private search: SearchBox
   /** この島の素材が、作れる品の何本に要るか（#33）。`open()` で1度だけ数える */
   private needs: Map<ItemId, MaterialNeed> = new Map()
+  /** 1行ぶんの部品。**打鍵では作り直さない**（カーソルが飛ぶ） */
+  private rows: Row[] = []
+  /** 品ごとに打ち込んだ個数。買ったあとも覚えておく */
+  private amounts = new Map<string, number>()
 
   constructor(
     private scene: Phaser.Scene,
@@ -97,6 +129,7 @@ export class PurchaseMenu {
     this.isOpen = false
     this.container?.destroy()
     this.container = null
+    this.rows = []
     this.search.destroy()
     this.frame.hide()
     this.onClose()
@@ -162,6 +195,7 @@ export class PurchaseMenu {
   private rebuild(): void {
     this.container?.destroy()
     this.container = null
+    this.rows = []
     this.build(this.shown())
   }
 
@@ -222,6 +256,7 @@ export class PurchaseMenu {
 
     this.container = this.scene.add.container(0, 0, objs)
     this.container.setDepth(CONTENT_DEPTH)
+    for (const row of this.rows) this.refreshRow(row)
   }
 
   private buildPager(total: number, objs: Phaser.GameObjects.GameObject[]): void {
@@ -252,16 +287,10 @@ export class PurchaseMenu {
     // **いまいる島**の買値。産地の島にいる品だけ安い（段4-6 / derive.ts `ORIGIN_DISCOUNT`）
     const unitCost = this.registry.purchasePriceOf(mat.id, this.islandName)
     const isLocal = mat.origin === this.islandName
-    const totalCost = unitCost * BUY_QTY
-    const canAfford = this.economy.canAfford(totalCost)
-    // **上限を超える買い物はさせない。**払ってから溢れて消える、を起こさないため（段4-7）
-    const stock = this.inventory.getQuantity(mat.id)
-    const hasRoom = this.inventory.spaceFor(mat.id) >= BUY_QTY
-    const buyable = canAfford && hasRoom
 
     const focused = mat.id === this.focusId
     objs.push(
-      this.scene.add.rectangle(PLACE_CX, y, ROW_W, ROW_H - 6, buyable ? 0x2a3a2a : 0x3a2a2a)
+      this.scene.add.rectangle(PLACE_CX, y, ROW_W, ROW_H - 6, 0x2a3a2a)
         .setStrokeStyle(focused ? 2 : 1, focused ? 0xffdd88 : 0x555555),
     )
 
@@ -280,18 +309,12 @@ export class PurchaseMenu {
       )
     }
 
-    objs.push(
-      this.scene.add.text(STOCK_X, y, `在庫: ${stock}/${MAX_QUANTITY}`, {
-        fontSize: '13px', color: hasRoom ? '#aaaaaa' : '#dd8866',
-      }).setOrigin(0, 0.5),
-    )
-
     // 作れる品の材料になっているなら、その本数を出す（#23）。
     // **この島でしか買えない**うえ切らしているなら、急ぐ理由として強く出す（#33）。
     // ⚠ **必要数は出さない。**誰も「1回ずつ」は作らないので嘘になる
     const need = this.needOf(mat)
     if (need) {
-      const urgent = this.isLocalOnly(mat) && stock === 0
+      const urgent = this.isLocalOnly(mat) && this.inventory.getQuantity(mat.id) === 0
       objs.push(
         this.scene.add.text(NEED_R, y,
           urgent ? `⚠ 切らしている（${need.recipes}品に要る）` : `${need.recipes}品に要る`, {
@@ -300,29 +323,130 @@ export class PurchaseMenu {
       )
     }
 
-    if (buyable) {
-      const btn = this.scene.add
-        .text(BUY_CX, y, `¥${totalCost} × ${BUY_QTY}個`, {
-          fontSize: '13px',
-          color: isLocal ? '#bbffcc' : '#ffffff',
-          backgroundColor: isLocal ? '#3a6a3a' : '#6a5a2a',
-          padding: { x: 10, y: 6 },
-        })
-        .setOrigin(0.5)
-        .setInteractive({ useHandCursor: true })
-      btn.on('pointerdown', () => {
-        if (this.economy.spend(totalCost)) {
-          this.inventory.add(mat.id, BUY_QTY)
-          this.rebuild()
-        }
-      })
-      objs.push(btn)
+    const infoText = this.scene.add.text(INFO_R, y, '', {
+      fontSize: '12px', color: '#aaaaaa',
+    }).setOrigin(1, 0.5)
+    objs.push(infoText)
+
+    // ── 個数 ── ⚠ **5個固定をやめた**（PO 2026-09-12）。打ち込んで指定できる
+    const input = createInput(this.scene, {
+      width: INPUT_W, height: INPUT_H, numeric: true,
+      value: String(this.amounts.get(mat.id) ?? DEFAULT_QTY),
+      onInput: () => {
+        const row = this.rows.find(r => r.item.id === mat.id)
+        if (row) this.refreshRow(row)
+      },
+    })
+
+    // DOM が使えない設定でも**画面全体を道連れにしない。**
+    // 使えないときは数字を出すだけにして、− ＋ 最大 で操作できるようにする
+    let valueText: Phaser.GameObjects.Text | undefined
+    const domEl = tryAddDom(this.scene, INPUT_L + INPUT_W / 2, y, input, '仕入れの個数入力')
+    if (domEl) {
+      objs.push(domEl)
     } else {
       objs.push(
-        this.scene.add.text(BUY_CX, y, hasRoom ? `¥${totalCost} 不足` : `上限${MAX_QUANTITY}`, {
-          fontSize: '12px', color: '#888888',
-        }).setOrigin(0.5),
+        this.scene.add.rectangle(INPUT_L + INPUT_W / 2, y, INPUT_W, INPUT_H, 0x15152a)
+          .setStrokeStyle(1, 0x4a4a8a),
       )
+      valueText = this.scene.add.text(INPUT_L + INPUT_W - 6, y, input.value, {
+        fontSize: '12px', color: '#ffffff',
+      }).setOrigin(1, 0.5)
+      objs.push(valueText)
     }
+
+    const buyBg = this.scene.add.rectangle(BUY_L + BUY_W / 2, y, BUY_W, 26, 0x6a5a2a)
+      .setStrokeStyle(1, 0x8a7a3a)
+    const buyLabel = this.scene.add.text(BUY_L + BUY_W / 2, y, '', {
+      fontSize: '13px', color: '#ffffff',
+    }).setOrigin(0.5)
+    objs.push(buyBg, buyLabel)
+
+    const row: Row = { item: mat, unitCost, input, valueText, infoText, buyBg, buyLabel }
+    buyBg.on('pointerdown', () => this.buy(row))
+
+    this.pushButton(objs, MINUS_L, y, STEP_W, INPUT_H, '−', () => this.step(row, -1))
+    this.pushButton(objs, PLUS_L, y, STEP_W, INPUT_H, '＋', () => this.step(row, 1))
+    this.pushButton(objs, MAX_L, y, MAX_W, INPUT_H, '最大', () => this.setValue(row, this.maxBuyable(row)))
+
+    this.rows.push(row)
+  }
+
+  /** いくつまで買えるか。**お金と在庫の上限のうち、少ないほう**（最低1） */
+  private maxBuyable(row: Row): number {
+    const byMoney = Math.floor(this.economy.getMoney() / Math.max(1, row.unitCost))
+    const byRoom = this.inventory.spaceFor(row.item.id)
+    return Math.max(1, Math.min(byMoney, byRoom))
+  }
+
+  private setValue(row: Row, qty: number): void {
+    row.input.value = String(qty)
+    this.refreshRow(row)
+  }
+
+  private step(row: Row, delta: number): void {
+    this.setValue(row, Math.max(1, (readCount(row.input.value) ?? DEFAULT_QTY) + delta))
+  }
+
+  /**
+   * 1行ぶんの表示を今の入力に合わせる。
+   *
+   * ⚠ **入力を勝手に直さない**（丸めも字の置き換えもしない）。
+   *   上限超過も整数でない入力も、**理由を出して「買う」を無効にするだけ。**
+   *   直すと `1.5` が `15` に化けて、意図しない個数を買わせることになる。
+   */
+  private refreshRow(row: Row): void {
+    const qty = readCount(row.input.value)
+    if (qty !== null) this.amounts.set(row.item.id, qty)
+    row.valueText?.setText(row.input.value)
+
+    const stock = this.inventory.getQuantity(row.item.id)
+    row.infoText.setText(`¥${row.unitCost}/個　在庫 ${stock}/${MAX_QUANTITY}`)
+
+    const reason = this.reasonFor(row, qty)
+    const total = qty === null ? 0 : row.unitCost * qty
+    row.buyLabel.setText(reason === '' ? `¥${total.toLocaleString()} で買う` : reason)
+    row.buyLabel.setColor(reason === '' ? '#ffffff' : '#998877')
+    row.buyBg.setFillStyle(reason === '' ? 0x6a5a2a : 0x3a3a3a)
+    if (reason === '') row.buyBg.setInteractive({ useHandCursor: true })
+    else row.buyBg.disableInteractive()
+  }
+
+  /** 買えない理由。買えるなら空文字 */
+  private reasonFor(row: Row, qty: number | null): string {
+    if (qty === null) return row.input.value.trim() === '' ? '個数を入れて' : '1以上の整数'
+    // **上限を超える買い物はさせない。**払ってから溢れて消える、を起こさないため（段4-7）
+    if (this.inventory.spaceFor(row.item.id) < qty) return `上限${MAX_QUANTITY}`
+    if (!this.economy.canAfford(row.unitCost * qty)) {
+      return `¥${(row.unitCost * qty).toLocaleString()} 不足`
+    }
+    return ''
+  }
+
+  private buy(row: Row): void {
+    const qty = readCount(row.input.value)
+    if (qty === null || this.reasonFor(row, qty) !== '') return
+    if (!this.economy.spend(row.unitCost * qty)) return
+    this.inventory.add(row.item.id, qty)
+    this.rebuild()  // 買ったあとは所持金も在庫も変わるので、ここでは作り直してよい
+  }
+
+  /** 矩形＋中央ぞろえの文字でボタンを作る。幅は指定どおりなので隣と重ならない */
+  private pushButton(
+    objs: Phaser.GameObjects.GameObject[],
+    left: number, cy: number, w: number, h: number,
+    label: string, onClick: () => void,
+  ): void {
+    const cx = left + w / 2
+    const bg = this.scene.add.rectangle(cx, cy, w, h, 0x33335a)
+      .setStrokeStyle(1, 0x6a6ab0)
+      .setInteractive({ useHandCursor: true })
+    bg.on('pointerdown', onClick)
+    bg.on('pointerover', () => bg.setFillStyle(0x5a5ab0))
+    bg.on('pointerout', () => bg.setFillStyle(0x33335a))
+    objs.push(
+      bg,
+      this.scene.add.text(cx, cy, label, { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5),
+    )
   }
 }
