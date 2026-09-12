@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { DeliveryOrders, ORDER_QUANTITY } from './DeliveryOrders.js'
+import { DeliveryOrders, ORDER_QUANTITY, orderQuantity } from './DeliveryOrders.js'
 import { WorldState } from './WorldState.js'
 import { Inventory } from '../economy/Inventory.js'
 import { EconomyManager } from '../economy/EconomyManager.js'
 import { EventBus } from '../../services/EventBus.js'
 import { ALL_ITEMS } from '../../taxonomy/items.js'
+import { ALL_RECIPES } from '../../taxonomy/recipes.js'
 import { stockedByIslandMerchant } from '../../taxonomy/evaluate.js'
 import { salePrice, tier } from '../../taxonomy/derive.js'
 import type { DeliveryOrder } from './DeliveryOrders.js'
@@ -63,7 +64,7 @@ describe('DeliveryOrders — 注文の選び方（#28）', () => {
     const { orders } = setup()
     for (const day of [1, 11, 21, 31]) {
       const { state, next } = world(day)
-      const order = orders.issue(ALL_ITEMS, state, next as never, day, () => 0)
+      const order = orders.issue(ALL_ITEMS, state, next as never, day, new Set(), () => 0)
       expect(order, `Day${day}`).not.toBeNull()
       expect(order!.island).toBe(next)
       expect(order!.quantity).toBe(ORDER_QUANTITY)
@@ -76,8 +77,8 @@ describe('DeliveryOrders — 注文の選び方（#28）', () => {
   it('注文は1件だけ。次を出すと前のは流れる', () => {
     const { orders } = setup()
     const { state, next } = world()
-    const first = orders.issue(ALL_ITEMS, state, next as never, 1, () => 0)!
-    const second = orders.issue(ALL_ITEMS, state, next as never, 1, () => 0.99)!
+    const first = orders.issue(ALL_ITEMS, state, next as never, 1, new Set(), () => 0)!
+    const second = orders.issue(ALL_ITEMS, state, next as never, 1, new Set(), () => 0.99)!
     expect(first.itemId).not.toBe(second.itemId)
     expect(orders.getActive()).toEqual(second)
     expect(orders.toRecord()).toHaveLength(1)
@@ -90,7 +91,7 @@ describe('DeliveryOrders — 納品の精算', () => {
   it('積んであれば納品先で自動的に納まり、報酬が入る', () => {
     const { inventory, economy, orders } = setup()
     const { state, next } = world()
-    const order = orders.issue(ALL_ITEMS, state, next as never, 1, () => 0)!
+    const order = orders.issue(ALL_ITEMS, state, next as never, 1, new Set(), () => 0)!
     inventory.add(order.itemId, ORDER_QUANTITY + 3)
     const before = economy.getMoney()
 
@@ -105,7 +106,7 @@ describe('DeliveryOrders — 納品の精算', () => {
   it('報酬は累計売上に積まれない（客に売れた経路ではない）', () => {
     const { inventory, economy, orders } = setup()
     const { state, next } = world()
-    const order = orders.issue(ALL_ITEMS, state, next as never, 1, () => 0)!
+    const order = orders.issue(ALL_ITEMS, state, next as never, 1, new Set(), () => 0)!
     inventory.add(order.itemId, ORDER_QUANTITY)
     const before = economy.getMoney()
 
@@ -119,7 +120,7 @@ describe('DeliveryOrders — 納品の精算', () => {
   it('足りなければ流れるだけ。持ち物も金も動かない（罰なし）', () => {
     const { inventory, economy, orders } = setup()
     const { state, next } = world()
-    const order = orders.issue(ALL_ITEMS, state, next as never, 1, () => 0)!
+    const order = orders.issue(ALL_ITEMS, state, next as never, 1, new Set(), () => 0)!
     inventory.add(order.itemId, ORDER_QUANTITY - 1)
     const before = economy.getMoney()
 
@@ -132,7 +133,7 @@ describe('DeliveryOrders — 納品の精算', () => {
   it('納品先でない島に着いても何も起きない', () => {
     const { inventory, economy, orders } = setup()
     const { state, next } = world()
-    const order = orders.issue(ALL_ITEMS, state, next as never, 1, () => 0)!
+    const order = orders.issue(ALL_ITEMS, state, next as never, 1, new Set(), () => 0)!
     inventory.add(order.itemId, ORDER_QUANTITY)
 
     expect(orders.settleArrival('ミフユリア')).toBeNull()
@@ -147,7 +148,7 @@ describe('DeliveryOrders — セーブとロード', () => {
   it('セーブを経ても受けている注文が残る', () => {
     const { state, next } = world()
     const a = setup()
-    const order = a.orders.issue(ALL_ITEMS, state, next as never, 1, () => 0)!
+    const order = a.orders.issue(ALL_ITEMS, state, next as never, 1, new Set(), () => 0)!
 
     // セーブは JSON を通る
     const saved = JSON.parse(JSON.stringify(a.orders.toRecord())) as DeliveryOrder[]
@@ -171,5 +172,45 @@ describe('DeliveryOrders — セーブとロード', () => {
     const { orders } = setup()
     orders.restore([{ itemId: 42, reward: 'x' } as unknown as DeliveryOrder])
     expect(orders.getActive()).toBeNull()
+  })
+
+  it('作れる品も候補に入る（#85。買えるものだけだと候補が「この島の素材」に限られる）', () => {
+    const { orders } = setup()
+    const { state, next } = world()
+
+    const narrow = orders.candidates(ALL_ITEMS, state, next as never)
+    const craftable = new Set(ALL_RECIPES.map(r => r.outputItemId))
+    const wide = orders.candidates(ALL_ITEMS, state, next as never, craftable)
+
+    // 買えるものだけだと tier1 しか出ない
+    expect(narrow.every(i => tier(i.id) === 1)).toBe(true)
+    expect(wide.length).toBeGreaterThan(narrow.length)
+    expect(wide.some(i => tier(i.id) >= 5)).toBe(true)
+  })
+
+  it('レシピが解禁されていない加工品は候補に入らない', () => {
+    const { orders } = setup()
+    const { state, next } = world()
+    const wide = orders.candidates(ALL_ITEMS, state, next as never, new Set())
+    expect(wide.every(i => tier(i.id) === 1)).toBe(true)
+  })
+
+  it('深い品ほど注文の個数が減る（10個だと作る時間が足りない）', () => {
+    const t1 = ALL_ITEMS.find(i => tier(i.id) === 1)!
+    const t7 = ALL_ITEMS.find(i => tier(i.id) === 7)!
+    expect(orderQuantity(t1.id)).toBe(ORDER_QUANTITY)
+    expect(orderQuantity(t7.id)).toBe(1)
+    // 単調に減る
+    const byTier = [1, 2, 3, 4, 5, 6, 7].map(t => orderQuantity(ALL_ITEMS.find(i => tier(i.id) === t)!.id))
+    expect(byTier).toEqual([...byTier].sort((a, b) => b - a))
+  })
+
+  it('報酬は個数に比例する（深い品を少なく納めても釣り合う）', () => {
+    const { orders } = setup()
+    const { state, next } = world()
+    const craftable = new Set(ALL_RECIPES.map(r => r.outputItemId))
+    const order = orders.issue(ALL_ITEMS, state, next as never, 1, craftable, () => 0)!
+    expect(order.quantity).toBe(orderQuantity(order.itemId))
+    expect(order.reward).toBe(Math.round(salePrice(order.itemId) * order.quantity * 3))
   })
 })

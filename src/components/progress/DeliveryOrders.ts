@@ -2,16 +2,29 @@ import type { ItemDef, ItemId } from '../../taxonomy/axes.js'
 import type { IslandName } from '../../taxonomy/islands.js'
 import type { GameState } from '../../taxonomy/evaluate.js'
 import { stockedByIslandMerchant } from '../../taxonomy/evaluate.js'
-import { salePrice } from '../../taxonomy/derive.js'
+import { salePrice, tier } from '../../taxonomy/derive.js'
 import type { Inventory } from '../economy/Inventory.js'
 import type { EconomyManager } from '../economy/EconomyManager.js'
 
 /**
- * 1件の注文で納める個数。
+ * tier1 の品を1件で納める個数。**深い品ほど減る**（下の `orderQuantity`）。
  *
  * ⚠ **仮置き（#61 の表へ）。**「10個なら仕入れ画面の1回の買い物で用意できる」以上の根拠は無い。
  */
 export const ORDER_QUANTITY = 10
+
+/**
+ * 注文の個数。**tier で割る。**
+ *
+ * ⚠ **加工品を候補に入れた以上（#85）、個数を一律にすると果たせない注文が出る。**
+ *   tier7 は**材料から作ると1個あたり 2,586分**かかるので、
+ *   **10個 ＝ 24日ぶん。滞在は10日しかない。**
+ *
+ * tier1→10 ／ 2→5 ／ 3→3 ／ 4→3 ／ 5→2 ／ 6→2 ／ 7→1。
+ */
+export function orderQuantity(itemId: ItemId): number {
+  return Math.max(1, Math.round(ORDER_QUANTITY / tier(itemId)))
+}
 
 /**
  * 報酬 ＝ **売値 × 個数 × これ**。
@@ -81,7 +94,23 @@ export class DeliveryOrders {
   }
 
   /**
-   * 注文に出せる品。**いまの島で買えて、納品先では買えない品。**
+   * 注文に出せる品。**いまの島で「用意できて」、納品先では買えない品。**
+   *
+   * ⚠ **「用意できる」は買えるだけでなく、作れる品も含む**（#85。2026-09-13 に広げた）。
+   *   広げる前は候補が**産地＝発注元の島の素材**に限られ、
+   *   **20回の寄港で合計2万レン ＝ 目標1000万の 0.2%** にしかならなかった。
+   *   **加工品が入ると売値が桁で変わる**ので、率（`ORDER_REWARD_RATE`）を触らずに効き目が変わる。
+   *
+   * ⚠ **`craftable` は「レシピが解禁済み」の品。**材料が揃っているかは見ない ——
+   *   **揃える段取りごと注文にするのが狙い**（方針3「購入と加工が主軸」）。
+   *
+   * ## U2 の落とし穴について（広げた結果、起こりうるようになった）
+   *
+   * 加工品は産地が `なし` なので、**その品を100個売れば納品先でも並ぶ**（U2）。
+   * つまり**発注時に買えなかった品が、納品時には買えている**ことがある。
+   * ⚠ **それでも再評価はしない** —— 並ぶようにするには**その品を100個売る**必要があり、
+   * 「その場で買って即納品」が**無料にはならない**（買値は売値の 0.7）。
+   * **『買って済ませる』は『作って済ませる』と同じだけ働いた結果**なので、塞がない。
    *
    * `state` は `WorldState.getState()` が返す素の値。納品先ぶんは `現在地` を差し替えて呼ぶ。
    */
@@ -89,12 +118,13 @@ export class DeliveryOrders {
     items: readonly ItemDef[],
     state: GameState,
     destination: IslandName,
+    craftable: ReadonlySet<ItemId> = new Set(),
   ): readonly ItemDef[] {
     const here = new Set(stockedByIslandMerchant(items, state).map(i => i.id))
     const there = new Set(
       stockedByIslandMerchant(items, { ...state, 現在地: destination }).map(i => i.id),
     )
-    return items.filter(i => here.has(i.id) && !there.has(i.id))
+    return items.filter(i => (here.has(i.id) || craftable.has(i.id)) && !there.has(i.id))
   }
 
   /**
@@ -107,19 +137,21 @@ export class DeliveryOrders {
     state: GameState,
     destination: IslandName,
     day: number,
+    craftable: ReadonlySet<ItemId> = new Set(),
     rand: () => number = Math.random,
   ): DeliveryOrder | null {
-    const candidates = this.candidates(items, state, destination)
+    const candidates = this.candidates(items, state, destination, craftable)
     if (candidates.length === 0) {
       this.orders = []
       return null
     }
     const pick = candidates[Math.min(candidates.length - 1, Math.floor(rand() * candidates.length))]
+    const quantity = orderQuantity(pick.id)
     const order: DeliveryOrder = {
       itemId: pick.id,
       island: destination,
-      quantity: ORDER_QUANTITY,
-      reward: Math.round(this.priceOf(pick.id) * ORDER_QUANTITY * ORDER_REWARD_RATE),
+      quantity,
+      reward: Math.round(this.priceOf(pick.id) * quantity * ORDER_REWARD_RATE),
       issuedDay: day,
     }
     this.orders = [order]

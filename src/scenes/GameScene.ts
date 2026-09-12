@@ -1106,6 +1106,9 @@ export class GameScene extends Phaser.Scene {
       this.world.getState(),
       this.world.getLocation().next,
       this.timeManager.getCurrentTime().day,
+      // ⚠ **作れる品も候補に入れる**（#85）。買えるものだけだと候補が
+      //   「産地＝この島の素材」に限られ、20回の寄港で目標の 0.2% にしかならなかった
+      new Set(this.recipeUnlocks.unlockedRecipes().map(r => r.outputItemId)),
     )
     if (order) {
       const item = this.registry_.getItem(order.itemId)
