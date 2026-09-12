@@ -43,24 +43,51 @@ export type Condition =
   | { readonly kind: 'または'; readonly of: readonly Condition[] }
   | { readonly kind: 'でない'; readonly of: Condition }
 
-// ═══ 効き目 — 種類3 × 適用範囲2 ══════════════════════
+// ═══ 効き目 — 種類3 ══════════════════════════════════
 export type EffectKind = '売れやすさ' | '値段' | '集客'
-/** `店全体` は現行コードに無い**新しい機構**（Phase 2 §5） */
-export type EffectScope = 'その品' | '店全体'
 
 export interface Effect {
   readonly kind: EffectKind
-  readonly scope: EffectScope
   readonly multiplier: number
 }
 
 /**
  * 効き目の合成は**加算**（Q5）。`1 + Σ(mᵢ − 1)`。例: 1.1 と 1.1 → 1.2。
- * **上限は設けない**（上限値はバランス調整の数値になる）。
+ * `divisor` を渡すと**平均**になる（店全体ぶんがこれを使う。下記 `shopWideWeight` の注記）。
  */
-export function combine(multipliers: readonly number[]): number {
-  return 1 + multipliers.reduce((sum, m) => sum + (m - 1), 0)
+export function combine(multipliers: readonly number[], divisor = 1): number {
+  return 1 + multipliers.reduce((sum, m) => sum + (m - 1), 0) / divisor
 }
+
+// ═══ tier による按分（方針5・A案） ═══════════════════
+
+/** tier の上限。段5 でここまで品を増やす（いまある品は tier4 まで） */
+export const MAX_TIER = 7
+
+/**
+ * **規則が出した効き目を、その品の tier で「店全体ぶん」と「その品ぶん」に割る。**
+ *
+ * 出典: 方針5「低tier＝薄い全体ボーナス／高tier＝濃い個別ボーナス」＋ PO のグラフ
+ * （tier1 で 90:10 ／ tier4 で 50:50 ／ tier7 で 10:90。**端でも0にせず10残す**）。
+ * この3点を通る直線は1本しかない。**品ごとの表は作らない。**
+ *
+ * ⚠ **規則が `scope` を宣言する形は廃止した。**適用範囲は品の tier から導出する。
+ */
+export function shopWideWeight(itemTier: number): number {
+  const t = Math.min(Math.max(itemTier, 1), MAX_TIER)
+  return 0.9 - (t - 1) * (0.8 / (MAX_TIER - 1))
+}
+
+/**
+ * ⚠ **店全体ぶんは「合計」ではなく「置いてある区画数で割った平均」で積む。**
+ *
+ * 合計にすると、**店全体ぶんはすべての区画に掛かる**ので、効果の総量が区画数の**2乗**で伸びる。
+ * 実測（13×10・130区画）で **値段が65倍**まで飛んだ。按分の比が意味を持たなくなる。
+ *
+ * 平均にすると区画数に依らず（30区画でも130区画でも 1.28〜1.30）、
+ * **全体チャネルと個別チャネルの総量がちょうど釣り合う。**釣り合う割り方はこれ1つしかない。
+ * 上限という調整値も要らなくなる（→ `SHOP_ATTRACTION_CAP` は廃止）。
+ */
 
 // ═══ 規則の形 ═════════════════════════════════════════
 
@@ -124,31 +151,31 @@ export const PAIR_RULES: readonly PairRule[] = [
     id: 'R1', description: '食べものと飲みものは隣り合うと売れやすい',
     甲: item({ axis: '主種類', op: '==', value: '食料' }),
     乙: item({ axis: '主種類', op: '==', value: '飲みもの' }),
-    effect: { kind: '売れやすさ', scope: 'その品', multiplier: 1.2 },
+    effect: { kind: '売れやすさ', multiplier: 1.2 },
   },
   {
     id: 'R2', description: '奮発する品どうしを並べると値が上がる（見栄えが立つ）',
     甲: item({ axis: '贅沢さ', op: '>=', value: '上等' }),
     乙: item({ axis: '贅沢さ', op: '>=', value: '上等' }),
-    effect: { kind: '値段', scope: 'その品', multiplier: 1.15 },
+    effect: { kind: '値段', multiplier: 1.15 },
   },
   {
     id: 'R3', description: '暮らしの品どうしを並べるとまとめて売れる',
     甲: item({ axis: '贅沢さ', op: '==', value: '日用' }),
     乙: item({ axis: '贅沢さ', op: '==', value: '日用' }),
-    effect: { kind: '売れやすさ', scope: 'その品', multiplier: 1.1 },
+    effect: { kind: '売れやすさ', multiplier: 1.1 },
   },
   {
     id: 'R4', description: '奮発する品の隣に暮らしの品を置くと値が下がる（安く見える）',
     甲: item({ axis: '贅沢さ', op: '==', value: '贅沢' }),
     乙: item({ axis: '贅沢さ', op: '==', value: '日用' }),
-    effect: { kind: '値段', scope: 'その品', multiplier: 0.85 },
+    effect: { kind: '値段', multiplier: 0.85 },
   },
   {
     id: 'R6', description: '加工の深い品の隣にその系統の浅い品を置くと売れやすい（手仕事が見える）',
     甲: item({ axis: 'tier', op: '>=', value: 3 }),
     乙: item({ axis: 'tier', op: '==', value: 1 }),
-    effect: { kind: '売れやすさ', scope: 'その品', multiplier: 1.15 },
+    effect: { kind: '売れやすさ', multiplier: 1.15 },
   },
 ]
 
@@ -166,7 +193,18 @@ export const SAME_ORIGIN_RULE: PairRule = {
   // 条件式には「産地が `なし` でないこと」だけを書く（海のものは島の棚を作らない）。
   甲: item({ axis: '産地', op: '!=', value: 'なし' }),
   乙: item({ axis: '産地', op: '!=', value: 'なし' }),
-  effect: { kind: '集客', scope: '店全体', multiplier: 1.1 },
+  /**
+   * ⚠ **1.1 → 1.6 に上げた（段3）。**店全体ぶんを平均で積むようにしたので、
+   *   同じ倍率のままだと敷き詰めても **1.16倍**にしかならず、集客という効き目が死ぬ。
+   *
+   *   **PO の指定は「客足を増やすボーナスはあってよい。ただし8倍は大きすぎる」。**
+   *   置いた目標は**並べ方で客足が動く幅を最大2倍**。1.6 での実測:
+   *   同じ島の産で敷き詰めて **1.98倍** ／ tier1 を雑に並べて 1.32倍 ／ 島の棚なしで 1.00倍。
+   *   （以前は最大8.0倍で、しかも 9×8 以降は上限に貼り付いて**並べ方で動かなかった**）
+   *
+   * ⚠ **この値は段6 で測り直す。**
+   */
+  effect: { kind: '集客', multiplier: 1.6 },
 }
 
 /**
@@ -183,7 +221,7 @@ export const DEMAND_RULES: readonly ConditionRule[] = DEMAND_TABLE.map(row => ({
     item({ axis: '向く土地', op: '==', value: row.suitedLand }),
     { metric: '現在地', op: '==', value: row.island },
   ),
-  effect: { kind: '売れやすさ', scope: 'その品', multiplier: row.multiplier },
+  effect: { kind: '売れやすさ', multiplier: row.multiplier },
 }))
 
 /**
@@ -194,7 +232,7 @@ export const DEMAND_RULES: readonly ConditionRule[] = DEMAND_TABLE.map(row => ({
 export const FOREIGN_ORIGIN_RULE: ConditionRule = {
   id: 'D2', description: 'よその島の産の品は目に留まりやすい',
   condition: item({ axis: '産地', op: '!=', value: 'なし' }),
-  effect: { kind: '売れやすさ', scope: 'その品', multiplier: 1.15 },
+  effect: { kind: '売れやすさ', multiplier: 1.15 },
 }
 
 /**

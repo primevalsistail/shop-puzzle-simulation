@@ -16,7 +16,7 @@ import type {
 } from './rules.js'
 import {
   combine, DEMAND_RULES, FOREIGN_ORIGIN_RULE, PAIR_RULES,
-  SAME_ORIGIN_RULE, SIGNATURE_PAIRS, UNLOCK_RULES,
+  SAME_ORIGIN_RULE, shopWideWeight, SIGNATURE_PAIRS, UNLOCK_RULES,
 } from './rules.js'
 
 // ─── 評価の文脈 ───────────────────────────────────────
@@ -134,7 +134,10 @@ export interface Modifiers {
 export interface EvaluationResult {
   /** 品（区画）ごとの倍率。`その品` の効き目を集めたもの */
   readonly perSlot: ReadonlyMap<string, Modifiers>
-  /** 店全体に効く倍率（**新機構**）。すべての区画に等しくかかる */
+  /**
+   * 店全体に効く倍率。すべての区画に等しくかかる。
+   * **置いてある区画数で割った平均**なので、区画を増やしても濃くならない（→ rules.ts の注記）
+   */
   readonly shopWide: Modifiers
   /** どの規則が効いたか（判定と説明のため） */
   readonly firedRules: readonly string[]
@@ -149,12 +152,16 @@ class Accumulator {
     list.push(multiplier)
     this.buckets.set(kind, list)
   }
-  /** 合成は**加算**（Q5）: `1 + Σ(mᵢ − 1)`。上限なし */
-  resolve(): Modifiers {
+  /**
+   * 合成は**加算**（Q5）: `1 + Σ(mᵢ − 1) / divisor`。
+   * 区画ごとは `divisor = 1`（合計）、**店全体は置いてある区画数で割る**（平均）。
+   * → `rules.ts` の `shopWideWeight` の注記
+   */
+  resolve(divisor = 1): Modifiers {
     return {
-      売れやすさ: combine(this.buckets.get('売れやすさ') ?? []),
-      値段:       combine(this.buckets.get('値段') ?? []),
-      集客:       combine(this.buckets.get('集客') ?? []),
+      売れやすさ: combine(this.buckets.get('売れやすさ') ?? [], divisor),
+      値段:       combine(this.buckets.get('値段') ?? [], divisor),
+      集客:       combine(this.buckets.get('集客') ?? [], divisor),
     }
   }
 }
@@ -177,7 +184,8 @@ function applyPairRule(
 /**
  * 船倉の状態から、区画ごとの倍率と店全体の倍率を出す。
  *
- * ⚠ `店全体`（R5）は現行コードに無い新機構。区画ごとの倍率とは別に持ち、最後にかけ合わせる。
+ * ⚠ **規則は適用範囲を宣言しない。**発火した効き目は**その品の tier で按分**され、
+ *   一部が店全体へ、残りがその区画へ行く（方針5・A案 → rules.ts `shopWideWeight`）。
  */
 export function evaluate(
   placements: readonly Placement[],
@@ -203,9 +211,18 @@ export function evaluate(
     return created
   }
 
-  const put = (effect: Effect, slotId: string, ruleId: string): void => {
-    if (effect.scope === '店全体') shopAcc.add(effect.kind, effect.multiplier)
-    else accFor(slotId).add(effect.kind, effect.multiplier)
+  /**
+   * 発火した効き目を **その品の tier で按分**して積む（方針5・A案）。
+   *
+   * `e = multiplier − 1` を `w = shopWideWeight(tier)` で割り、
+   * `e × w` を店全体へ、`e × (1 − w)` をその区画へ。
+   * **tier1 は 90% が店全体（薄く広く）／tier7 は 90% がその区画（濃く狭く）。**
+   */
+  const put = (effect: Effect, slotId: string, ruleId: string, itemId: ItemId): void => {
+    const e = effect.multiplier - 1
+    const w = shopWideWeight(tier(itemId))
+    shopAcc.add(effect.kind, 1 + e * w)
+    accFor(slotId).add(effect.kind, 1 + e * (1 - w))
     fired.push(ruleId)
   }
 
@@ -214,11 +231,11 @@ export function evaluate(
     const ctx = { item: lookup(p.itemId), state }
     accFor(p.slotId)
     for (const rule of DEMAND_RULES) {
-      if (evalCondition(rule.condition, ctx)) put(rule.effect, p.slotId, rule.id)
+      if (evalCondition(rule.condition, ctx)) put(rule.effect, p.slotId, rule.id, p.itemId)
     }
     // D2 は「産地 != 現在地」。軸どうしの比較なので条件言語では書けず、ここで持つ（→ rules.ts の申し送り）
     if (evalCondition(FOREIGN_ORIGIN_RULE.condition, ctx) && ctx.item.origin !== state.現在地) {
-      put(FOREIGN_ORIGIN_RULE.effect, p.slotId, FOREIGN_ORIGIN_RULE.id)
+      put(FOREIGN_ORIGIN_RULE.effect, p.slotId, FOREIGN_ORIGIN_RULE.id, p.itemId)
     }
   }
 
@@ -226,7 +243,7 @@ export function evaluate(
   for (const [a, b] of pairs) {
     for (const rule of PAIR_RULES) {
       for (const [target] of applyPairRule(rule, a, b, state, lookup)) {
-        put(rule.effect, target.slotId, rule.id)
+        put(rule.effect, target.slotId, rule.id, target.itemId)
       }
     }
     // R5「同じ島の産」。値の一致を見るので、条件（産地 != なし）に加えて評価器が突き合わせる
@@ -235,7 +252,7 @@ export function evaluate(
     const okA = evalCondition(SAME_ORIGIN_RULE.甲, { item: ia, state })
     const okB = evalCondition(SAME_ORIGIN_RULE.乙, { item: ib, state })
     if (okA && okB && ia.origin === ib.origin) {
-      put(SAME_ORIGIN_RULE.effect, a.slotId, SAME_ORIGIN_RULE.id)
+      put(SAME_ORIGIN_RULE.effect, a.slotId, SAME_ORIGIN_RULE.id, a.itemId)
     }
   }
 
@@ -245,7 +262,7 @@ export function evaluate(
       const match =
         (a.itemId === rule.甲 && b.itemId === rule.乙) ||
         (b.itemId === rule.甲 && a.itemId === rule.乙)
-      if (match) put(rule.effect, a.slotId, rule.id)
+      if (match) put(rule.effect, a.slotId, rule.id, a.itemId)
     }
   }
 
@@ -253,23 +270,10 @@ export function evaluate(
   for (const p of placements) {
     perSlot.set(p.slotId, perSlotAcc.get(p.slotId)?.resolve() ?? NEUTRAL)
   }
-  const shopWide = shopAcc.resolve()
-  return {
-    perSlot,
-    shopWide: { ...shopWide, 集客: Math.min(shopWide.集客, SHOP_ATTRACTION_CAP) },
-    firedRules: fired,
-  }
+  // 店全体ぶんは**置いてある区画数で割る**。区画が増えても濃くならない（→ rules.ts の注記）
+  const shopWide = shopAcc.resolve(Math.max(placements.length, 1))
+  return { perSlot, shopWide, firedRules: fired }
 }
-
-/**
- * 店全体の集客の上限。
- *
- * ⚠ 上限が無いと、R5（同じ島の産）を狙って敷き詰めたときに **7.6倍以上**まで伸び、
- *   `来店率 × 集客 × 来客頻度` が 1.0 で頭打ちになって
- *   **買った来客頻度の強化が無価値**になる。実測の到達上限（13×10 で 6.9〜7.8）より
- *   上に置いてあるので、**いまの並べ方の価値は1つも削らない。**
- */
-export const SHOP_ATTRACTION_CAP = 8.0
 
 /** 区画の最終倍率 ＝ その品の倍率 × 店全体の倍率 */
 export function finalModifiers(result: EvaluationResult, slotId: string): Modifiers {

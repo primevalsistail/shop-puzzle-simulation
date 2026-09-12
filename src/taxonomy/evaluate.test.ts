@@ -1,7 +1,7 @@
 /**
  * Cycle 4 / Phase 3 — 規則評価器のテスト
  *
- * とくに **`店全体`（新機構）**が動くことを確かめる。現行コードには無い機構。
+ * とくに **店全体ぶん**と、**tier による按分**（方針5・A案）が動くことを確かめる。
  */
 
 import { describe, it, expect } from 'vitest'
@@ -12,6 +12,7 @@ import {
   adjacentPairs, evaluate, finalModifiers, stockedByIslandMerchant,
   type GameState, type Placement,
 } from './evaluate.js'
+import { SAME_ORIGIN_RULE, shopWideWeight } from './rules.js'
 
 const noSales = new Map<string, number>()
 const at = (島: GameState['現在地'], sales = noSales): GameState =>
@@ -77,7 +78,7 @@ describe('取り合わせ 層1', () => {
   })
 })
 
-describe('効き目の適用範囲 `店全体`（新機構）', () => {
+describe('店全体に効く効き目', () => {
   it('R5 — 同じ島の産の品を並べると、店全体の集客が上がる', () => {
     const p: Placement[] = [
       { slotId: 'a', itemId: 'rice',  x: 0, y: 0 },   // ノアキータ [[1,1]]
@@ -107,7 +108,7 @@ describe('効き目の適用範囲 `店全体`（新機構）', () => {
     expect(evaluate(p, at('ハルヴェラ')).shopWide.集客).toBe(1)
   })
 
-  it('島の棚を2つ作ると、店全体の効き目が加算で積む（Q5）', () => {
+  it('島の棚を2つ作っても、店全体は濃くならない（平均で積むため）', () => {
     const one: Placement[] = [
       { slotId: 'a', itemId: 'rice',  x: 0, y: 0 },
       { slotId: 'b', itemId: 'apple', x: 2, y: 0 },
@@ -119,8 +120,52 @@ describe('効き目の適用範囲 `店全体`（新機構）', () => {
     ]
     const r1 = evaluate(one, at('ハルヴェラ')).shopWide.集客
     const r2 = evaluate(two, at('ハルヴェラ')).shopWide.集客
-    // 加算合成なので、2つ目の増分は1つ目と同じ
-    expect(r2 - 1).toBeCloseTo((r1 - 1) * 2, 10)
+    // ⚠ **ここは意図的に反転させた。**以前は合計で積んでいたので 2倍になった。
+    //   店全体ぶんは**すべての区画に掛かる**ので、合計だと効果の総量が区画数の2乗で伸びる
+    //   （実測 13×10 で値段65倍）。**置いてある区画数で割る**ことで区画数に依らなくなる。
+    //   → rules.ts `shopWideWeight` の注記
+    expect(r2).toBeCloseTo(r1, 10)
+  })
+
+  it('店全体ぶんは、店に占める割合で決まる（半分にすると増分も半分）', () => {
+    const 全部島の棚: Placement[] = [
+      { slotId: 'a', itemId: 'rice',  x: 0, y: 0 },
+      { slotId: 'b', itemId: 'apple', x: 2, y: 0 },
+    ]
+    const 半分だけ: Placement[] = [
+      ...全部島の棚,
+      { slotId: 'c', itemId: 'reindeer_meat', x: 0, y: 5 },  // ミフユリア・離れている
+      { slotId: 'd', itemId: 'salt',          x: 5, y: 5 },  // 産地なし・離れている
+    ]
+    const r1 = evaluate(全部島の棚, at('ハルヴェラ')).shopWide.集客
+    const r2 = evaluate(半分だけ, at('ハルヴェラ')).shopWide.集客
+    expect(r2 - 1).toBeCloseTo((r1 - 1) / 2, 10)
+  })
+})
+
+describe('tier による按分（方針5・A案）', () => {
+  it('tier1 の効き目は9割が店全体へ、1割がその区画へ行く', () => {
+    // apple（tier1・ノアキータ）と rice（tier1・ノアキータ）で R5 が1回発火する
+    const p: Placement[] = [
+      { slotId: 'a', itemId: 'rice',  x: 0, y: 0 },
+      { slotId: 'b', itemId: 'apple', x: 2, y: 0 },
+    ]
+    const r = evaluate(p, at('ハルヴェラ'))
+    const e = SAME_ORIGIN_RULE.effect.multiplier - 1
+    // 店全体は「区画数で割る」ので、2区画なら e × 0.9 ÷ 2
+    expect(r.shopWide.集客 - 1).toBeCloseTo(e * 0.9 / 2, 10)
+    expect(r.perSlot.get('a')!.集客 - 1).toBeCloseTo(e * 0.1, 10)
+  })
+
+  it('tier が深いほど、その区画ぶんが濃くなる（tier1 の0.1 → tier7 の0.9）', () => {
+    expect(shopWideWeight(1)).toBeCloseTo(0.9, 10)
+    expect(shopWideWeight(4)).toBeCloseTo(0.5, 10)   // PO のグラフの中点
+    expect(shopWideWeight(7)).toBeCloseTo(0.1, 10)
+    // ⚠ **端でも0にしない。**どの tier でも両方に届く
+    expect(shopWideWeight(7)).toBeGreaterThan(0)
+    expect(1 - shopWideWeight(1)).toBeGreaterThan(0)
+    // tier は 1〜7 の外に出ない（段5 で tier7 まで増やす）
+    expect(shopWideWeight(99)).toBe(shopWideWeight(7))
   })
 })
 
