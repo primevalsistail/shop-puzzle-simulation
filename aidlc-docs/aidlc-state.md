@@ -6,13 +6,32 @@
 - **Tech Stack**: TypeScript + Phaser.js 3 + Vite
 - **Platform**: Webブラウザ
 - **Started**: 2026-07-05T02:00:00Z
-- **Last Updated**: 2026-09-12（**束F 完了 ＋ 実機確認と手直しまで**。次は束K）
+- **Last Updated**: 2026-09-12（**束M 着手。判断基準を PO に確認中**）
 
 ## Current Status
 
-**束F（情報の提示と操作）は6件すべて完了した**（2026-09-12）。
-**次は束M（画面に出す言葉）＝ #68 → #1。**
-→ [bundle-m-words-plan.md](construction/plans/bundle-m-words-plan.md)
+**束M（画面に出す言葉）—— 減らすほうは終わった**（2026-09-12）。**344テスト／`tsc`／`build`。**
+⚠ **まだ main に入れていない**（作業ツリー）。**サイクル末の PO 判断3件が残っている。**
+→ [questions-68-additions.md](sessions/questions-68-additions.md)
+
+| | |
+|---|---|
+| 何を消したか・残したか・その理由 | [bundle-m-text-decisions.md](construction/plans/bundle-m-text-decisions.md) |
+| ペルソナ4人のレビュー | [persona-review-words.md](inception/design-log/persona-review-words.md) |
+| 計画 | [bundle-m-words-plan.md](construction/plans/bundle-m-words-plan.md) |
+
+**入ったもの**: `¥` → **`レン`**（組み立ては **`src/ui/money.ts` の1本だけ**。以前は16箇所に手書き）／
+画面ごとの判断に要らない文字の削除／**呼び名の統一**（ボタンと行った先の見出しが3つとも同じ語に）。
+
+⚠ **`レン` は `¥` より幅が広い**（全角2文字）。**3箇所で枠から溢れた。**
+**`layout.ts` に寸法を集め、`layout.test.ts` が `estTextWidth` で「収まる」を見ている。**
+⚠ **文字の大きさを下げた箇所がある。実機で読めるかは #47。**
+
+**この束で見つけて issue にしたもの**: **#73**（⚠ **進捗バーが実際のクリア条件と違うものを測っている**）／
+**#74**（航海の文言が到達不能）／**#75**（内部用語の露出）／
+**#76**（⚠ **一覧の売値と実際に売れる額が違う**）。
+
+⚠ **#73 と #76 は同じ型**——**画面の数字が実際と違う。**どちらもペルソナが「投げ出す瞬間」に挙げた。
 
 **まず減らし（#68）、それから世界観の言葉に置き換える（#1）。**
 ⚠ **順番が逆にならないこと。**先に言い換えると、**あとで消す文字を世界観に合わせる**ことになる。
