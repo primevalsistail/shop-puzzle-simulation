@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { Inventory } from './Inventory.js'
+import { Inventory, MAX_QUANTITY } from './Inventory.js'
 
 describe('Inventory', () => {
   let inv: Inventory
@@ -18,15 +18,38 @@ describe('Inventory', () => {
     expect(inv.getQuantity('snap_pea')).toBe(5)
   })
 
-  it('addは上限（99999）を超えない', () => {
-    inv.add('snap_pea', 50000)
-    inv.add('snap_pea', 60000)
-    expect(inv.getQuantity('snap_pea')).toBe(99999)
+  /**
+   * ⚠ **2026-09-12（段4-7）に上限を 99999 → 999 に下げた。意図した反転。**
+   *   PO 指定。転売が指数関数的に伸びるのを止めるため（→ Inventory.ts の注記）。
+   *   同時に消したのが「確認用の初期在庫10000はそのまま入る」で、
+   *   **前提そのものが先に消えていた**（`INITIAL_STOCK` はいま3品を15個ずつ）。
+   */
+  it('addは上限（999）を超えない', () => {
+    inv.add('snap_pea', 500)
+    inv.add('snap_pea', 600)
+    expect(inv.getQuantity('snap_pea')).toBe(MAX_QUANTITY)
   })
 
-  it('確認用の初期在庫10000はそのまま入る（上限で切られない）', () => {
+  it('addは実際に入った数を返す（上限で切られたぶんは分かる）', () => {
+    expect(inv.add('snap_pea', 5)).toBe(5)
+    expect(inv.add('snap_pea', MAX_QUANTITY)).toBe(MAX_QUANTITY - 5)
+    expect(inv.add('snap_pea', 10)).toBe(0)
+  })
+
+  it('spaceFor / isFull で買う前に空きを訊ける', () => {
+    expect(inv.spaceFor('snap_pea')).toBe(MAX_QUANTITY)
+    expect(inv.isFull('snap_pea')).toBe(false)
+    inv.add('snap_pea', MAX_QUANTITY - 3)
+    expect(inv.spaceFor('snap_pea')).toBe(3)
+    expect(inv.isFull('snap_pea')).toBe(false)
+    inv.add('snap_pea', 3)
+    expect(inv.spaceFor('snap_pea')).toBe(0)
+    expect(inv.isFull('snap_pea')).toBe(true)
+  })
+
+  it('setInitialStock も上限で切られる（古いセーブを読んでも上限を超えない）', () => {
     inv.setInitialStock({ snap_pea: 10000 })
-    expect(inv.getQuantity('snap_pea')).toBe(10000)
+    expect(inv.getQuantity('snap_pea')).toBe(MAX_QUANTITY)
   })
 
   it('removeで数量を減らす', () => {

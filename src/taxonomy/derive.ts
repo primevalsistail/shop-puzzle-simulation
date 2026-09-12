@@ -10,6 +10,7 @@
  */
 
 import type { ItemDef, ItemId, Luxury, RecipeDef } from './axes.js'
+import type { IslandName } from './islands.js'
 import { ALL_ITEMS, getItem } from './items.js'
 import { ALL_RECIPES, RECIPES_BY_OUTPUT } from './recipes.js'
 
@@ -194,9 +195,9 @@ export function ingredientCost(
 }
 
 /**
- * 仕入れ値。**全品同じ率**（`買値 = 売値 × PURCHASE_RATE`）。
+ * 仕入れ値。**その島の中で率は2つだけ**（素の `PURCHASE_RATE` と、産地割引を掛けたもの）。
  *
- * ## なぜ全品同じ率でよいのか
+ * ## なぜ率を1本に保つのか
  *
  * これだけで「**買ってそのまま売っても薄利で成立。ただし材料を買って作るほうが儲かる**」が
  * 自動的に成立する。式で1行:
@@ -205,7 +206,8 @@ export function ingredientCost(
  * 作る利益 − 転売利益 ＝ 加工利益 × 買値率     … 買値率が正である限り常に正
  * ```
  *
- * 実測で **72本すべてが「作る > 転売」**。例外条件も、tier ごとの場合分けも要らない。
+ * 実測で **4島 × 72レシピ ＋ 割引なし ＝ 360本すべてが「作る > 転売」**。
+ * 例外条件も、tier ごとの場合分けも要らない（`ItemRegistry.test.ts` が常時見ている）。
  *
  * さらに**連鎖を1段深くするごとに、その段の「加工利益 × 買値率」が上乗せされる**ので、
  * **深く作るほど取り分が増える** —— 深さの報酬がここから出る
@@ -223,17 +225,66 @@ export function ingredientCost(
  * そして上の式のとおり、**率を上げるほど「作る」の優位も大きくなる**（優位 ＝ 加工利益 × 率）。
  *
  * ⚠ **品ごとに散らさない。**散らすと「何を買うか」と「どこで売るか」の2つの理由が混ざって
- *   読めなくなる。**差は需要表（islands.ts）に持たせる。**
+ *   読めなくなる。**差は需要表（islands.ts）と、下の産地割引に持たせる。**
  */
 /** 全品共通。**tier による場合分けは無い** */
 export const PURCHASE_RATE = 0.7
 
+/**
+ * **産地の島にいるときだけ掛かる割引**（段4-6）。`買値 = 売値 × PURCHASE_RATE × これ`。
+ *
+ * ## なぜ品ごとの例外を1つも書かずに済むか
+ *
+ * **産地を持つのは tier1 の43品だけで、加工品79品はすべて産地が `なし`**（旬を持たないため。#22）。
+ * 産地と現在地の一致でしか割り引かないので、**割引は素材にしか当たらない。**
+ * 「tier を見る」「加工品を除く」といった条件をどこにも書いていないのに、
+ * **加工が転売に食われない**が成り立つ。その担保はこの1行ではなく `items.ts` のデータの形にある。
+ *
+ * ## 「作る > 転売」の符号は、割引で強くなる（弱くならない）
+ *
+ * レシピの出力は必ず tier2以上 ＝ 産地 `なし` なので、**転売側の買値は割引を受けない。**
+ * 一方、材料側は産地の島で安くなる。
+ *
+ * ```
+ * 作る利益 − 転売利益 ＝ 加工利益 × 買値率 ＋ (割り引かれた材料費の差)   … 割引が無い場合に一致
+ * ```
+ *
+ * 実測: 割引 0.8 のもとで **4島 × 72レシピ ＝ 288本すべてで「作る > 転売」**
+ * （→ aidlc-docs/construction/plans/stage4-price-gradient-result.md）。
+ *
+ * ⚠ **仮置き。#61 で測り直す。**「産地では2割引き」以上の根拠は無い。
+ * ⚠ 島ごとに別の値を持たせないこと。持たせた瞬間に「どの島が得か」が需要表と二重になる。
+ */
+export const ORIGIN_DISCOUNT = 0.8
+
+/**
+ * 仕入れ値。`at` にいまいる島を渡すと、**その島を産地とする品だけ**割引が乗る。
+ *
+ * `at` を省くと割引なしの素の買値（一覧・ダンプ・不変条件の検査が使う）。
+ */
 export function purchasePrice(
   itemId: ItemId,
+  at?: IslandName,
   recipesByOutput: ReadonlyMap<string, RecipeDef> = RECIPES_BY_OUTPUT,
   lookup: (id: ItemId) => ItemDef = getItem,
 ): number {
-  return Math.round(salePrice(itemId, recipesByOutput, lookup) * PURCHASE_RATE)
+  const rate = PURCHASE_RATE * (isAtOrigin(itemId, at, lookup) ? ORIGIN_DISCOUNT : 1)
+  return Math.round(salePrice(itemId, recipesByOutput, lookup) * rate)
+}
+
+/**
+ * いまいる島がその品の産地か。
+ *
+ * ⚠ **品に島の名前を書き足してはいない。**`産地` は元からある軸（axes.ts 軸3）で、
+ *   ここがやるのは値の一致を見ることだけ。評価器の D2・`stockedByIslandMerchant` と同じ形。
+ */
+export function isAtOrigin(
+  itemId: ItemId,
+  at: IslandName | undefined,
+  lookup: (id: ItemId) => ItemDef = getItem,
+): boolean {
+  if (at === undefined) return false
+  return lookup(itemId).origin === at
 }
 
 // ─── レシピ由来の導出（INV-3: 型に持たない） ─────────────
@@ -271,7 +322,7 @@ export function dumpAll(
       cells: cellCount(item),
       tier: tier(item.id, recipesByOutput),
       salePrice: salePrice(item.id, recipesByOutput, lookup),
-      purchasePrice: purchasePrice(item.id, recipesByOutput, lookup),
+      purchasePrice: purchasePrice(item.id, undefined, recipesByOutput, lookup),
     }
   }
   return out

@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { ItemRegistry } from './ItemRegistry.js'
 import { ALL_ITEMS } from '../../taxonomy/items.js'
 import { ALL_RECIPES } from '../../taxonomy/recipes.js'
+import { ROUTE } from '../../taxonomy/islands.js'
+import type { IslandName } from '../../taxonomy/islands.js'
 
 describe('ItemRegistry', () => {
   const reg = new ItemRegistry(ALL_ITEMS, ALL_RECIPES)
@@ -28,16 +30,44 @@ describe('ItemRegistry', () => {
     }
   })
 
-  it('材料を買って作るほうが、買って転売するより儲かる（全72レシピ）', () => {
-    // これがこのゲームの土台。**全品同じ買値率にするだけで自動的に成立する**:
+  it('材料を買って作るほうが、買って転売するより儲かる（4島 × 全72レシピ ＋ 割引なし）', () => {
+    // これがこのゲームの土台。**買値率を1本に保つだけで自動的に成立する**:
     //   作る利益 − 転売利益 ＝ 加工利益 × 買値率 … 常に正
-    for (const recipe of reg.getAllRecipes()) {
-      const id = recipe.outputItemId
-      const resale = reg.salePriceOf(id) - reg.purchasePriceOf(id)
-      const materialCost = recipe.ingredients
-        .reduce((sum, g) => sum + reg.purchasePriceOf(g.itemId) * g.quantity, 0) / recipe.outputQuantity
-      const craft = reg.salePriceOf(id) - materialCost
-      expect(craft).toBeGreaterThan(resale)
+    //
+    // ⚠ **島ごとに測る**（段4-6）。産地割引は素材（tier1）にしか当たらないので、
+    //   割り引かれるのは材料費の側だけ。符号は**強くなる方向にしか動かない**が、
+    //   「動かない」ではなく「強くなる」ことを見に行く検査にしてある。
+    const places: (IslandName | undefined)[] = [undefined, ...ROUTE]
+    for (const at of places) {
+      for (const recipe of reg.getAllRecipes()) {
+        const id = recipe.outputItemId
+        const resale = reg.salePriceOf(id) - reg.purchasePriceOf(id, at)
+        const materialCost = recipe.ingredients
+          .reduce((sum, g) => sum + reg.purchasePriceOf(g.itemId, at) * g.quantity, 0) / recipe.outputQuantity
+        const craft = reg.salePriceOf(id) - materialCost
+        expect(craft, `${at ?? '割引なし'} / ${id}`).toBeGreaterThan(resale)
+      }
+    }
+  })
+
+  it('産地の島でだけ安く買える。割引は素材にしか当たらない（段4-6）', () => {
+    // **例外を1つも書いていない**ことの検査。産地を持つのが tier1 だけなので、
+    // 「加工品を除く」と書かなくても加工品には当たらない
+    for (const at of ROUTE) {
+      for (const item of reg.getAllItems()) {
+        const discounted = reg.purchasePriceOf(item.id, at) < reg.purchasePriceOf(item.id)
+        expect(discounted, `${at} / ${item.id}`).toBe(item.origin === at)
+        if (discounted) expect(reg.tierOf(item.id), `${item.id}`).toBe(1)
+      }
+    }
+  })
+
+  it('レシピの出来上がりは、どの島でも割引を受けない（転売側は安くならない）', () => {
+    for (const at of ROUTE) {
+      for (const recipe of reg.getAllRecipes()) {
+        expect(reg.purchasePriceOf(recipe.outputItemId, at))
+          .toBe(reg.purchasePriceOf(recipe.outputItemId))
+      }
     }
   })
 

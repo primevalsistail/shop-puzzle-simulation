@@ -1,6 +1,7 @@
 import type { GridCell, Rotation } from '../../types/index.js'
 import type { ItemDef, ItemId, RecipeDef, Shape } from '../../taxonomy/axes.js'
 import { tier, salePrice, purchasePrice, finalPrice } from '../../taxonomy/derive.js'
+import type { IslandName } from '../../taxonomy/islands.js'
 
 export type { ItemDef, ItemId, RecipeDef, Shape }
 
@@ -72,9 +73,14 @@ export class ItemRegistry {
     return finalPrice(id, priceModifier)
   }
 
-  /** 仕入れ値 */
-  purchasePriceOf(id: ItemId): number {
-    return purchasePrice(id)
+  /**
+   * 仕入れ値。`at` にいまいる島を渡すと、**その島を産地とする品だけ**安くなる（段4-6）。
+   *
+   * ⚠ 省くと割引なしの素の買値。**買う画面と持ち物一覧は必ず `at` を渡すこと。**
+   *   片方だけ渡すと、同じ品に2つの値段が出ることになる。
+   */
+  purchasePriceOf(id: ItemId, at?: IslandName): number {
+    return purchasePrice(id, at)
   }
 
   // ─── かたち ───────────────────────────────────────────

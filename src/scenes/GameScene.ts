@@ -3,7 +3,7 @@ import { TimeManager } from '../components/core/TimeManager.js'
 import { ItemRegistry } from '../components/items/ItemRegistry.js'
 import { FloorGrid } from '../components/floor/FloorGrid.js'
 import { PlacementManager } from '../components/floor/PlacementManager.js'
-import { Inventory } from '../components/economy/Inventory.js'
+import { Inventory, MAX_QUANTITY } from '../components/economy/Inventory.js'
 import { EconomyManager } from '../components/economy/EconomyManager.js'
 import { CraftingSystem } from '../components/items/CraftingSystem.js'
 import type { CraftResult } from '../components/items/CraftingSystem.js'
@@ -657,6 +657,15 @@ export class GameScene extends Phaser.Scene {
         `${recipe.display.name} ×${times}回 完了！ ${quantity}個入手（${recipe.durationMinutes * times}分）`,
         'event',
       )
+      // 在庫上限（段4-7）。**買う側は押せなくして防げるが、加工は出来上がってから溢れる。**
+      // 黙って消さず、ここで言う。上限を下げるときはこの知らせも見直すこと
+      if (this.inventory.isFull(recipe.outputItemId)) {
+        const item = this.registry_.getItem(recipe.outputItemId)
+        this.messageLog.addMessage(
+          `${item.display.name}は在庫上限 ${MAX_QUANTITY} に達した。これ以上は増えない`,
+          'event',
+        )
+      }
       this.refreshInventoryPanel()
     })
 
@@ -848,7 +857,8 @@ export class GameScene extends Phaser.Scene {
     }
     // 棚に出している品には印を付ける。数量は持ち物と同じなので分けて出さない
     const onShelf = new Set(this.floorGrid.getAllSlots().map(s => s.itemId))
-    this.inventoryPanel.render(items, quantities, onShelf)
+    // 現在地も渡す。**買値は島で変わる**ので、渡さないと仕入れ画面と食い違う（段4-6）
+    this.inventoryPanel.render(items, quantities, onShelf, this.world.getIsland())
   }
 
   private showSalePopup(revenue: number, slot: DisplaySlot): void {

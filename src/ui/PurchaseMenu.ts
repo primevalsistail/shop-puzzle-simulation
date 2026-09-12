@@ -3,6 +3,8 @@ import type { ItemDef, ItemRegistry } from '../components/items/ItemRegistry.js'
 import type { EconomyManager } from '../components/economy/EconomyManager.js'
 import type { Inventory } from '../components/economy/Inventory.js'
 import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
+import { MAX_QUANTITY } from '../components/economy/Inventory.js'
+import type { IslandName } from '../taxonomy/islands.js'
 
 const PANEL_W = 420
 const PANEL_H = 480
@@ -26,7 +28,7 @@ export class PurchaseMenu {
   private container: Phaser.GameObjects.Container | null = null
   private isOpen = false
   private materials: ItemDef[] = []
-  private islandName = ''
+  private islandName: IslandName = 'ハルヴェラ'
   private paging = new ListPaging(VISIBLE_COUNT)
   /** 棚から「これを補充したい」と来た品。1行だけ目立たせる */
   private focusId: string | null = null
@@ -47,7 +49,7 @@ export class PurchaseMenu {
     })
   }
 
-  open(materials: ItemDef[], islandName: string, focusId?: string): void {
+  open(materials: ItemDef[], islandName: IslandName, focusId?: string): void {
     if (this.isOpen) return
     this.isOpen = true
     this.materials = materials
@@ -157,36 +159,50 @@ export class PurchaseMenu {
 
     this.paging.slice(materials).forEach((mat, i) => {
       const y = ROWS_TOP + i * ROW_H
-      const unitCost = this.registry.purchasePriceOf(mat.id)
+      // **いまいる島**の買値。産地の島にいる品だけ安い（段4-6 / derive.ts `ORIGIN_DISCOUNT`）
+      const unitCost = this.registry.purchasePriceOf(mat.id, this.islandName)
+      const isLocal = mat.origin === this.islandName
       const totalCost = unitCost * BUY_QTY
       const canAfford = this.economy.canAfford(totalCost)
+      // **上限を超える買い物はさせない。**払ってから溢れて消える、を起こさないため（段4-7）
+      const stock = this.inventory.getQuantity(mat.id)
+      const hasRoom = this.inventory.spaceFor(mat.id) >= BUY_QTY
+      const buyable = canAfford && hasRoom
 
       const focused = mat.id === this.focusId
-      const bg = this.scene.add.rectangle(PANEL_X, y, PANEL_W - 40, ROW_H - 6, canAfford ? 0x2a3a2a : 0x3a2a2a)
+      const bg = this.scene.add.rectangle(PANEL_X, y, PANEL_W - 40, ROW_H - 6, buyable ? 0x2a3a2a : 0x3a2a2a)
         .setStrokeStyle(focused ? 2 : 1, focused ? 0xffdd88 : 0x555555)
       objs.push(bg)
 
-      objs.push(
-        this.scene.add.text(PANEL_X - 170, y, mat.display.name, {
-          fontSize: '14px',
-          color: '#ffffff',
-        }).setOrigin(0, 0.5),
-      )
+      const nameText = this.scene.add.text(PANEL_X - 170, y, mat.display.name, {
+        fontSize: '14px',
+        color: '#ffffff',
+      }).setOrigin(0, 0.5)
+      objs.push(nameText)
 
-      const stock = this.inventory.getQuantity(mat.id)
+      // 産地の島であることを、値引きの理由として見せる。**品に島の名前を足してはいない**
+      // （`産地` は元からある軸。ここは値の一致を表示しているだけ）
+      if (isLocal) {
+        objs.push(
+          this.scene.add.text(nameText.x + nameText.width + 6, y, 'この島の産', {
+            fontSize: '10px', color: '#88ddaa',
+          }).setOrigin(0, 0.5),
+        )
+      }
+
       objs.push(
-        this.scene.add.text(PANEL_X - 40, y, `在庫: ${stock}`, {
+        this.scene.add.text(PANEL_X - 40, y, `在庫: ${stock}/${MAX_QUANTITY}`, {
           fontSize: '12px',
-          color: '#aaaaaa',
+          color: hasRoom ? '#aaaaaa' : '#dd8866',
         }).setOrigin(0, 0.5),
       )
 
-      if (canAfford) {
+      if (buyable) {
         const btn = this.scene.add
           .text(PANEL_X + 130, y, `¥${totalCost} × ${BUY_QTY}個`, {
             fontSize: '13px',
-            color: '#ffffff',
-            backgroundColor: '#6a5a2a',
+            color: isLocal ? '#bbffcc' : '#ffffff',
+            backgroundColor: isLocal ? '#3a6a3a' : '#6a5a2a',
             padding: { x: 8, y: 5 },
           })
           .setOrigin(0.5)
@@ -200,7 +216,7 @@ export class PurchaseMenu {
         objs.push(btn)
       } else {
         objs.push(
-          this.scene.add.text(PANEL_X + 130, y, `¥${totalCost} 不足`, {
+          this.scene.add.text(PANEL_X + 130, y, hasRoom ? `¥${totalCost} 不足` : `上限${MAX_QUANTITY}`, {
             fontSize: '12px',
             color: '#888888',
           }).setOrigin(0.5),
