@@ -18,7 +18,9 @@ import {
   SUBTITLE_Y, FILTER_Y, ROWS_TOP, PAGER_Y, rowsThatFit,
   BUY_W, BUY_FONT_PX, BUY_SUFFIX, INFO_MAX_W, INFO_FONT_PX, LOG_T,
   UPCOMING_FONT_PX, upcomingLabel,
+  PEDDLER_TITLE, PEDDLER_REMAIN_FONT_PX, peddlerRemainText, peddlerSubtitleText,
 } from './layout.js'
+import type { PeddlerStock } from '../components/progress/PeddlerStock.js'
 
 const ROW_H = 56
 /** ⚠ **決め打ちしない。**領域の高さから出す（`layout.ts`） */
@@ -75,6 +77,18 @@ interface Row {
  *   **その行は買えない。**買う部品（− ＋ 最大 買う ／ 個数の `<input>`）を**そもそも作らない。**
  */
 export class PurchaseMenu {
+  /**
+   * **行商人バレンとして開いているとき**の、その日の積荷（#9）。島の商人なら `null`。
+   *
+   * ## なぜ別のクラスにせず、ここを分岐させたか（main の技術判断）
+   *
+   * 違うのは**6箇所だけ**（値段・`この島の産`／`残り N個`・見出しの下の1行・
+   * 買える上限・買えない理由・買ったあとの減算）で、
+   * 残り全部 —— 行の組み立て・ページ送り・検索・`<input>`・`最大`・金額の書き方 —— は同じ。
+   * **別クラスにするとその全部が写しになり、片方だけ直す事故が起きる**
+   * （寸法の写しを禁じているのと同じ理由。`layout.ts` の注記）。
+   */
+  private peddler: PeddlerStock | null = null
   private container: Phaser.GameObjects.Container | null = null
   private isOpen = false
   private materials: ItemDef[] = []
@@ -131,8 +145,31 @@ export class PurchaseMenu {
     materials: ItemDef[], islandName: IslandName,
     upcoming: readonly UpcomingStock[] = [], focusId?: string,
   ): void {
+    this.enter('商人のところ', materials, islandName, null, upcoming, focusId)
+  }
+
+  /**
+   * **行商人バレンのところ**（#9）。同じ枠を、値段と上限だけ替えて使う。
+   *
+   * ⚠ **`もうすぐ買える` 行は出さない。**あれは「この島の商人に**あとN個で並ぶ**」という
+   *   島の話で（#66）、島を持たない行商人では意味が無い。
+   *
+   * @param islandName いまいる島。**値段には使わない**（行商人に産地割引は無い）。
+   *                   行の `N品に要る` の `⚠ 切らしている` がこの島の産かどうかを見る
+   */
+  openPeddler(stock: PeddlerStock, materials: ItemDef[], islandName: IslandName): void {
+    this.enter(PEDDLER_TITLE, materials, islandName, stock)
+  }
+
+  private enter(
+    title: string,
+    materials: ItemDef[], islandName: IslandName,
+    peddler: PeddlerStock | null,
+    upcoming: readonly UpcomingStock[] = [], focusId?: string,
+  ): void {
     if (this.isOpen) return
     this.isOpen = true
+    this.peddler = peddler
     // ⚠ **買えるものが先。**買えない行が上に来ると、開いた瞬間に「何も買えない」と読まれる
     this.materials = [...materials, ...upcoming.map(u => u.item)]
     this.salesLeft = new Map(upcoming.map(u => [u.item.id, u.salesLeft]))
@@ -142,7 +179,7 @@ export class PurchaseMenu {
     this.paging.setQuery('')
     this.needs = this.materialNeeds()
     if (focusId) this.paging.jumpTo(this.shown().findIndex(m => m.id === focusId), this.shown().length)
-    this.frame.show('商人のところ', () => this.close())
+    this.frame.show(title, () => this.close())
     this.search.place(
       CONTENT_R - SEARCH_W / 2, FILTER_Y, SEARCH_W, SEARCH_H, '名前で探す',
       q => { this.paging.setQuery(q); this.rebuild() },
@@ -154,6 +191,7 @@ export class PurchaseMenu {
   close(): void {
     if (!this.isOpen) return
     this.isOpen = false
+    this.peddler = null
     this.container?.destroy()
     this.container = null
     this.rows = []
@@ -216,12 +254,17 @@ export class PurchaseMenu {
     // ⚠ **「次に戻るのは40日後」だけを出さないこと。**この島にはまだ何日か居られるので、
     //   40日後だけ見せると「もう来られない、いま全部買え」と読まれる（束M・ペルソナ2巡目）。
     //   ⚠ **40 の中に 10 が入っている**（`daysLeftAtPort + 3周ぶん`）。両方出して関係を見せる
+    // ⚠ **行商人には島が無い**ので、この島を出る日も次に戻る日も言えない（#9）。
+    //   代わりに言うのは「**今日の品ぞろえ**」であること。**毎日入れ替わるのが歯止めそのもの**なので、
+    //   言わないと島の商人と同じ「いつでもある店」に見える
     const stay = this.daysLeftAtPort()
     const days = this.daysUntilReturn()
     objs.push(
       this.scene.add.text(CONTENT_L, SUBTITLE_Y,
-        `所持金 ${money(this.economy.getMoney())}　`
-        + `あと${stay}日でこの島を出る（次に戻るのは${days}日後）`, {
+        this.peddler
+          ? peddlerSubtitleText(money(this.economy.getMoney()))
+          : `所持金 ${money(this.economy.getMoney())}　`
+            + `あと${stay}日でこの島を出る（次に戻るのは${days}日後）`, {
         fontSize: '15px', color: '#ffdd44',
       }).setOrigin(0, 0.5),
     )
@@ -270,7 +313,11 @@ export class PurchaseMenu {
         this.scene.add.text(PLACE_CX, ROWS_TOP + 60,
           filtered
             ? '商人に、当てはまる品はありません'
-            : '商人は、いま何も並べていません', {
+            : this.peddler
+              // ⚠ **「絞り込んだ結果」と「そもそも無い」を書き分ける**（#48）。
+              //   行商人は**今日は積んでいない**だけなので、明日また来ることを言う
+              ? '行商人は、今日は何も積んでいません'
+              : '商人は、いま何も並べていません', {
           fontSize: '14px', color: '#889999',
         }).setOrigin(0.5),
       )
@@ -352,9 +399,13 @@ export class PurchaseMenu {
   }
 
   private buildRow(mat: ItemDef, y: number, objs: Phaser.GameObjects.GameObject[]): void {
-    // **いまいる島**の買値。産地の島にいる品だけ安い（段4-6 / derive.ts `ORIGIN_DISCOUNT`）
-    const unitCost = this.registry.purchasePriceOf(mat.id, this.islandName)
-    const isLocal = mat.origin === this.islandName
+    // **いまいる島**の買値。産地の島にいる品だけ安い（段4-6 / derive.ts `ORIGIN_DISCOUNT`）。
+    // ⚠ **行商人は島ではないので産地割引が乗らず、さらに割増が乗る**（`PeddlerStock.unitCost`）。
+    //   `purchasePrice()` に引数を足していないのはこのため（#34 のコメント）
+    const unitCost = this.peddler
+      ? this.peddler.unitCost(mat.id)
+      : this.registry.purchasePriceOf(mat.id, this.islandName)
+    const isLocal = !this.peddler && mat.origin === this.islandName
 
     const focused = mat.id === this.focusId
     objs.push(
@@ -373,6 +424,18 @@ export class PurchaseMenu {
       objs.push(
         this.scene.add.text(nameText.x + nameText.width + 8, y, 'この島の産', {
           fontSize: '11px', color: '#88ddaa',
+        }).setOrigin(0, 0.5),
+      )
+    }
+
+    // 行商人は**今日これだけしか積んでいない**（#9 の上限10個）。
+    // ⚠ **`この島の産` と同じ場所に出す。**`51レン/個　在庫 100/999` の側に足すと
+    //   `INFO_MAX_W`（160px）を超えて左隣に重なる（→ `layout.ts` の注記）
+    if (this.peddler) {
+      objs.push(
+        this.scene.add.text(nameText.x + nameText.width + 8, y,
+          peddlerRemainText(this.peddler.remaining(mat.id)), {
+          fontSize: `${PEDDLER_REMAIN_FONT_PX}px`, color: '#ddbb88',
         }).setOrigin(0, 0.5),
       )
     }
@@ -441,11 +504,16 @@ export class PurchaseMenu {
     this.rows.push(row)
   }
 
-  /** いくつまで買えるか。**お金と在庫の上限のうち、少ないほう**（最低1） */
+  /**
+   * いくつまで買えるか。**お金と在庫の上限のうち、少ないほう**（最低1）。
+   *
+   * ⚠ **行商人はその日の積荷も上限になる**（#9。各10個まで）。
+   */
   private maxBuyable(row: Row): number {
     const byMoney = Math.floor(this.economy.getMoney() / Math.max(1, row.unitCost))
     const byRoom = this.inventory.spaceFor(row.item.id)
-    return Math.max(1, Math.min(byMoney, byRoom))
+    const byCart = this.peddler ? this.peddler.remaining(row.item.id) : Infinity
+    return Math.max(1, Math.min(byMoney, byRoom, byCart))
   }
 
   private setValue(row: Row, qty: number): void {
@@ -487,6 +555,10 @@ export class PurchaseMenu {
     if (qty === null) return row.input.value.trim() === '' ? '個数を入れて' : '1以上の整数'
     // **上限を超える買い物はさせない。**払ってから溢れて消える、を起こさないため（段4-7）
     if (this.inventory.spaceFor(row.item.id) < qty) return `上限${MAX_QUANTITY}`
+    // ⚠ **行商人の積荷より多くは買えない**（#9）。在庫の上限と同じで、**払う前に止める**
+    if (this.peddler && this.peddler.remaining(row.item.id) < qty) {
+      return peddlerRemainText(this.peddler.remaining(row.item.id))
+    }
     if (!this.economy.canAfford(row.unitCost * qty)) {
       return `${money(row.unitCost * qty)} 足りない`
     }
@@ -497,6 +569,9 @@ export class PurchaseMenu {
     const qty = readCount(row.input.value)
     if (qty === null || this.reasonFor(row, qty) !== '') return
     if (!this.economy.spend(row.unitCost * qty)) return
+    // ⚠ **積荷を先に減らす。**減らさないと閉じて開き直すだけで何度でも買え、
+    //   **10個の上限が意味を失う**（`PeddlerStock` の注記）
+    this.peddler?.take(row.item.id, qty)
     this.inventory.add(row.item.id, qty)
     this.rebuild()  // 買ったあとは所持金も在庫も変わるので、ここでは作り直してよい
   }

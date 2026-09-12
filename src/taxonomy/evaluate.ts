@@ -339,6 +339,47 @@ export function passesStockGates(
 }
 
 /**
+ * **行商人バレンが扱いうる品**か（#9）。**場所の条件だけ**で、解禁（U1・U2）は見ない。
+ *
+ * 行商人には島が無いので `handledByIslandMerchant` の U3・U4 は当たらない。
+ * 代わりに持つ条件は**1つだけ**:
+ *
+ *   **産地が「次の寄港地」の品は扱わない。**
+ *
+ * ⚠ **島を巡る動機を直接削るから**（#9 本文が名指しで警告している）。
+ *   次の島で買える品を船まで届けてもらえるなら、その島へ寄る理由が消える。
+ *
+ * ⚠ **これも軸どうしの比較**（`産地 == 次の寄港地`）なので条件言語では書けず、
+ *   U3・U4 と同じ理由で**規則データに置かない**（置いても評価器が読まず、規則が嘘になる。
+ *   → `rules.ts` の `UNLOCK_RULES` の注記）。
+ *   `StockedBy` の `'行商人バレン'` に規則を1本も足していないのはそのため。
+ */
+export function handledByPeddler(item: ItemDef, next: IslandName): boolean {
+  return item.origin !== next
+}
+
+/**
+ * 行商人バレンが並べうる品（#9・#34 をここに畳んだ）。
+ *
+ * ⚠ **解禁は島の商人と同じ U1・U2 を通す。**行商人だけの解禁を作らない ——
+ *   作ると「どこでも買えない品が行商人からだけ買える」経路ができ、
+ *   **島を巡らなくても品揃えが完成してしまう**（#9 の必須要件に反する）。
+ *   行商人は「**どこかで買える品を、割高に、少しだけ**」運ぶだけ。
+ *
+ * ⚠ **これは候補であって品揃えではない。**実際に並ぶのは
+ *   ここから **1日1回・10種類まで**選んだぶん（`PeddlerStock`）。
+ */
+export function stockedByPeddler(
+  items: readonly ItemDef[],
+  state: GameState,
+  next: IslandName,
+  rules: readonly UnlockRule[] = UNLOCK_RULES,
+): readonly ItemDef[] {
+  return items.filter(item =>
+    handledByPeddler(item, next) && passesStockGates(item, state, rules))
+}
+
+/**
  * その品が売れたことで、**新しく商人に並ぶようになったか**（#60）。
  *
  * 段4-4 で「作れるようになった」は知らせているのに、**買えるようになったほうは静かだった。**

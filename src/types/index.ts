@@ -1,6 +1,7 @@
 import type { Shape } from '../taxonomy/axes.js'
 import type { ShelfPreset } from '../components/floor/ShelfPresets.js'
 import type { DeliveryOrder } from '../components/progress/DeliveryOrders.js'
+import type { PeddlerRecord } from '../components/progress/PeddlerStock.js'
 
 // ─── グリッド ─────────────────────────────────────────
 export type GridCell = { x: number; y: number }
@@ -76,6 +77,13 @@ export interface SaveData {
    *   いまは常に0件か1件だが、**配列のまま**にしてある（件数を増やしても形が変わらない）。
    */
   orders?: DeliveryOrder[]
+  /**
+   * 行商人バレンの、その日の積荷（#9）。⚠ **無いセーブを読めるようにしておくこと**（`orders` と同じ）。
+   *
+   * ⚠ **持たないと、読み直すたびに品揃えが引き直される。**
+   *   欲しい品が出るまでロードし直せるので、**10種類・各10個という上限が意味を失う。**
+   */
+  peddler?: PeddlerRecord
   unlockedRecipes: string[]
   currentTime: GameTime
   isEndlessMode: boolean

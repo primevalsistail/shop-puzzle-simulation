@@ -221,6 +221,44 @@ export function upcomingLabel(salesLeft: number): string {
 export const UPCOMING_FONT_PX = 11
 
 /**
+ * 行商人バレンのところ（#9）に出す文字。
+ *
+ * ⚠ **ここに置いてあるのは、幅を測るため**（`upcomingLabel` と同じ理由）。
+ *   `PurchaseMenu.ts` は Phaser を読むので node の単体テストから import できない。
+ * ⚠ **言い回しは仮置き。**画面に足す文言は PO が指示する（#79）。
+ */
+
+/**
+ * 行商人の行に出す「今日まだ何個買えるか」。
+ *
+ * ⚠ **品名の右**（島の商人の `この島の産` と同じ場所）に出す。
+ *   `51レン/個　在庫 100/999` の側に足すと `INFO_MAX_W`（160px）を超えて左隣に重なる。
+ * ⚠ **買えない理由の文言も同じものを使う**（`残り0個` がそのまま理由になる）。
+ */
+export function peddlerRemainText(remaining: number): string {
+  return `残り${remaining}個`
+}
+
+/** 行商人の行の `残り N個` の文字の大きさ。`この島の産`（11px）に合わせる */
+export const PEDDLER_REMAIN_FONT_PX = 11
+
+/**
+ * 行商人の見出しの下の1行。
+ *
+ * ⚠ **「今日だけ」であることを言う。**言わないと、島の商人と同じく
+ *   **いつでもそこに居る店**に見え、**買い逃しても気づけない**（品揃えは毎日入れ替わる）。
+ */
+export function peddlerSubtitleText(moneyText: string): string {
+  return `所持金 ${moneyText}　今日の品ぞろえ（明日には別の品になる）`
+}
+
+/**
+ * 行商人の場所の見出し。**左パネルのボタンと同じ名にすること**
+ *   （同じ場所を2つの名で呼ばない。`クラフト`→`工房` と同じ直し。束M）。
+ */
+export const PEDDLER_TITLE = '行商人バレン'
+
+/**
  * 品出しの型の升に出す1行（`ハルヴェラ島 12区画`。#67）の文字の大きさ。
  *
  * ⚠ **升の文字欄は 308px**（升の幅 400 から、縮小図 70 と余白 22 を引いたもの）。
@@ -228,6 +266,49 @@ export const UPCOMING_FONT_PX = 11
  *   収まるかは `layout.test.ts` が見ている。
  */
 export const PRESET_TEXT_FONT_PX = 12
+
+// ─── 右パネルのボタン列 ──────────────────────────────────
+/**
+ * 右パネル下段のボタン列。**下から順に積む**（`進める` が最下段）。
+ *
+ * ⚠ **GameScene が写しを持たないこと。**以前はここの数字が `GameScene` に直書きで、
+ *   **行を1つ足したときにキャラ絵の枠と重なることに気づけなかった**（#9 で行商人を足した）。
+ *   いまは `CHAR_ART_B` をこの列の上端から引いてあるので、`layout.test.ts` が重なりを見られる。
+ */
+export const BTN_PANEL_R = 1278
+export const BTN_PANEL_W = 176
+export const BTN_PANEL_L = BTN_PANEL_R - BTN_PANEL_W
+/** ⚠ **アイコンは5つ。**幅を広げると入らない（列は 176px しかない） */
+export const BTN_ICON_W = 33
+export const BTN_ICON_H = 38
+export const BTN_ACTION_H = 42
+export const BTN_GAP = 5
+/** 速さの行。ボタンの中に入れると文字が重なる */
+export const BTN_SPEED_H = 16
+/** 列の下端（メッセージ欄の上）と、そこから空ける余白 */
+const BTN_COLUMN_B = LOG_T - 1 - 16
+
+export const BTN_Y_ADVANCE = BTN_COLUMN_B - BTN_ACTION_H / 2
+export const BTN_Y_SPEED   = BTN_Y_ADVANCE - BTN_ACTION_H / 2 - BTN_GAP - BTN_SPEED_H / 2
+export const BTN_Y_CRAFT   = BTN_Y_SPEED   - BTN_SPEED_H / 2  - BTN_GAP - BTN_ACTION_H / 2
+/** 行商人（#9）。**船まで来るが、枠は他の場所と同じものを使う** */
+export const BTN_Y_PEDDLER = BTN_Y_CRAFT   - BTN_ACTION_H / 2 - BTN_GAP - BTN_ACTION_H / 2
+export const BTN_Y_PURCHASE = BTN_Y_PEDDLER - BTN_ACTION_H / 2 - BTN_GAP - BTN_ACTION_H / 2
+export const BTN_Y_UPGRADE = BTN_Y_PURCHASE - BTN_ACTION_H / 2 - BTN_GAP - BTN_ACTION_H / 2
+export const BTN_Y_ICON    = BTN_Y_UPGRADE - BTN_ACTION_H / 2 - BTN_GAP - BTN_ICON_H / 2
+
+/**
+ * キャラ絵の枠（#21・#15 の置き場所）。**HUD の下から、ボタン列の上まで。**
+ *
+ * ⚠ **下端を決め打ちしないこと。**ボタン列に行を足すと列が上へ伸びるので、
+ *   決め打ちにすると**気づかないまま重なる**（#9 で行商人の行を足したときに実際に起きかけた）。
+ */
+export const CHAR_ART_T = 135
+export const CHAR_ART_B = BTN_Y_ICON - BTN_ICON_H / 2 - 9
+export const CHAR_ART_CY = (CHAR_ART_T + CHAR_ART_B) / 2
+export const CHAR_ART_H = CHAR_ART_B - CHAR_ART_T
+export const CHAR_ART_CX = 1185
+export const CHAR_ART_W = 170
 
 // ─── 工房（クラフト）の行 ──────────────────────────────────
 /** 操作列（回数の入力とボタン）の左端。ここより左が文字の領域 */

@@ -11,6 +11,7 @@ import { ALL_ITEMS } from '../../taxonomy/items.js'
 import type { TimeManager } from '../core/TimeManager.js'
 import { ShelfPresets } from '../floor/ShelfPresets.js'
 import { DeliveryOrders } from './DeliveryOrders.js'
+import { PeddlerStock } from './PeddlerStock.js'
 
 function makeTimeManagerMock(): TimeManager {
   return {
@@ -32,7 +33,7 @@ describe('GameProgress', () => {
     const inv = new Inventory()
     const reg = new ItemRegistry(ALL_ITEMS)
     const grid = new FloorGrid({ width: 6, height: 5 }, reg)
-    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), new Upgrades(), new ShelfPresets(), new DeliveryOrders(inv, eco))
+    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), new Upgrades(), new ShelfPresets(), new DeliveryOrders(inv, eco), new PeddlerStock())
     expect(gp.isRecipeUnlocked('recipe_buckwheat_flour')).toBe(false)
     gp.unlockRecipe('recipe_buckwheat_flour')
     expect(gp.isRecipeUnlocked('recipe_buckwheat_flour')).toBe(true)
@@ -50,7 +51,7 @@ describe('GameProgress', () => {
       removeItem: (k: string) => { delete storageMock[k] },
     })
 
-    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), new Upgrades(), new ShelfPresets(), new DeliveryOrders(inv, eco))
+    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), new Upgrades(), new ShelfPresets(), new DeliveryOrders(inv, eco), new PeddlerStock())
     gp.setEndlessMode(true)
     gp.save(0)
 
@@ -70,7 +71,7 @@ describe('GameProgress', () => {
     const inv = new Inventory()
     const reg = new ItemRegistry(ALL_ITEMS)
     const grid = new FloorGrid({ width: 6, height: 5 }, reg)
-    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), new Upgrades(), new ShelfPresets(), new DeliveryOrders(inv, eco))
+    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), new Upgrades(), new ShelfPresets(), new DeliveryOrders(inv, eco), new PeddlerStock())
 
     gp.save()
     expect(gp.hasSave()).toBe(true)
@@ -101,13 +102,13 @@ describe('GameProgress', () => {
 
     new GameProgress(
       new EconomyManager(), new Inventory(), grid, makeTimeManagerMock(),
-      new WorldState(), new Upgrades(), presets, new DeliveryOrders(new Inventory(), new EconomyManager()),
+      new WorldState(), new Upgrades(), presets, new DeliveryOrders(new Inventory(), new EconomyManager()), new PeddlerStock(),
     ).save(0)
 
     const restored = new ShelfPresets()
     const loaded = new GameProgress(
       new EconomyManager(), new Inventory(), grid, makeTimeManagerMock(),
-      new WorldState(), new Upgrades(), restored, new DeliveryOrders(new Inventory(), new EconomyManager()),
+      new WorldState(), new Upgrades(), restored, new DeliveryOrders(new Inventory(), new EconomyManager()), new PeddlerStock(),
     ).load(0)
     restored.restore(loaded!.shelfPresets)
 
@@ -141,10 +142,10 @@ describe('GameProgress', () => {
     const up = new Upgrades()
     up.advance('棚'); up.advance('棚'); up.advance('手際')
 
-    new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), up, new ShelfPresets(), new DeliveryOrders(inv, eco)).save(0)
+    new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), up, new ShelfPresets(), new DeliveryOrders(inv, eco), new PeddlerStock()).save(0)
 
     const restored = new Upgrades()
-    const loaded = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), restored, new ShelfPresets(), new DeliveryOrders(inv, eco)).load(0)
+    const loaded = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), restored, new ShelfPresets(), new DeliveryOrders(inv, eco), new PeddlerStock()).load(0)
     restored.restore(loaded!.upgrades ?? {})
     expect(restored.getStage('棚')).toBe(2)
     expect(restored.getStage('手際')).toBe(1)

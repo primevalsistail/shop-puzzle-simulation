@@ -12,6 +12,7 @@ import { GameService } from '../services/GameService.js'
 import { GameProgress } from '../components/progress/GameProgress.js'
 import { WorldState } from '../components/progress/WorldState.js'
 import { DeliveryOrders } from '../components/progress/DeliveryOrders.js'
+import { PeddlerStock } from '../components/progress/PeddlerStock.js'
 import { RecipeUnlocks, groupLabel } from '../components/progress/RecipeUnlocks.js'
 import { Upgrades } from '../components/progress/Upgrades.js'
 import { FloorRenderer, GRID_ORIGIN_X, GRID_ORIGIN_Y, CELL_SIZE } from '../ui/FloorRenderer.js'
@@ -26,7 +27,13 @@ import { Tutorial } from '../ui/Tutorial.js'
 import { SaveLoadMenu } from '../ui/SaveLoadMenu.js'
 import { CharacterStrip } from '../ui/CharacterStrip.js'
 import { PlaceFrame } from '../ui/PlaceFrame.js'
-import { LEFT_PANEL_R, RIGHT_PANEL_L, LOG_T, SCREEN_W, SCREEN_H } from '../ui/layout.js'
+import {
+  LEFT_PANEL_R, RIGHT_PANEL_L, LOG_T, SCREEN_W, SCREEN_H,
+  BTN_PANEL_L, BTN_PANEL_W, BTN_ICON_W, BTN_ICON_H, BTN_ACTION_H,
+  BTN_Y_ADVANCE, BTN_Y_SPEED, BTN_Y_CRAFT, BTN_Y_PEDDLER, BTN_Y_PURCHASE,
+  BTN_Y_UPGRADE, BTN_Y_ICON,
+  CHAR_ART_CX, CHAR_ART_CY, CHAR_ART_W, CHAR_ART_H, PEDDLER_TITLE,
+} from '../ui/layout.js'
 import { MessageLog } from '../ui/MessageLog.js'
 import { OrderBar } from '../ui/OrderBar.js'
 import { money } from '../ui/money.js'
@@ -75,6 +82,8 @@ export class GameScene extends Phaser.Scene {
   private upgrades!: Upgrades
   /** 納品の注文（#28）。**寄港ごとに1件、自動で出る** */
   private deliveryOrders!: DeliveryOrders
+  /** 行商人バレンの積荷（#9）。**1日1回、船に来る** */
+  private peddler!: PeddlerStock
   /** 品出しの型（マイセット。#27） */
   private shelfPresets = new ShelfPresets()
 
@@ -132,9 +141,10 @@ export class GameScene extends Phaser.Scene {
       this.upgrades,
     )
     this.deliveryOrders = new DeliveryOrders(this.inventory, this.economy)
+    this.peddler = new PeddlerStock()
     this.progress = new GameProgress(
       this.economy, this.inventory, this.floorGrid, this.timeManager, this.world, this.upgrades,
-      this.shelfPresets, this.deliveryOrders,
+      this.shelfPresets, this.deliveryOrders, this.peddler,
     )
     this.recipeUnlocks = new RecipeUnlocks(this.registry_, this.inventory, this.progress)
 
@@ -238,6 +248,9 @@ export class GameScene extends Phaser.Scene {
         this.upgrades.restore(data.upgrades ?? {})
         this.shelfPresets.restore(data.shelfPresets)
         this.deliveryOrders.restore(data.orders)
+        // ⚠ **積荷ごと戻す。**戻さずに引き直すと、**欲しい品が出るまでロードし直せる**
+        //   （10種類・各10個という上限が意味を失う。`PeddlerStock` の注記）
+        this.peddler.restore(data.peddler)
         this.progress.restoreUnlockedRecipes(data.unlockedRecipes ?? [])
         // ⚠ **クリア後の状態を戻す**（#80）。読まないと**エンドレスが解け、達成の幕がまた出る**
         //   （所持金は 1000万を超えたままなので、次の1分で `GameService` がまた出す）
@@ -258,6 +271,9 @@ export class GameScene extends Phaser.Scene {
         // ⚠ **注文が無かった頃のセーブは空で来る。**寄港中は必ず1件ある状態なので、
         //   空なら**その寄港ぶんを出し直す**（出し直さないと、次の島へ着くまで納品が消える）
         if (!this.deliveryOrders.getActive()) this.issueOrder()
+        // ⚠ **行商人が無かった頃のセーブは日が 0 で来る。**その日ぶんをここで引く。
+        //   同じ日の積荷が入っていれば `refresh` は何もしない（1日1回。`PeddlerStock`）
+        this.visitPeddler(data.currentTime.day)
         this.refreshInventoryPanel()
         this.updateStatus(`スロット ${slot + 1}からロードしました`)
       },
@@ -276,6 +292,8 @@ export class GameScene extends Phaser.Scene {
     this.hud.updateRevenue(this.economy.getTotalRevenue(), false)
     // 初日ぶんの注文。**寄港したら必ず1件ある**（#28）
     this.issueOrder()
+    // 初日ぶんの行商人。**来訪は1日1回**（#9）
+    this.visitPeddler(t0.day)
     this.inventoryPanel.onSelect(id => {
       // 1つの品は棚に1区画まで。**掴んだ時点で知らせる**（どこへ持って行っても置けないため）
       if (this.placementManager.isDisplayed(id)) {
@@ -348,9 +366,9 @@ export class GameScene extends Phaser.Scene {
     // 右パネル
     this.add.rectangle((RIGHT_PANEL_L + SCREEN_W) / 2, LOG_T / 2, SCREEN_W - RIGHT_PANEL_L, LOG_T, 0x13122a)
       .setStrokeStyle(1, 0x2a2a4a)
-    // キャラ絵プレースホルダー（HUD下〜ボタン上: y=135〜335）
-    // ⚠ **ボタン列の上端（346）にかからない高さにすること**
-    this.add.rectangle(1185, 235, 170, 200, 0x0d1530)
+    // キャラ絵プレースホルダー（HUD の下〜ボタン列の上）。
+    // ⚠ **高さを直書きしないこと。**ボタン列に行を足すと列が上へ伸びる（`layout.ts` の注記）
+    this.add.rectangle(CHAR_ART_CX, CHAR_ART_CY, CHAR_ART_W, CHAR_ART_H, 0x0d1530)
       .setStrokeStyle(1, 0x223355).setDepth(1)
     // メッセージウィンドウ区切り（グリッド+キャラ+右パネルのみ。左パネルはアイテムリストが続く）
     const divGfx = this.add.graphics()
@@ -374,23 +392,19 @@ export class GameScene extends Phaser.Scene {
   private setupButtonPanel(): void {
     const DEPTH = 10
 
-    // Panel geometry — 右パネル (x=1090, width=190) 下段
-    const R = 1278               // panel right edge
-    const PW = 176               // panel width
-    const L = R - PW             // panel left (= 1102)
-    // ⚠ **アイコンは5つ。**幅を広げると入らない（`PW` は 176px しかない）
-    const IW = 33, IH = 38      // icon button size
-    const AH = 42                // action button height
-    const GAP = 5
-
-    // Y positions (built from bottom up, within main area y=0〜609)
-    const SH = 16                // 速さの行
-    const yAdv   = 609 - 16 - AH / 2
-    const ySpeed = yAdv   - AH / 2 - GAP - SH / 2
-    const yCraft = ySpeed - SH / 2 - GAP - AH / 2
-    const yPurch = yCraft - AH / 2 - GAP - AH / 2
-    const yUpg   = yPurch - AH / 2 - GAP - AH / 2
-    const yIcon  = yUpg   - AH / 2 - GAP - IH / 2
+    // ⚠ **寸法と Y の並びは `layout.ts` が持つ**（写しを作らない）。
+    //   行商人の行を足したぶん（#9）、列が上へ伸びてキャラ絵の枠が縮む —— それも向こうで決まる
+    const PW = BTN_PANEL_W
+    const L = BTN_PANEL_L
+    const IW = BTN_ICON_W, IH = BTN_ICON_H
+    const AH = BTN_ACTION_H
+    const yAdv = BTN_Y_ADVANCE
+    const ySpeed = BTN_Y_SPEED
+    const yCraft = BTN_Y_CRAFT
+    const yPeddle = BTN_Y_PEDDLER
+    const yPurch = BTN_Y_PURCHASE
+    const yUpg = BTN_Y_UPGRADE
+    const yIcon = BTN_Y_ICON
     const iconGap = (PW - 5 * IW) / 4
 
     // ── Tooltip ──────────────────────────────────────
@@ -448,6 +462,9 @@ export class GameScene extends Phaser.Scene {
     // ⚠ **行った先の見出しと同じ名にすること**（`PlaceFrame.show('商人のところ')`）。
     //   同じ場所を2つの名で呼ばない（`クラフト`→`工房` と同じ直し。束M）
     makeAction(yPurch, '商人のところ', '🛒', 0x6a5a2a, 0x8a7a3a, () => this.openPurchaseMenu())
+    // 行商人は**船まで来る**ので「行く場所」ではないが、枠は同じものを使う（#58 の器）。
+    // ⚠ **見出しと同じ名にすること**（`PEDDLER_TITLE`）
+    makeAction(yPeddle, PEDDLER_TITLE, '⛵', 0x5a3a6a, 0x7a4a8a, () => this.openPeddlerMenu())
     makeAction(yCraft, '工房', '🔨', 0x4a6a3a, 0x5a8a4a, () => this.openCraftMenu())
 
     // 速度切り替え。⚠ 飛ばすのではなく速くする（飛ばすと売れた実感が消える）。
@@ -788,6 +805,10 @@ export class GameScene extends Phaser.Scene {
       this.issueOrder()
     }
 
+    // ⚠ **島が変わったあとに引く。**次の寄港地は島が変わった時点で変わるので、
+    //   先に引くと「1日だけ、いまの次の島の産を積んだ行商人」が出る（#9）
+    this.visitPeddler(day)
+
     // 滞在中にも解禁が起きる（段4-4）。枠は4日に1つ増える ＝ 1寄港あたり2〜3回
     this.checkRecipeUnlocks()
   }
@@ -968,6 +989,42 @@ export class GameScene extends Phaser.Scene {
     this.stopAdvancing()
     const listing = this.merchantListing()
     this.purchaseMenu.open(listing.stocked.slice(), this.world.getIsland(), listing.upcoming)
+  }
+
+  /**
+   * 行商人バレンのところ（#9。#34 をここに畳んだ）。
+   *
+   * ⚠ **引き直さない。**品揃えは `PeddlerStock` が1日1回引いたものをそのまま出す。
+   *   ここで引くと**開き直すたびに品揃えが変わる。**
+   */
+  private openPeddlerMenu(): void {
+    this.stopAdvancing()
+    // ⚠ **消えた品IDを弾く。**`getItem` は無いIDで例外を投げるので、
+    //   品が入れ替わった頃のセーブ（先例: 旧13品時代のID。#30）で画面が落ちる
+    const items = this.peddler.list()
+      .filter(e => this.registry_.has(e.itemId))
+      .map(e => this.registry_.getItem(e.itemId))
+    this.purchaseMenu.openPeddler(this.peddler, items, this.world.getIsland())
+  }
+
+  /**
+   * その日の行商人（#9）。**来訪は1日1回。**
+   *
+   * ⚠ **知らせは `event`。**`info` は同じ文が続くと抑止されるので、
+   *   毎日出るこの知らせには使えない（2日目以降が黙って消える）。
+   */
+  private visitPeddler(day: number): void {
+    const came = this.peddler.refresh(
+      day,
+      this.registry_.getAllItems(),
+      this.world.getState(),
+      // ⚠ **次の寄港地の産は積まない**（#9。島を巡る動機を直接削るため）
+      this.world.getLocation().next,
+    )
+    if (!came) return
+    const kinds = this.peddler.list().length
+    if (kinds === 0) return
+    this.messageLog.addMessage(`${PEDDLER_TITLE}が船に寄った（${kinds}種）`, 'event')
   }
 
   /**

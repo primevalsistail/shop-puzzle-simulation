@@ -9,7 +9,12 @@ import {
   PLACE_L, PLACE_R, PLACE_T, PLACE_B, PLACE_W, PLACE_H, PLACE_CX, PLACE_CY,
   CONTENT_L, CONTENT_R,
   TITLE_Y, SUBTITLE_Y, FILTER_Y, ROWS_TOP, PAGER_Y, ROWS_BOTTOM,
-  rowsThatFit, TITLE_RULE_Y, FILTER_BAND_H, FILTER_Y_NO_SUBTITLE, ROWS_TOP_NO_SUBTITLE,} from './layout.js'
+  rowsThatFit, TITLE_RULE_Y, FILTER_BAND_H, FILTER_Y_NO_SUBTITLE, ROWS_TOP_NO_SUBTITLE,
+  peddlerRemainText, peddlerSubtitleText, PEDDLER_REMAIN_FONT_PX, PEDDLER_TITLE,
+  CHAR_ART_T, CHAR_ART_B, CHAR_ART_H, BTN_Y_ICON, BTN_ICON_H, BTN_Y_ADVANCE, BTN_ACTION_H,
+  BTN_PANEL_L, BTN_PANEL_W, BTN_ICON_W, BTN_Y_UPGRADE,} from './layout.js'
+import { ALL_ITEMS } from '../taxonomy/items.js'
+import { PEDDLER_MAX_PER_KIND, peddlerPrice } from '../components/progress/PeddlerStock.js'
 import { money } from './money.js'
 import { PRESET_COUNT, describePreset } from '../components/floor/ShelfPresets.js'
 import { ROUTE } from '../taxonomy/islands.js'
@@ -306,5 +311,77 @@ describe('見出しの下に1行が無い場所（工房）', () => {
 
   it('⚠ 詰めても、他の3画面より上にある（＝空白が減っている）', () => {
     expect(ROWS_TOP_NO_SUBTITLE).toBeLessThan(ROWS_TOP)
+  })
+})
+
+describe('行商人バレンのところ（#9）', () => {
+  /** 1行の中で `残り N個` を置ける場所（品名の右端〜`N品に要る` の左端） */
+  const NAME_X = CONTENT_L + 16
+  const NEED_R = (() => {
+    // ⚠ `PurchaseMenu.ts` は Phaser を読むので import できない。**列の並びは同じ式で追う**
+    const BUY_L = CONTENT_R - 8 - 118
+    const MAX_L = BUY_L - 6 - 40
+    const PLUS_L = MAX_L - 6 - 26
+    const INPUT_L = PLUS_L - 4 - 52
+    const MINUS_L = INPUT_L - 4 - 26
+    return MINUS_L - 14 - INFO_MAX_W
+  })()
+
+  /**
+   * ⚠ **`残り N個` を `51レン/個　在庫 100/999` の側に足さないこと。**
+   *   足すと `INFO_MAX_W`（160px）を超えて左隣の `N品に要る` に重なる。
+   *   **だから品名の右**（`この島の産` と同じ場所）に出している。
+   */
+  it('⚠ `51レン/個…` の側に足すと枠を超える（だから品名の右に出す）', () => {
+    const crowded = `1,234レン/個　在庫 100/999${peddlerRemainText(PEDDLER_MAX_PER_KIND)}`
+    expect(estTextWidth(crowded, INFO_FONT_PX)).toBeGreaterThan(INFO_MAX_W)
+  })
+
+  it('いちばん長い品名でも、`残り N個` が `N品に要る` に重ならない', () => {
+    const longest = ALL_ITEMS.reduce(
+      (a, b) => (b.display.name.length > a.display.name.length ? b : a))
+    // 品名は 15px（`PurchaseMenu.buildRow`）。右に 8px 空けて置く
+    const tagL = NAME_X + estTextWidth(longest.display.name, 15) + 8
+    const tagR = tagL + estTextWidth(peddlerRemainText(PEDDLER_MAX_PER_KIND), PEDDLER_REMAIN_FONT_PX)
+    expect(tagR, longest.display.name).toBeLessThanOrEqual(NEED_R)
+  })
+
+  it('見出しの下の1行が、枠の内側に収まる（いちばん高い所持金で）', () => {
+    const line = peddlerSubtitleText(money(10_000_000))
+    expect(estTextWidth(line, 15)).toBeLessThanOrEqual(CONTENT_R - CONTENT_L)
+  })
+
+  /** ⚠ **場所の見出しとボタンの名は同じ**（同じ場所を2つの名で呼ばない。束M） */
+  it('見出しの名がボタンに収まる', () => {
+    expect(estTextWidth(`⛵  ${PEDDLER_TITLE}`, 17)).toBeLessThanOrEqual(BTN_PANEL_W)
+  })
+
+  /** ⚠ 行商人の買値も「買う」ボタンに収まること（`レン` は全角2文字） */
+  it('行商人の買値 × 999個 でも「買う」ボタンからはみ出さない', () => {
+    const worst = ALL_ITEMS.reduce((a, i) => Math.max(a, peddlerPrice(i.id)), 0) * 999
+    expect(estTextWidth(`${money(worst)} 買う`, 12)).toBeLessThanOrEqual(118)
+  })
+})
+
+describe('右パネルのボタン列とキャラ絵の枠（#9 で行を1つ足した）', () => {
+  /**
+   * ⚠ **行を足すと列が上へ伸びる。**キャラ絵の枠の下端を決め打ちにしていたら
+   *   **重なったことに気づけない。**下端は列の上端から引いてある（`layout.ts`）。
+   */
+  it('キャラ絵の枠がボタン列に重ならない', () => {
+    expect(CHAR_ART_B).toBeLessThan(BTN_Y_ICON - BTN_ICON_H / 2)
+    expect(CHAR_ART_B).toBeGreaterThan(CHAR_ART_T)
+    // 枠として意味がある高さは残っている（#21・#15 のキャラ絵が入る）
+    expect(CHAR_ART_H).toBeGreaterThanOrEqual(120)
+  })
+
+  it('ボタン列がメッセージ欄に食い込まない', () => {
+    expect(BTN_Y_ADVANCE + BTN_ACTION_H / 2).toBeLessThanOrEqual(LOG_T)
+    expect(BTN_Y_UPGRADE).toBeGreaterThan(BTN_Y_ICON)
+  })
+
+  it('アイコン5つが列の幅に収まる', () => {
+    expect(5 * BTN_ICON_W).toBeLessThanOrEqual(BTN_PANEL_W)
+    expect(BTN_PANEL_L).toBeGreaterThanOrEqual(RIGHT_PANEL_L)
   })
 })

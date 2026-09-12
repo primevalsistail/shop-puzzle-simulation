@@ -7,6 +7,7 @@ import type { WorldState } from './WorldState.js'
 import type { Upgrades } from './Upgrades.js'
 import type { ShelfPresets } from '../floor/ShelfPresets.js'
 import type { DeliveryOrders } from './DeliveryOrders.js'
+import type { PeddlerStock } from './PeddlerStock.js'
 
 const SAVE_KEY = 'shop_puzzle_save'
 const slotKey = (slot: number) => `${SAVE_KEY}_${slot}`
@@ -32,6 +33,8 @@ export class GameProgress {
     private presets: ShelfPresets,
     /** 納品の注文（#28）。⚠ **必須。**任意にすると渡し忘れてもコンパイルが通り、ロードで注文が消える */
     private orders: DeliveryOrders,
+    /** 行商人の積荷（#9）。⚠ **必須。**`orders` と同じ理由（渡し忘れが静かに通る） */
+    private peddler: PeddlerStock,
   ) {}
 
   save(slot = 0): void {
@@ -46,6 +49,7 @@ export class GameProgress {
       floor: this.floorGrid.getAllSlots(),
       shelfPresets: this.presets.toRecord(),
       orders: this.orders.toRecord(),
+      peddler: this.peddler.toRecord(),
       unlockedRecipes: Array.from(this.unlockedRecipes),
       currentTime: this.timeManager.getCurrentTime(),
       isEndlessMode: this.isEndlessMode,
