@@ -4,6 +4,7 @@ import type { Inventory } from '../economy/Inventory.js'
 import type { FloorGrid } from '../floor/FloorGrid.js'
 import type { TimeManager } from '../core/TimeManager.js'
 import type { WorldState } from './WorldState.js'
+import type { Upgrades } from './Upgrades.js'
 
 const SAVE_KEY = 'shop_puzzle_save'
 const slotKey = (slot: number) => `${SAVE_KEY}_${slot}`
@@ -24,6 +25,7 @@ export class GameProgress {
     private floorGrid: FloorGrid,
     private timeManager: TimeManager,
     private world: WorldState,
+    private upgrades: Upgrades,
   ) {}
 
   save(slot = 0): void {
@@ -33,6 +35,7 @@ export class GameProgress {
       inventory: this.inventory.getAllStock(),
       // U2（売った実績で解禁）が読む。積まないとロードで解禁が巻き戻る
       soldCounts: this.world.toRecord(),
+      upgrades: this.upgrades.toRecord(),
       floor: this.floorGrid.getAllSlots(),
       unlockedFeatures: Array.from(this.unlockedFeatures),
       unlockedRecipes: Array.from(this.unlockedRecipes),

@@ -118,3 +118,37 @@ describe('TimeManager', () => {
     expect(tm.minutesUntilEndOfDay()).toBe(90)
   })
 })
+
+describe('速度切り替え', () => {
+  it('等倍から始まり、押すごとに 3倍 → 10倍 → 等倍 と回る', () => {
+    const tm = new TimeManager()
+    expect(tm.getSpeed()).toBe(1)
+    expect(tm.cycleSpeed()).toBe(3)
+    expect(tm.cycleSpeed()).toBe(10)
+    expect(tm.cycleSpeed()).toBe(1)
+  })
+
+  it('速くすると同じ delta でより多くの分が進む', () => {
+    const slow = new TimeManager()
+    slow.startAdvancing()
+    slow.update(1000)          // 等倍なら10分
+
+    const fast = new TimeManager()
+    fast.cycleSpeed()          // 3倍
+    fast.startAdvancing()
+    fast.update(1000)
+
+    const m = (tm: TimeManager) => { const t = tm.getCurrentTime(); return t.hour * 60 + t.minute }
+    expect(m(fast) - 6 * 60).toBe((m(slow) - 6 * 60) * 3)
+  })
+
+  it('⚠ 飛ばすのではなく速くする（売れた実感を消さないため、分は1つずつ進む）', () => {
+    const tm = new TimeManager()
+    let count = 0
+    EventBus.on(GameEvents.TIME_MINUTE_PASSED, () => count++)
+    tm.cycleSpeed()            // 3倍
+    tm.startAdvancing()
+    tm.update(1000)            // 30分ぶん
+    expect(count).toBe(30)     // まとめて飛ばさず、30回イベントが出る
+  })
+})

@@ -19,6 +19,7 @@ import { CraftMenu } from '../ui/CraftMenu.js'
 import { SlotActionPrompt } from '../ui/SlotActionPrompt.js'
 import { HUD } from '../ui/HUD.js'
 import { PurchaseMenu } from '../ui/PurchaseMenu.js'
+import { UpgradeMenu } from '../ui/UpgradeMenu.js'
 import { Tutorial } from '../ui/Tutorial.js'
 import { SaveLoadMenu } from '../ui/SaveLoadMenu.js'
 import { CharacterStrip } from '../ui/CharacterStrip.js'
@@ -68,10 +69,12 @@ export class GameScene extends Phaser.Scene {
   private slotPrompt!: SlotActionPrompt
   private hud!: HUD
   private purchaseMenu!: PurchaseMenu
+  private upgradeMenu!: UpgradeMenu
   private tutorial!: Tutorial
   private characterStrip!: CharacterStrip
   private messageLog!: MessageLog
 
+  private speedLabel!: Phaser.GameObjects.Text
   private advanceBtnBg!: Phaser.GameObjects.Rectangle
   private advanceBtnLabel!: Phaser.GameObjects.Text
   private tooltip!: Phaser.GameObjects.Text
@@ -106,7 +109,7 @@ export class GameScene extends Phaser.Scene {
       this.upgrades,
     )
     this.progress = new GameProgress(
-      this.economy, this.inventory, this.floorGrid, this.timeManager, this.world,
+      this.economy, this.inventory, this.floorGrid, this.timeManager, this.world, this.upgrades,
     )
 
     // ── 描画レイヤー確立: 背景→FloorRenderer→UI の順で生成 ──
@@ -120,7 +123,8 @@ export class GameScene extends Phaser.Scene {
     this.inventoryPanel = new InventoryPanel(this, this.registry_)
     // メニューが開いている間は、背後の在庫リストがホイールで動かないようにする
     this.inventoryPanel.setScrollBlocked(() =>
-      this.craftMenu?.isVisible() || this.purchaseMenu?.isVisible() || this.saveLoadMenu?.isVisible(),
+      this.craftMenu?.isVisible() || this.purchaseMenu?.isVisible()
+      || this.saveLoadMenu?.isVisible() || this.upgradeMenu?.isVisible(),
     )
     this.hud = new HUD(this)
     this.tutorial = new Tutorial(this)
@@ -148,6 +152,14 @@ export class GameScene extends Phaser.Scene {
       this.economy,
       this.inventory,
       () => this.onPurchaseMenuClosed(),
+    )
+
+    this.upgradeMenu = new UpgradeMenu(
+      this,
+      this.economy,
+      this.upgrades,
+      () => this.updateStatus(),
+      () => this.applyShelfSize(),
     )
 
     this.saveLoadMenu = new SaveLoadMenu(
@@ -181,6 +193,8 @@ export class GameScene extends Phaser.Scene {
         this.inventory.setInitialStock(data.inventory)
         this.world.restore(data.soldCounts ?? {})
         this.world.setDay(data.currentTime.day)  // 現在地は日付から決まる（#2）
+        this.upgrades.restore(data.upgrades ?? {})
+        this.applyShelfSize()
         this.timeManager.setTime(data.currentTime)
 
         // HUD・パネルを更新
@@ -280,7 +294,8 @@ export class GameScene extends Phaser.Scene {
     const yAdv   = 609 - 16 - AH / 2
     const yCraft = yAdv   - AH / 2 - GAP - AH / 2
     const yPurch = yCraft - AH / 2 - GAP - AH / 2
-    const yIcon  = yPurch - AH / 2 - GAP - IH / 2
+    const yUpg   = yPurch - AH / 2 - GAP - AH / 2
+    const yIcon  = yUpg   - AH / 2 - GAP - IH / 2
     const iconGap = (PW - 4 * IW) / 3  // ~5px
 
     // ── Tooltip ──────────────────────────────────────
@@ -333,8 +348,17 @@ export class GameScene extends Phaser.Scene {
       return bg
     }
 
+    makeAction(yUpg, '強化', '⬆', 0x3a5a8a, 0x4a7ab0, () => this.openUpgradeMenu())
     makeAction(yPurch, '仕入れ', '🛒', 0x6a5a2a, 0x8a7a3a, () => this.openPurchaseMenu())
     makeAction(yCraft, 'クラフト', '🔨', 0x4a6a3a, 0x5a8a4a, () => this.openCraftMenu())
+
+    // 速度切り替え。⚠ 飛ばすのではなく速くする（飛ばすと売れた実感が消える）
+    this.speedLabel = this.add.text(R - 10, yAdv, `×${this.timeManager.getSpeed()}`, {
+      fontSize: '13px', color: '#ccddff',
+    }).setOrigin(1, 0.5).setDepth(DEPTH + 1).setInteractive({ useHandCursor: true })
+    this.speedLabel.on('pointerdown', () => {
+      this.speedLabel.setText(`速さ ×${this.timeManager.cycleSpeed()}`)
+    })
 
     this.advanceBtnBg = this.add.rectangle(acx, yAdv, PW, AH, 0x4a4a8a)
       .setStrokeStyle(1, 0x6666aa).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
@@ -352,7 +376,7 @@ export class GameScene extends Phaser.Scene {
   private setupInput(): void {
     // ── ポインター移動: ゴーストとグリッドプレビュー ──
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (!this.selectedItemId || this.craftMenu.isVisible() || this.purchaseMenu.isVisible() || this.saveLoadMenu.isVisible()) {
+      if (!this.selectedItemId || this.craftMenu.isVisible() || this.purchaseMenu.isVisible() || this.saveLoadMenu.isVisible() || this.upgradeMenu.isVisible()) {
         this.floorRenderer.clearDragGhost()
         this.floorRenderer.clearPreview()
         return
@@ -416,7 +440,7 @@ export class GameScene extends Phaser.Scene {
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       if (!this.selectedItemId) return
       if (!pointer.leftButtonReleased()) return
-      if (this.craftMenu.isVisible() || this.purchaseMenu.isVisible() || this.saveLoadMenu.isVisible()) return
+      if (this.craftMenu.isVisible() || this.purchaseMenu.isVisible() || this.saveLoadMenu.isVisible() || this.upgradeMenu.isVisible()) return
 
       // 外周破棄ゾーン: 床アイテムをリストへ返す
       if (this.pendingMoveSlot && this.isOverDiscardZone(pointer.x, pointer.y)) {
@@ -438,7 +462,7 @@ export class GameScene extends Phaser.Scene {
     // ⚠ テスト用（#43）。いまの日を切り上げて翌朝へ飛ばす。撤去は #51 がまとめて扱う。
     //    skipMinutes は TIME_MINUTE_PASSED を出さない＝飛ばした分に客は来ない（#25）
     this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.N).on('down', () => {
-      if (this.craftMenu.isVisible() || this.purchaseMenu.isVisible() || this.saveLoadMenu.isVisible()) return
+      if (this.craftMenu.isVisible() || this.purchaseMenu.isVisible() || this.saveLoadMenu.isVisible() || this.upgradeMenu.isVisible()) return
       this.timeManager.skipMinutes(this.timeManager.minutesUntilEndOfDay())
       const t = this.timeManager.getCurrentTime()
       this.hud.updateTime(t.day, t.hour, t.minute)
@@ -449,6 +473,7 @@ export class GameScene extends Phaser.Scene {
     const escKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC)
     escKey.on('down', () => {
       if (this.saveLoadMenu.isVisible()) { this.saveLoadMenu.close(); return }
+      if (this.upgradeMenu.isVisible()) { this.upgradeMenu.close(); return }
       if (this.craftMenu.isVisible()) { this.craftMenu.close(); return }
       if (this.purchaseMenu.isVisible()) { this.purchaseMenu.close(); return }
       this.slotPrompt.hide()
@@ -612,6 +637,19 @@ export class GameScene extends Phaser.Scene {
     if (before.island !== after.island && this.purchaseMenu.isVisible()) this.purchaseMenu.close()
   }
 
+  /**
+   * 棚の強化を買ったあと、盤面を広げて描き直す。
+   *
+   * ⚠ **並べてある品はそのまま残す。**広げるだけなので、既にある区画の位置は変わらない。
+   */
+  private applyShelfSize(): void {
+    const size = this.upgrades.gridSize()
+    this.floorGrid.expandGrid(size)
+    this.floorRenderer.drawGrid(size)
+    for (const slot of this.floorGrid.getAllSlots()) this.floorRenderer.drawSlot(slot)
+    this.updateStatus(`売り場が ${size.width}×${size.height} に広がった`)
+  }
+
   private tryPlaceItem(cell: GridCell): void {
     if (!this.selectedItemId) return
     const isMoving = this.pendingMoveSlot !== null
@@ -680,6 +718,14 @@ export class GameScene extends Phaser.Scene {
   private onCraftMenuClosed(): void {
     this.refreshInventoryPanel()
     this.updateStatus()
+  }
+
+  private openUpgradeMenu(): void {
+    if (this.timeManager.isAdvancing()) {
+      this.timeManager.stopAdvancing()
+      this.advanceBtnLabel.setText('▶  進める'); this.advanceBtnBg.setFillStyle(0x4a4a8a)
+    }
+    this.upgradeMenu.open()
   }
 
   private openPurchaseMenu(): void {
@@ -782,7 +828,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onAdvancePressed(): void {
-    if (this.craftMenu.isVisible() || this.purchaseMenu.isVisible() || this.saveLoadMenu.isVisible()) return
+    if (this.craftMenu.isVisible() || this.purchaseMenu.isVisible() || this.saveLoadMenu.isVisible() || this.upgradeMenu.isVisible()) return
     if (this.timeManager.isAdvancing()) {
       this.timeManager.stopAdvancing()
     } else {

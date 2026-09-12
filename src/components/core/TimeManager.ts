@@ -7,6 +7,17 @@ const HOURS_PER_DAY = 24
 const TICK_INTERVAL_MS = 100 // 100ms = 1ゲーム分（10ゲーム分/秒）
 
 /**
+ * 時間を進める速さ。
+ *
+ * ⚠ **営業時間は「待つしかない時間」だが、飛ばさない。**飛ばすと売れた実感が消える。
+ *   速くするだけにして、**眺めたい日は等倍、流したい日は速く**をプレイヤーが選ぶ。
+ *
+ * 等倍だと1日＝実時間108秒。200日を眺めるだけで6時間になるので、
+ * **流す日を速くできないと長さが苦痛に変わる。**
+ */
+export const SPEEDS: readonly number[] = [1, 3, 10]
+
+/**
  * 一日の区分（#25）。
  *
  *   6:00-10:00 作業 ／ 10:00-20:00 営業 ／ 20:00-24:00 作業 ／ 24:00-6:00 睡眠
@@ -35,10 +46,22 @@ export class TimeManager {
   private time: GameTime = { day: 1, hour: WAKE_HOUR, minute: 0 }
   private advancing = false
   private accumulated = 0
+  private speedIndex = 0
+
+  /** いまの速さ（1・3・10 のいずれか） */
+  getSpeed(): number {
+    return SPEEDS[this.speedIndex]
+  }
+
+  /** 次の速さへ回す。最後まで行ったら先頭に戻る */
+  cycleSpeed(): number {
+    this.speedIndex = (this.speedIndex + 1) % SPEEDS.length
+    return this.getSpeed()
+  }
 
   update(deltaMs: number): void {
     if (!this.advancing) return
-    this.accumulated += deltaMs
+    this.accumulated += deltaMs * this.getSpeed()
     while (this.accumulated >= TICK_INTERVAL_MS) {
       this.accumulated -= TICK_INTERVAL_MS
       this.tick()

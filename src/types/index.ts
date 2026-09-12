@@ -52,6 +52,8 @@ export interface SaveData {
   inventory: Record<string, number>
   /** 品ごとの累計販売数。U2（売った実績で解禁）がこれを読むので、積まないとロードで解禁が巻き戻る */
   soldCounts?: Record<string, number>
+  /** 強化の段。積まないとロードで買った強化が消える */
+  upgrades?: Record<string, number>
   floor: DisplaySlot[]
   unlockedFeatures: string[]
   unlockedRecipes: string[]
