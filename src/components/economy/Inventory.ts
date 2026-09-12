@@ -8,10 +8,33 @@ const MAX_QUANTITY = 99999
 
 export class Inventory {
   private stock: Map<string, number> = new Map()
+  /**
+   * **一度でも手に入れたことがある品。**減って0になっても消えない。
+   *
+   * アイテム一覧はこれで絞る。**持ったことのない品を「在庫0」で並べると、
+   * 何が手元にあるのか読めなくなる。**
+   * レシピの解禁（#48「材料を取得したことがあるか」）も同じ記録を読む。
+   */
+  private everHeld: Set<string> = new Set()
+
+  /** 一度でも手に入れたことがあるか */
+  hasEverHeld(itemId: string): boolean {
+    return this.everHeld.has(itemId)
+  }
+
+  getEverHeld(): string[] {
+    return Array.from(this.everHeld)
+  }
+
+  restoreEverHeld(ids: readonly string[]): void {
+    this.everHeld = new Set(ids)
+  }
 
   add(itemId: string, quantity: number): void {
+    if (quantity <= 0) return
     const current = this.stock.get(itemId) ?? 0
     this.stock.set(itemId, Math.min(current + quantity, MAX_QUANTITY))
+    this.everHeld.add(itemId)
   }
 
   remove(itemId: string, quantity: number): boolean {
@@ -45,7 +68,10 @@ export class Inventory {
   setInitialStock(stock: Record<string, number>): void {
     this.stock.clear()
     for (const [id, qty] of Object.entries(stock)) {
-      if (qty > 0) this.stock.set(id, Math.min(qty, MAX_QUANTITY))
+      if (qty > 0) {
+        this.stock.set(id, Math.min(qty, MAX_QUANTITY))
+        this.everHeld.add(id)
+      }
     }
   }
 }

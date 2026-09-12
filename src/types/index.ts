@@ -54,6 +54,8 @@ export interface SaveData {
   soldCounts?: Record<string, number>
   /** 強化の段。積まないとロードで買った強化が消える */
   upgrades?: Record<string, number>
+  /** 一度でも手に入れたことがある品。アイテム一覧の絞り込みとレシピの解禁が読む */
+  everHeld?: string[]
   floor: DisplaySlot[]
   unlockedFeatures: string[]
   unlockedRecipes: string[]

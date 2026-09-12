@@ -75,4 +75,45 @@ describe('Inventory', () => {
     expect(inv.getQuantity('snap_pea')).toBe(10)
     expect(inv.getQuantity('buckwheat_flour')).toBe(5)
   })
+
+  describe('一度でも手に入れたことがある品', () => {
+    it('足すと覚える', () => {
+      const inv = new Inventory()
+      expect(inv.hasEverHeld('snap_pea')).toBe(false)
+      inv.add('snap_pea', 3)
+      expect(inv.hasEverHeld('snap_pea')).toBe(true)
+    })
+
+    it('⚠ 減って0になっても忘れない（また仕入れられるので一覧に残す）', () => {
+      const inv = new Inventory()
+      inv.add('snap_pea', 3)
+      inv.remove('snap_pea', 3)
+      expect(inv.getQuantity('snap_pea')).toBe(0)
+      expect(inv.hasEverHeld('snap_pea')).toBe(true)
+    })
+
+    it('0個を足しても覚えない', () => {
+      const inv = new Inventory()
+      inv.add('snap_pea', 0)
+      expect(inv.hasEverHeld('snap_pea')).toBe(false)
+    })
+
+    it('開始在庫も覚える', () => {
+      const inv = new Inventory()
+      inv.setInitialStock({ snap_pea: 15, apple: 15 })
+      expect(inv.hasEverHeld('snap_pea')).toBe(true)
+      expect(inv.hasEverHeld('apple')).toBe(true)
+      expect(inv.hasEverHeld('buckwheat')).toBe(false)
+    })
+
+    it('保存して読み直すと戻る', () => {
+      const inv = new Inventory()
+      inv.add('snap_pea', 1); inv.add('apple', 1)
+      const restored = new Inventory()
+      restored.restoreEverHeld(inv.getEverHeld())
+      expect(restored.hasEverHeld('snap_pea')).toBe(true)
+      expect(restored.hasEverHeld('apple')).toBe(true)
+      expect(restored.hasEverHeld('buckwheat')).toBe(false)
+    })
+  })
 })

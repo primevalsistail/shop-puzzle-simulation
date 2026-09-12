@@ -36,6 +36,7 @@ export class GameProgress {
       // U2（売った実績で解禁）が読む。積まないとロードで解禁が巻き戻る
       soldCounts: this.world.toRecord(),
       upgrades: this.upgrades.toRecord(),
+      everHeld: this.inventory.getEverHeld(),
       floor: this.floorGrid.getAllSlots(),
       unlockedFeatures: Array.from(this.unlockedFeatures),
       unlockedRecipes: Array.from(this.unlockedRecipes),

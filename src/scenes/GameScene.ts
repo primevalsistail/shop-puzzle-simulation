@@ -194,6 +194,7 @@ export class GameScene extends Phaser.Scene {
         // 経済・インベントリ・時間を復元
         this.economy.restore(data.money, data.totalRevenue)
         this.inventory.setInitialStock(data.inventory)
+        this.inventory.restoreEverHeld(data.everHeld ?? Object.keys(data.inventory))
         this.world.restore(data.soldCounts ?? {})
         this.world.setDay(data.currentTime.day)  // 現在地は日付から決まる（#2）
         this.upgrades.restore(data.upgrades ?? {})
@@ -282,10 +283,11 @@ export class GameScene extends Phaser.Scene {
     // 右パネル (x=1090〜1280)
     this.add.rectangle(1185, 305, 190, 610, 0x13122a)
       .setStrokeStyle(1, 0x2a2a4a)
-    // キャラ絵プレースホルダー（HUD下〜ボタン上: y=135〜355）
-    this.add.rectangle(1185, 245, 170, 220, 0x0d1530)
+    // キャラ絵プレースホルダー（HUD下〜ボタン上: y=135〜335）
+    // ⚠ **ボタン列の上端（346）にかからない高さにすること**
+    this.add.rectangle(1185, 235, 170, 200, 0x0d1530)
       .setStrokeStyle(1, 0x223355).setDepth(1)
-    this.add.text(1185, 245, 'キャラ絵\n(準備中)', {
+    this.add.text(1185, 235, 'キャラ絵\n(準備中)', {
       fontSize: '13px', color: '#445577', align: 'center',
     }).setOrigin(0.5).setDepth(2)
     // メッセージウィンドウ区切り（グリッド+キャラ+右パネルのみ。左パネルはアイテムリストが続く）
@@ -319,8 +321,10 @@ export class GameScene extends Phaser.Scene {
     const GAP = 5
 
     // Y positions (built from bottom up, within main area y=0〜609)
+    const SH = 16                // 速さの行
     const yAdv   = 609 - 16 - AH / 2
-    const yCraft = yAdv   - AH / 2 - GAP - AH / 2
+    const ySpeed = yAdv   - AH / 2 - GAP - SH / 2
+    const yCraft = ySpeed - SH / 2 - GAP - AH / 2
     const yPurch = yCraft - AH / 2 - GAP - AH / 2
     const yUpg   = yPurch - AH / 2 - GAP - AH / 2
     const yIcon  = yUpg   - AH / 2 - GAP - IH / 2
@@ -380,11 +384,14 @@ export class GameScene extends Phaser.Scene {
     makeAction(yPurch, '仕入れ', '🛒', 0x6a5a2a, 0x8a7a3a, () => this.openPurchaseMenu())
     makeAction(yCraft, 'クラフト', '🔨', 0x4a6a3a, 0x5a8a4a, () => this.openCraftMenu())
 
-    // 速度切り替え。⚠ 飛ばすのではなく速くする（飛ばすと売れた実感が消える）
-    this.speedLabel = this.add.text(R - 10, yAdv, `×${this.timeManager.getSpeed()}`, {
-      fontSize: '13px', color: '#ccddff',
-    }).setOrigin(1, 0.5).setDepth(DEPTH + 1).setInteractive({ useHandCursor: true })
-    this.speedLabel.on('pointerdown', () => {
+    // 速度切り替え。⚠ 飛ばすのではなく速くする（飛ばすと売れた実感が消える）。
+    //   **「進める」ボタンの上に独立した行として置く。**ボタンの中に入れると文字が重なる
+    const speedBg = this.add.rectangle(acx, ySpeed, PW, 16, 0x2a2a4a)
+      .setStrokeStyle(1, 0x555577).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
+    this.speedLabel = this.add.text(acx, ySpeed, `速さ ×${this.timeManager.getSpeed()}`, {
+      fontSize: '11px', color: '#ccddff',
+    }).setOrigin(0.5).setDepth(DEPTH)
+    speedBg.on('pointerdown', () => {
       this.speedLabel.setText(`速さ ×${this.timeManager.cycleSpeed()}`)
     })
 
@@ -782,7 +789,9 @@ export class GameScene extends Phaser.Scene {
    *   序盤は素材だけ（U1）なので、素材を出さないと**買った品を1つも置けない。**
    */
   private refreshInventoryPanel(): void {
-    const items = this.registry_.getAllItems()
+    // ⚠ **手に入れたことがある品だけ出す。**122品すべてを「在庫0」で並べると、
+    //   何が手元にあるのか読めなくなる。減って0になった品は残す（また仕入れられるので）
+    const items = this.registry_.getAllItems().filter(i => this.inventory.hasEverHeld(i.id))
     const stock = this.inventory.getAllStock()
     const quantities: Record<string, number> = {}
     for (const item of items) {
