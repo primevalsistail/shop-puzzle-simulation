@@ -32,6 +32,13 @@ export class InventoryPanel {
   private paging = new ListPaging(VISIBLE_COUNT)
   private storedItems: ItemDef[] = []
   private storedInventory: Record<string, number> = {}
+  /**
+   * 棚に出している数。
+   *
+   * ⚠ **手元の数だけを出すと嘘になる。**品を並べると手元の分は全部棚へ移るので、
+   *   一覧は必ず「0」になり、**持っていないように見える。**
+   */
+  private storedOnShelf: Record<string, number> = {}
   /** メニューが開いている間は送らない（背後のリストが動いてしまうため） */
   private scrollBlocked: () => boolean = () => false
 
@@ -58,10 +65,22 @@ export class InventoryPanel {
     this.onSelectCallback = callback
   }
 
-  render(items: ItemDef[], inventory: Record<string, number>): void {
+  render(
+    items: ItemDef[],
+    inventory: Record<string, number>,
+    onShelf: Record<string, number> = {},
+  ): void {
     this.storedItems = items
     this.storedInventory = { ...inventory }
+    this.storedOnShelf = { ...onShelf }
     this.redraw()
+  }
+
+  /** 「手元」と「棚」を並べて出す。片方だけだと持っていないように見える */
+  private countLabel(itemId: string): string {
+    const held = this.storedInventory[itemId] ?? 0
+    const shelf = this.storedOnShelf[itemId] ?? 0
+    return shelf > 0 ? `手元 ${held} ／ 棚 ${shelf}` : `手元 ${held}`
   }
 
   private redraw(): void {
@@ -74,7 +93,7 @@ export class InventoryPanel {
     if (this.storedInventory[itemId] !== undefined) {
       this.storedInventory[itemId] = qty
     }
-    this.quantityTexts.get(itemId)?.setText(`在庫: ${qty}`)
+    this.quantityTexts.get(itemId)?.setText(this.countLabel(itemId))
   }
 
   getSelectedItemId(): string | null { return this.selectedItemId }
@@ -171,8 +190,6 @@ export class InventoryPanel {
 
     items.forEach((item, i) => {
       const y = ITEM_START_Y + i * ITEM_HEIGHT
-      const qty = this.storedInventory[item.id] ?? 0
-
       const itemCX = PANEL_X + ITEM_WIDTH / 2  // = 20 + 84 = 104
       const bg = this.scene.add.rectangle(
         itemCX, y, ITEM_WIDTH, ITEM_HEIGHT - 6, 0x333333,
@@ -187,8 +204,8 @@ export class InventoryPanel {
       const nameText = this.scene.add.text(PANEL_X + 54, y - 20, item.display.name, {
         fontSize: '13px', color: '#ffffff',
       })
-      const qtyText = this.scene.add.text(PANEL_X + 54, y - 2, `在庫: ${qty}`, {
-        fontSize: '11px', color: '#aaaaaa',
+      const qtyText = this.scene.add.text(PANEL_X + 54, y - 2, this.countLabel(item.id), {
+        fontSize: '11px', color: (this.storedOnShelf[item.id] ?? 0) > 0 ? '#88bbaa' : '#aaaaaa',
       })
       // 値段は持ち物ではなく導出値。表示のたびに出す（ItemRegistry の注記を参照）
       const priceLabel =

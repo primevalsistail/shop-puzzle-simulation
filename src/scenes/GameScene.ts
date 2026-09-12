@@ -230,7 +230,11 @@ export class GameScene extends Phaser.Scene {
       // 1つの品は棚に1区画まで。**掴んだ時点で知らせる**（どこへ持って行っても置けないため）
       if (this.placementManager.isDisplayed(id)) {
         const item = this.registry_.getItem(id)
-        this.updateStatus(`${item.display.name}はもう並べています。増やすなら棚をクリックして補充してください`)
+        const slot = this.floorGrid.getAllSlots().find(s => s.itemId === id)
+        this.updateStatus(
+          `${item.display.name}はもう棚に出ています（${slot?.quantity ?? 0}個）。`
+          + '増やすなら、その棚をクリックしてください',
+        )
         this.inventoryPanel.clearSelection()
         return
       }
@@ -722,7 +726,8 @@ export class GameScene extends Phaser.Scene {
       : this.inventory.getQuantity(this.selectedItemId)
 
     if (!isMoving && quantity <= 0) {
-      this.updateStatus('在庫がありません')
+      const item = this.registry_.getItem(this.selectedItemId)
+      this.updateStatus(`${item.display.name}は手元にありません。仕入れるか作ると並べられます`)
       return
     }
 
@@ -769,12 +774,16 @@ export class GameScene extends Phaser.Scene {
     const item = this.registry_.getItem(slot.itemId)
     const held = this.inventory.getQuantity(slot.itemId)
     if (held <= 0) {
-      this.updateStatus(`${item.display.name}の手持ちがありません`)
+      // ⚠ **「手持ちがありません」では通じない。**棚には出ているので、
+      //   プレイヤーから見れば持っている。**何をすれば補充できるか**まで書く
+      this.updateStatus(
+        `${item.display.name}は手元にありません（棚に${slot.quantity}個）。仕入れるか作ると補充できます`,
+      )
       return
     }
     const before = slot.quantity
     if (!this.shopService.restockSlot(slot.id, held)) {
-      this.updateStatus(`${item.display.name}はもう満杯です`)
+      this.updateStatus(`${item.display.name}の棚はもう満杯です（${slot.quantity}個）`)
       return
     }
     const after = this.floorGrid.getAllSlots().find(s => s.id === slot.id)
@@ -859,7 +868,12 @@ export class GameScene extends Phaser.Scene {
     for (const item of items) {
       quantities[item.id] = stock[item.id] ?? 0
     }
-    this.inventoryPanel.render(items, quantities)
+    // 棚に出している数も渡す。手元の数だけだと、並べた品が「0」に見えて嘘になる
+    const onShelf: Record<string, number> = {}
+    for (const slot of this.floorGrid.getAllSlots()) {
+      onShelf[slot.itemId] = (onShelf[slot.itemId] ?? 0) + slot.quantity
+    }
+    this.inventoryPanel.render(items, quantities, onShelf)
   }
 
   private showSalePopup(revenue: number, slot: DisplaySlot): void {
