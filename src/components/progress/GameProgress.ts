@@ -12,9 +12,10 @@ const slotKey = (slot: number) => `${SAVE_KEY}_${slot}`
 export class GameProgress {
   private unlockedFeatures: Set<string> = new Set()
   /**
-   * ⚠ **まだ効いていない。**クラフトメニューは全レシピを並べる。
-   *   解禁の条件は「**そのレシピの材料を過去に取得したことがあるか**」と決まっているが、
-   *   「取得したことがある」の記録が無い（`Inventory` は現在の所持数しか持たない）→ issue #48。
+   * 解禁済みのレシピ。**クラフトメニューはここにあるものだけを並べる**（#48 ／ 段4-3）。
+   *
+   * 条件（材料を全部手にしたことがあるか）と、開く速さ（1寄港あたり2〜3回・系統単位）は
+   * `RecipeUnlocks` が持つ。ここは**結果の置き場**であって、判定はしない。
    */
   private unlockedRecipes: Set<string> = new Set()
   private isEndlessMode = false
@@ -93,6 +94,20 @@ export class GameProgress {
 
   unlockRecipe(recipeId: string): void {
     this.unlockedRecipes.add(recipeId)
+  }
+
+  getUnlockedRecipes(): string[] {
+    return Array.from(this.unlockedRecipes)
+  }
+
+  /**
+   * ロードで解禁を戻す。積まないと**読み直すたびにクラフトメニューが空に戻る。**
+   *
+   * 解禁が無かった頃のセーブは空で来るが、`RecipeUnlocks.allowedGroupCount` が
+   * 日付から枠を出すので、ロード直後の判定でその日ぶんまで追いつく。
+   */
+  restoreUnlockedRecipes(ids: readonly string[]): void {
+    this.unlockedRecipes = new Set(ids)
   }
 
   isFeatureUnlocked(feature: string): boolean {

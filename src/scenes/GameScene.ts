@@ -11,6 +11,7 @@ import { CustomerSimulator } from '../components/simulation/CustomerSimulator.js
 import { GameService } from '../services/GameService.js'
 import { GameProgress } from '../components/progress/GameProgress.js'
 import { WorldState } from '../components/progress/WorldState.js'
+import { RecipeUnlocks, groupLabel } from '../components/progress/RecipeUnlocks.js'
 import { Upgrades } from '../components/progress/Upgrades.js'
 import { FloorRenderer, GRID_ORIGIN_X, GRID_ORIGIN_Y, CELL_SIZE, DISCARD_MARGIN } from '../ui/FloorRenderer.js'
 import { InventoryPanel } from '../ui/InventoryPanel.js'
@@ -60,6 +61,7 @@ export class GameScene extends Phaser.Scene {
   private customerSim!: CustomerSimulator
   private gameService!: GameService
   private progress!: GameProgress
+  private recipeUnlocks!: RecipeUnlocks
   private world!: WorldState
   private upgrades!: Upgrades
 
@@ -114,6 +116,7 @@ export class GameScene extends Phaser.Scene {
     this.progress = new GameProgress(
       this.economy, this.inventory, this.floorGrid, this.timeManager, this.world, this.upgrades,
     )
+    this.recipeUnlocks = new RecipeUnlocks(this.registry_, this.inventory, this.progress)
 
     // ── 描画レイヤー確立: 背景→FloorRenderer→UI の順で生成 ──
     this.setupBackground()
@@ -141,6 +144,7 @@ export class GameScene extends Phaser.Scene {
       this.craftingSystem,
       this.inventory,
       this.registry_,
+      this.recipeUnlocks,
       () => this.onCraftMenuClosed(),
     )
     this.purchaseMenu = new PurchaseMenu(
@@ -192,8 +196,11 @@ export class GameScene extends Phaser.Scene {
         this.world.restore(data.soldCounts ?? {})
         this.world.setDay(data.currentTime.day)  // 現在地は日付から決まる（#2）
         this.upgrades.restore(data.upgrades ?? {})
+        this.progress.restoreUnlockedRecipes(data.unlockedRecipes ?? [])
         this.applyShelfSize()
         this.timeManager.setTime(data.currentTime)
+        // 解禁が無かった頃のセーブは空で来る。枠は日付から出るのでここで追いつく（#48）
+        this.checkRecipeUnlocks()
 
         // HUD・パネルを更新
         this.hud.updateMoney(data.money)
@@ -206,6 +213,7 @@ export class GameScene extends Phaser.Scene {
     )
 
     this.inventory.setInitialStock(INITIAL_STOCK)
+    this.checkRecipeUnlocks()
 
     this.hud.create()
     // 器を置いただけでは値が入らない。初期値をここで流し込む
@@ -682,6 +690,9 @@ export class GameScene extends Phaser.Scene {
     }
     // 島が変われば商人の品揃えも需要も変わるので、開いているメニューは閉じる
     if (before.island !== after.island && this.purchaseMenu.isVisible()) this.purchaseMenu.close()
+
+    // 滞在中にも解禁が起きる（段4-4）。枠は4日に1つ増える ＝ 1寄港あたり2〜3回
+    this.checkRecipeUnlocks()
   }
 
   /**
@@ -766,7 +777,24 @@ export class GameScene extends Phaser.Scene {
 
   private openCraftMenu(): void {
     this.stopAdvancing()
+    // 買った直後に開いても取りこぼさないよう、ここでも判定する。
+    // **枠は日付で決まる**ので、何度呼んでも解禁の速さは変わらない（RecipeUnlocks）
+    this.checkRecipeUnlocks()
     this.craftMenu.open()
+  }
+
+  /**
+   * レシピの解禁（#48 ／ 段4-4）。**開いた系統だけを知らせる。**
+   * 1本ずつ知らせると、まとめて開く意味が消えるうえ、log が流れる。
+   */
+  private checkRecipeUnlocks(): void {
+    const day = this.timeManager.getCurrentTime().day
+    for (const event of this.recipeUnlocks.advanceTo(day)) {
+      this.messageLog.addMessage(
+        `${groupLabel(event)}の作り方が分かった（${event.recipes.length}種）`,
+        'event',
+      )
+    }
   }
 
   private onCraftMenuClosed(): void {

@@ -24,8 +24,8 @@ describe('GameProgress', () => {
   })
 
   it('レシピの解禁は空で始まり、unlockRecipe で足せる', () => {
-    // ⚠ 旧13品時代は5本を直書きしていたが、そのIDは #30 で消えた。
-    //   この仕掛けはまだクラフトメニューに繋がっていない（全レシピが並ぶ）
+    // ⚠ 旧13品時代は5本を直書きしていたが、そのIDは #30 で消えた。**空で始まるのが正しい。**
+    //   条件と速さの判定は `RecipeUnlocks`（#48）。ここは結果の置き場としての振る舞いだけを見る
     const eco = new EconomyManager()
     const inv = new Inventory()
     const reg = new ItemRegistry(ALL_ITEMS)

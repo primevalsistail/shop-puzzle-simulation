@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import type { CraftingSystem } from '../components/items/CraftingSystem.js'
 import type { Inventory } from '../components/economy/Inventory.js'
 import type { ItemRegistry, RecipeDef } from '../components/items/ItemRegistry.js'
+import type { RecipeUnlocks } from '../components/progress/RecipeUnlocks.js'
 import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
 
 const PANEL_W = 560
@@ -21,7 +22,8 @@ const ROWS_TOP = PANEL_Y - PANEL_H / 2 + 84
 const PAGER_Y = PANEL_Y + PANEL_H / 2 - 22
 
 /**
- * 一度に映る行数。**レシピは72本ある**（#30）ので、全部は収まらない。
+ * 一度に映る行数。**レシピは72本ある**（#30。ただし並ぶのは解禁済みのぶんだけ。#48）ので、
+ * 全部は収まらない。
  * 5行目の下端は `84 + 42 + 4*84 + 42 = 504`（パネル上端からの相対）で、ページ送りの行に届かない。
  */
 const VISIBLE_ROWS = 5
@@ -76,6 +78,8 @@ export class CraftMenu {
     private craftingSystem: CraftingSystem,
     private inventory: Inventory,
     private registry: ItemRegistry,
+    /** 解禁済みのレシピ（#48）。**`registry.getAllRecipes()` を直に並べないこと** */
+    private unlocks: RecipeUnlocks,
     private onClose: () => void,
   ) {
     // シーンが終わるとき DOM が残らないようにする
@@ -116,10 +120,12 @@ export class CraftMenu {
   /**
    * いま並べるレシピ。**主種類は「出来上がる品」で見る**（材料ではない）。
    * 「作れる」は材料と当日の残り時間の両方を見る（`maxCraftTimes > 0`）。
+   *
+   * ⚠ **母集合は解禁済みのレシピ**（#48）。全72本を並べない。
    */
   private shown(): RecipeDef[] {
     const byKind = this.paging.filter(
-      this.registry.getAllRecipes(),
+      this.unlocks.unlockedRecipes(),
       r => this.registry.getItem(r.outputItemId).mainKind,
     )
     return this.onlyCraftable
@@ -187,7 +193,12 @@ export class CraftMenu {
       this.buildRecipeRow(recipe, ROWS_TOP + ROW_H / 2 + i * ROW_H, objs)
     })
     if (shown.length === 0) {
-      objs.push(this.scene.add.text(PANEL_X, ROWS_TOP + 60, '当てはまるレシピがありません', {
+      // 0件の理由は2つある。**「まだ1本も解禁されていない」を「該当なし」と書かない**
+      // ——不具合に見えるうえ、次に何をすれば増えるのかが伝わらない（#48）
+      const message = this.unlocks.unlockedRecipes().length === 0
+        ? '材料を手に入れると、作れるものが増えていく'
+        : '当てはまるレシピがありません'
+      objs.push(this.scene.add.text(PANEL_X, ROWS_TOP + 60, message, {
         fontSize: '14px', color: '#889999',
       }).setOrigin(0.5))
     }
