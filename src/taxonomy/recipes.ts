@@ -1,5 +1,5 @@
 /**
- * レシピ **72本**
+ * レシピ **85本**
  *
  * 出どころ: aidlc-docs/inception/worldbuilding/crafted-goods.md
  *
@@ -470,6 +470,106 @@ export const ALL_RECIPES: readonly RecipeDef[] = [
     outputItemId: 'bamboo_sieve', outputQuantity: 3,
     ingredients: [{ itemId: 'bamboo', quantity: 3 }, { itemId: 'rope', quantity: 1 }],
     durationMinutes: 45,
+  },
+
+  // ══════ tier5〜7（段5）13本 ══════
+  //
+  // ⚠ **材料はすべて既成の品。**素材も軸も足していない。
+  //   深い段がやっているのは「**すでに作った品を組み上げて一式にする**」ことだけ。
+  //
+  // ⚠ **所要時間の上限を 300分に置いた。**深い品ほど難易度 D = tier×5 が高く、
+  //   `craft.ts` の着手条件（D <= 手際 + 8）をぎりぎり満たす手際では
+  //   所要が `2^(8/5) ≈ 3.03倍` に伸びる。起きている時間は 1080分/日 しかないので、
+  //   **素の所要が 356分を超えると、着手できるようになった手際では着手できない**
+  //   （`CraftingSystem.fitsInToday`）。300分なら 909分で収まる。
+  //
+  // ⚠ **仮置き。#61 で測り直す。**所要時間・出力数のどれにも実測の裏づけは無い。
+
+  // ── tier5 ──
+  {
+    id: 'recipe_sweets_assortment', display: { name: '菓子の詰め合わせをつくる' },
+    outputItemId: 'sweets_assortment', outputQuantity: 1,
+    ingredients: [{ itemId: 'jam_bun', quantity: 2 }, { itemId: 'walnut_biscuit', quantity: 2 }, { itemId: 'canvas_sack', quantity: 1 }],
+    durationMinutes: 120,
+  },
+  {
+    id: 'recipe_voyage_lunch', display: { name: '旅の弁当をつくる' },
+    outputItemId: 'voyage_lunch', outputQuantity: 2,
+    ingredients: [{ itemId: 'salmon_sandwich', quantity: 1 }, { itemId: 'dried_meat', quantity: 1 }, { itemId: 'basket', quantity: 1 }],
+    durationMinutes: 90,
+  },
+  {
+    id: 'recipe_flask_mulled_wine', display: { name: '水筒詰めの温め酒をつくる' },
+    outputItemId: 'flask_mulled_wine', outputQuantity: 2,
+    ingredients: [{ itemId: 'mulled_wine', quantity: 1 }, { itemId: 'bamboo_flask', quantity: 2 }, { itemId: 'beeswax', quantity: 1 }],
+    durationMinutes: 60,
+  },
+  {
+    id: 'recipe_winter_outfit', display: { name: '冬の装い一式をそろえる' },
+    outputItemId: 'winter_outfit', outputQuantity: 1,
+    // ⚠ **革の肩掛け鞄（tier4）が段を1つ上げている。**外套・襟巻き・手袋はどれも tier3 なので、
+    //   この3点だけでは `1 + max(材料の tier)` が 4 にしかならない。
+    //   一式に「持って出るもの」を1つ入れることで、外出の装いとしても揃う。
+    ingredients: [{ itemId: 'fur_lined_coat', quantity: 1 }, { itemId: 'wool_scarf', quantity: 1 }, { itemId: 'fur_lined_gloves', quantity: 1 }, { itemId: 'leather_satchel', quantity: 1 }],
+    durationMinutes: 180,
+  },
+  {
+    id: 'recipe_sun_outfit', display: { name: '日よけの装い一式をそろえる' },
+    outputItemId: 'sun_outfit', outputQuantity: 1,
+    ingredients: [{ itemId: 'canvas_sun_hat', quantity: 1 }, { itemId: 'cotton_shirt', quantity: 1 }, { itemId: 'leather_sandals', quantity: 1 }],
+    durationMinutes: 180,
+  },
+  {
+    id: 'recipe_harvest_hamper', display: { name: '帆布張りの収穫かごをつくる' },
+    outputItemId: 'harvest_hamper', outputQuantity: 1,
+    ingredients: [{ itemId: 'carrying_basket', quantity: 1 }, { itemId: 'canvas', quantity: 1 }, { itemId: 'rope', quantity: 2 }],
+    durationMinutes: 150,
+  },
+  {
+    id: 'recipe_ice_barrel', display: { name: 'フェルト張りの氷入れをつくる' },
+    outputItemId: 'ice_barrel', outputQuantity: 1,
+    ingredients: [{ itemId: 'canvas_sack', quantity: 1 }, { itemId: 'pine_barrel', quantity: 1 }, { itemId: 'wool_felt', quantity: 1 }],
+    durationMinutes: 150,
+  },
+
+  // ── tier6 ──
+  {
+    id: 'recipe_feast_hamper', display: { name: 'もてなしの籠盛りをつくる' },
+    outputItemId: 'feast_hamper', outputQuantity: 1,
+    ingredients: [{ itemId: 'sweets_assortment', quantity: 1 }, { itemId: 'voyage_lunch', quantity: 1 }, { itemId: 'boiled_crab', quantity: 1 }],
+    durationMinutes: 240,
+  },
+  {
+    id: 'recipe_wine_gift_set', display: { name: '酒の贈りもの一式をそろえる' },
+    outputItemId: 'wine_gift_set', outputQuantity: 1,
+    ingredients: [{ itemId: 'flask_mulled_wine', quantity: 2 }, { itemId: 'grape_wine', quantity: 1 }, { itemId: 'honey', quantity: 1 }],
+    durationMinutes: 180,
+  },
+  {
+    id: 'recipe_winter_finery', display: { name: '冬の晴れ着一式をそろえる' },
+    outputItemId: 'winter_finery', outputQuantity: 1,
+    ingredients: [{ itemId: 'winter_outfit', quantity: 1 }, { itemId: 'felt_hat', quantity: 1 }, { itemId: 'rabbit_fur', quantity: 2 }],
+    durationMinutes: 300,
+  },
+  {
+    id: 'recipe_peddler_kit', display: { name: '行商の荷ごしらえ一式をそろえる' },
+    outputItemId: 'peddler_kit', outputQuantity: 1,
+    ingredients: [{ itemId: 'harvest_hamper', quantity: 1 }, { itemId: 'straw_bale', quantity: 2 }, { itemId: 'rope', quantity: 2 }],
+    durationMinutes: 240,
+  },
+
+  // ── tier7 ── 終点
+  {
+    id: 'recipe_grand_outfit', display: { name: '晴れの装い一式をそろえる' },
+    outputItemId: 'grand_outfit', outputQuantity: 1,
+    ingredients: [{ itemId: 'winter_finery', quantity: 1 }, { itemId: 'comb', quantity: 1 }, { itemId: 'antler_belt', quantity: 1 }],
+    durationMinutes: 300,
+  },
+  {
+    id: 'recipe_celebration_hamper', display: { name: '祝いの籠盛りをつくる' },
+    outputItemId: 'celebration_hamper', outputQuantity: 1,
+    ingredients: [{ itemId: 'feast_hamper', quantity: 1 }, { itemId: 'wine_gift_set', quantity: 1 }, { itemId: 'canvas_sack', quantity: 1 }],
+    durationMinutes: 300,
   },
 ] as const
 

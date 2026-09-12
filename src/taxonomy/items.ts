@@ -1,5 +1,5 @@
 /**
- * 実アイテム **122品**（素材50 ＋ 加工品72）
+ * 実アイテム **135品**（素材50 ＋ 加工品85）
  *
  * **このファイルは生成物ではなく、手で保守するデータである。**
  *
@@ -796,6 +796,112 @@ export const ALL_ITEMS: readonly ItemDef[] = [
     id: 'bamboo_sieve', display: { name: '竹のざる', color: 0x9fb257 },
     mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: '実りの土地',
     shape: [[1, 1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+
+  // ══════ tier5〜7（段5）13品 ══════
+  //
+  // **作り込みを7段まで伸ばす**（`rules.ts` の `MAX_TIER = 7`。理由は
+  // aidlc-docs/construction/plans/max-tier-review.md — ペルソナ4人の評価で決めた値であり、
+  // 利益や効率から出した値ではない）。
+  //
+  // ⚠ **素材も軸も1つも足していない。**使ったのは既存の50素材と既存の4軸だけで、
+  //   深い段は「**すでに作った品を組み上げて一式にする**」ことだけで出している。
+  //   crafted-goods.md §7 の限界（金属が無い・粘土が無い・卵と小麦が無い）はそのまま。
+  //
+  // ⚠ **先細りにしてある**（tier4=10品 → tier5=7 → tier6=4 → tier7=2）。
+  //   深いほど品数は少なく、1品が占める升は大きい（3.4升 → 5.7 → 7.5 → 9.0）。
+  //   9升は最大盤面 13×10=130升の 7%。**1品で盤面を食い潰さない。**
+  //
+  // ⚠ 産地はすべて `なし`。加工品は旬を持たないため（#22 / island-goods.md §2）。
+  //
+  // ⚠ **書き手は需要4行の母数を知った状態で `向く土地` を選んでいる。独立ではない。**
+  //   手順は「定義文から素直に導ける値を置く → そのあとに数える」を踏んだが、
+  //   `どこでも` を1品も置かなかったのは**深い品でも島を選ぶ理由を残すため**という判断が入っている
+  //   （`どこでも` は需要表4行のどれにも当たらないので、置くと D1 が効かなくなる）。
+  //   **評価は別セッションで行うこと。**
+
+  // ── tier5 ── すでに作った品を「一式」「詰め合わせ」に組み上げる段
+  {
+    id: 'sweets_assortment', display: { name: '菓子の詰め合わせ', color: 0xd9a05b },
+    mainKind: '食料', origin: 'なし', luxury: '贅沢', suitedLand: '温暖な土地',
+    shape: [[1, 1, 1], [1, 1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'voyage_lunch', display: { name: '旅の弁当', color: 0xc08a4a },
+    mainKind: '食料', origin: 'なし', luxury: '上等', suitedLand: '温暖な土地',
+    shape: [[1, 1], [1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'flask_mulled_wine', display: { name: '水筒詰めの温め酒', color: 0x7a4e86 },
+    mainKind: '飲みもの', origin: 'なし', luxury: '贅沢', suitedLand: '寒い土地',
+    shape: [[1, 1], [1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'winter_outfit', display: { name: '冬の装い一式', color: 0x8d7f6e },
+    mainKind: '衣類', origin: 'なし', luxury: '上等', suitedLand: '寒い土地',
+    shape: [[1, 1], [1, 1], [1, 1], [1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'sun_outfit', display: { name: '日よけの装い一式', color: 0xe0cf9a },
+    mainKind: '衣類', origin: 'なし', luxury: '上等', suitedLand: '暑い土地',
+    shape: [[1, 1], [1, 1], [1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'harvest_hamper', display: { name: '帆布張りの収穫かご', color: 0xbb9a5f },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: '実りの土地',
+    shape: [[1, 1, 1], [1, 1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'ice_barrel', display: { name: 'フェルト張りの氷入れ', color: 0x9fbdd0 },
+    mainKind: '道具', origin: 'なし', luxury: '上等', suitedLand: '暑い土地',
+    shape: [[1, 1], [1, 1], [1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+
+  // ── tier6 ── 一式に上物を重ねる段
+  {
+    id: 'feast_hamper', display: { name: 'もてなしの籠盛り', color: 0xd08b4f },
+    mainKind: '食料', origin: 'なし', luxury: '贅沢', suitedLand: '温暖な土地',
+    shape: [[1, 1], [1, 1], [1, 1], [1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'wine_gift_set', display: { name: '酒の贈りもの一式', color: 0x6b4a90 },
+    mainKind: '飲みもの', origin: 'なし', luxury: '贅沢', suitedLand: '寒い土地',
+    shape: [[1, 1], [1, 1], [1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'winter_finery', display: { name: '冬の晴れ着一式', color: 0xa38a94 },
+    mainKind: '衣類', origin: 'なし', luxury: '贅沢', suitedLand: '寒い土地',
+    shape: [[1, 1], [1, 1], [1, 1], [1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'peddler_kit', display: { name: '行商の荷ごしらえ一式', color: 0xa8873f },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: '実りの土地',
+    shape: [[1, 1], [1, 1], [1, 1], [1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+
+  // ── tier7 ── 終点。**2品だけ**（4段では底が見え、10段では序盤に心が折れる、の折衷）
+  {
+    id: 'grand_outfit', display: { name: '晴れの装い一式', color: 0x8e6f9e },
+    mainKind: '衣類', origin: 'なし', luxury: '贅沢', suitedLand: '寒い土地',
+    shape: [[1, 1, 1], [1, 1, 1], [1, 1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'celebration_hamper', display: { name: '祝いの籠盛り', color: 0xc9703f },
+    mainKind: '食料', origin: 'なし', luxury: '贅沢', suitedLand: '温暖な土地',
+    shape: [[1, 1, 1], [1, 1, 1], [1, 1, 1]],
     originReason: '船倉で作る品。旬を持たないので産地なし',
   },
 ] as const

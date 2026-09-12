@@ -12,7 +12,7 @@ import {
   adjacentPairs, evaluate, finalModifiers, stockedByIslandMerchant,
   type GameState, type Placement,
 } from './evaluate.js'
-import { SAME_ORIGIN_RULE, shopWideWeight } from './rules.js'
+import { MAX_TIER, SAME_ORIGIN_RULE, shopWideWeight } from './rules.js'
 
 const noSales = new Map<string, number>()
 const at = (島: GameState['現在地'], sales = noSales): GameState =>
@@ -246,10 +246,15 @@ describe('入荷解禁（解禁 U1・U2 ／ 場所 U3・U4）', () => {
 })
 
 describe('導出', () => {
-  it('tier は 1〜4 に収まる（Q2 = A）', () => {
+  it('tier は 1〜7 に収まる（MAX_TIER。段5 で 4 から伸ばした）', () => {
+    // ⚠ **意図的な反転。**以前は「1〜4 に収まる（Q2 = A）」だった。
+    //   Q2 = A は Phase 3 時点の「いまは4段しかない」という現状の記述であって、
+    //   **4段を上限とする決定ではない。**上限を決めたのは段5 の PO 決定（2026-09-12）で、
+    //   **7段**（→ aidlc-docs/construction/plans/max-tier-review.md）。
+    //   上限そのものは `rules.ts` の `MAX_TIER` が持ち、深さの検査は depth.test.ts にある。
     const tiers = ALL_ITEMS.map(i => tier(i.id))
     expect(Math.min(...tiers)).toBe(1)
-    expect(Math.max(...tiers)).toBe(4)
+    expect(Math.max(...tiers)).toBe(MAX_TIER)
   })
 
   it('売値はすべて正の整数', () => {
@@ -260,11 +265,12 @@ describe('導出', () => {
     }
   })
 
-  it('122品ある（素材50 ＋ 加工品72）', () => {
-    // 110品/60本 → 宿題B で道具10品＋10本 → Phase 4 後に実りの土地を2品＋2本。
+  it('135品ある（素材50 ＋ 加工品85）', () => {
+    // 110品/60本 → 宿題B で道具10品＋10本 → Phase 4 後に実りの土地を2品＋2本
+    // → **段5 で tier5〜7 を13品＋13本**（tier5=7・tier6=4・tier7=2）。
     // 素材50は変わらない（追加はすべて tier2 以上の加工品）。
-    expect(ALL_ITEMS).toHaveLength(122)
+    expect(ALL_ITEMS).toHaveLength(135)
     expect(ALL_ITEMS.filter(i => i.basePrice !== undefined)).toHaveLength(50)
-    expect(ALL_RECIPES).toHaveLength(72)
+    expect(ALL_RECIPES).toHaveLength(85)
   })
 })
