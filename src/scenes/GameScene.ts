@@ -13,7 +13,7 @@ import { GameProgress } from '../components/progress/GameProgress.js'
 import { WorldState } from '../components/progress/WorldState.js'
 import { RecipeUnlocks, groupLabel } from '../components/progress/RecipeUnlocks.js'
 import { Upgrades } from '../components/progress/Upgrades.js'
-import { FloorRenderer, GRID_ORIGIN_X, GRID_ORIGIN_Y, CELL_SIZE, DISCARD_MARGIN } from '../ui/FloorRenderer.js'
+import { FloorRenderer, GRID_ORIGIN_X, GRID_ORIGIN_Y, CELL_SIZE } from '../ui/FloorRenderer.js'
 import { InventoryPanel } from '../ui/InventoryPanel.js'
 import { ShelfPresets } from '../components/floor/ShelfPresets.js'
 import { PresetMenu } from '../ui/PresetMenu.js'
@@ -468,7 +468,7 @@ export class GameScene extends Phaser.Scene {
       // 床アイテム移動中は外周破棄ゾーンを更新
       if (this.pendingMoveSlot) {
         const inZone = this.isOverDiscardZone(pointer.x, pointer.y)
-        this.floorRenderer.drawDiscardZone(inZone)
+        this.floorRenderer.drawDiscardZone(inZone, this.floorGrid.getGridSize())
         if (inZone) {
           this.messageLog.addMessage('離すとリストへ返します', 'info')
           this.floorRenderer.clearPreview()
@@ -570,10 +570,14 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * そこで離したら棚から下ろすか。判定は `FloorRenderer` が持つ（描くのと同じ規則を使うため）。
+   *
+   * ⚠ **盤面の上は破棄ゾーンではない。**上端の帯は盤面の1行目に食い込むので、
+   *   除かないと「**一番上の行へ動かそうとすると棚から外れる**」。
+   */
   private isOverDiscardZone(x: number, y: number): boolean {
-    const { width, height } = this.scale
-    return x < DISCARD_MARGIN || x > width - DISCARD_MARGIN ||
-           y < DISCARD_MARGIN || y > height - DISCARD_MARGIN
+    return this.floorRenderer.isOverDiscardZone(x, y, this.floorGrid.getGridSize())
   }
 
   private cancelDrag(): void {
@@ -610,7 +614,7 @@ export class GameScene extends Phaser.Scene {
     this.placementManager.removeSlot(slot.id)
     this.selectedItemId = slot.itemId
     this.currentRotation = slot.rotation
-    this.floorRenderer.drawDiscardZone(false)
+    this.floorRenderer.drawDiscardZone(false, this.floorGrid.getGridSize())
     this.updateStatus()
   }
 

@@ -1,14 +1,11 @@
 import Phaser from 'phaser'
 import type { DisplaySlot, GridCell, GridSize, Rotation } from '../types/index.js'
 import type { ItemRegistry } from '../components/items/ItemRegistry.js'
-import { LEFT_PANEL_R } from './layout.js'
-
-// 13×10 最終グリッドから逆算: min(floor(760/13), floor(610/10)) = 58
-export const CELL_SIZE = 58
-// グリッドを左上に寄せる（拡張時に右・下に伸びる余地を確保）
-export const GRID_ORIGIN_X = LEFT_PANEL_R + 8  // 左パネルの右端から 8px
-export const GRID_ORIGIN_Y = 8    // 上端から 8px
-export const DISCARD_MARGIN = 56  // px from screen edge that counts as the discard zone
+// ⚠ 盤面の座標は `layout.ts` が持つ（**Phaser を読まないので単体テストから見える**）。
+//   ここは使う場所に近い名前で通すためだけに出し直している
+export { CELL_SIZE, GRID_ORIGIN_X, GRID_ORIGIN_Y, DISCARD_MARGIN } from './layout.js'
+import { CELL_SIZE, GRID_ORIGIN_X, GRID_ORIGIN_Y, DISCARD_MARGIN } from './layout.js'
+import { subtractRect } from './rects.js'
 
 // Small rendering depth constants
 const DEPTH_GRID = 2
@@ -200,20 +197,48 @@ export class FloorRenderer {
     this.dragGhostGraphics.clear()
   }
 
-  // cursorInZone=true → bright highlight (cursor is at edge); false → faint hint
-  drawDiscardZone(cursorInZone: boolean): void {
+  /**
+   * 外周の「ここで離すと棚から下ろす」帯を描く。
+   * `cursorInZone` が true なら濃く、false なら薄い手がかりとして出す。
+   *
+   * ⚠ **盤面をくり抜くこと。**上端の帯（y 0〜56）は**盤面の1行目（y 8〜66）に食い込む**ので、
+   *   くり抜かないと「**一番上の行へ動かそうとすると棚から外れる**」。
+   *   判定（`GameScene.isOverDiscardZone`）も同じく盤面を除いている。**片方だけ直さないこと。**
+   * ⚠ **内側の枠線は引かない。**盤面を避けて線を引けないので、引くと棚を横切る。
+   */
+  drawDiscardZone(cursorInZone: boolean, size: GridSize): void {
     const { width, height } = this.scene.scale
     const m = DISCARD_MARGIN
     this.discardGraphics.clear()
-    const fillAlpha = cursorInZone ? 0.38 : 0.12
-    const lineAlpha = cursorInZone ? 0.9 : 0.35
-    this.discardGraphics.fillStyle(0xff8822, fillAlpha)
-    this.discardGraphics.fillRect(0, 0, width, m)
-    this.discardGraphics.fillRect(0, height - m, width, m)
-    this.discardGraphics.fillRect(0, m, m, height - m * 2)
-    this.discardGraphics.fillRect(width - m, m, m, height - m * 2)
-    this.discardGraphics.lineStyle(2, 0xffcc44, lineAlpha)
-    this.discardGraphics.strokeRect(m, m, width - m * 2, height - m * 2)
+    this.discardGraphics.fillStyle(0xff8822, cursorInZone ? 0.38 : 0.12)
+
+    const grid = {
+      x: GRID_ORIGIN_X, y: GRID_ORIGIN_Y,
+      w: size.width * CELL_SIZE, h: size.height * CELL_SIZE,
+    }
+    const bands = [
+      { x: 0, y: 0, w: width, h: m },
+      { x: 0, y: height - m, w: width, h: m },
+      { x: 0, y: m, w: m, h: height - m * 2 },
+      { x: width - m, y: m, w: m, h: height - m * 2 },
+    ]
+    for (const band of bands) {
+      for (const r of subtractRect(band, grid)) {
+        this.discardGraphics.fillRect(r.x, r.y, r.w, r.h)
+      }
+    }
+  }
+
+  /**
+   * そこで離したら棚から下ろすか。
+   *
+   * ⚠ **盤面の上は含めない。**`drawDiscardZone` と同じ規則。
+   */
+  isOverDiscardZone(x: number, y: number, size: GridSize): boolean {
+    if (this.isOverGrid(x, y, size)) return false
+    const { width, height } = this.scene.scale
+    const m = DISCARD_MARGIN
+    return x < m || x > width - m || y < m || y > height - m
   }
 
   clearDiscardZone(): void {
