@@ -5,6 +5,7 @@ import type { FloorGrid } from '../floor/FloorGrid.js'
 import type { TimeManager } from '../core/TimeManager.js'
 import type { WorldState } from './WorldState.js'
 import type { Upgrades } from './Upgrades.js'
+import type { ShelfPresets } from '../floor/ShelfPresets.js'
 
 const SAVE_KEY = 'shop_puzzle_save'
 const slotKey = (slot: number) => `${SAVE_KEY}_${slot}`
@@ -27,6 +28,8 @@ export class GameProgress {
     private timeManager: TimeManager,
     private world: WorldState,
     private upgrades: Upgrades,
+    /** 品出しの型（#27）。⚠ 積まないとロードで覚えた型が消える */
+    private presets: ShelfPresets,
   ) {}
 
   save(slot = 0): void {
@@ -39,6 +42,7 @@ export class GameProgress {
       upgrades: this.upgrades.toRecord(),
       everHeld: this.inventory.getEverHeld(),
       floor: this.floorGrid.getAllSlots(),
+      shelfPresets: this.presets.toRecord(),
       unlockedFeatures: Array.from(this.unlockedFeatures),
       unlockedRecipes: Array.from(this.unlockedRecipes),
       currentTime: this.timeManager.getCurrentTime(),

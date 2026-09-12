@@ -1,4 +1,5 @@
 import type { Shape } from '../taxonomy/axes.js'
+import type { ShelfPreset } from '../components/floor/ShelfPresets.js'
 
 // ─── グリッド ─────────────────────────────────────────
 export type GridCell = { x: number; y: number }
@@ -64,6 +65,11 @@ export interface SaveData {
   /** 一度でも手に入れたことがある品。アイテム一覧の絞り込みとレシピの解禁が読む */
   everHeld?: string[]
   floor: DisplaySlot[]
+  /**
+   * 品出しの型（マイセット。#27）。⚠ **無いセーブを読めるようにしておくこと**
+   * （型が入る前のセーブがすでに手元にある）
+   */
+  shelfPresets?: (ShelfPreset | null)[]
   unlockedFeatures: string[]
   unlockedRecipes: string[]
   currentTime: GameTime

@@ -15,6 +15,8 @@ import { RecipeUnlocks, groupLabel } from '../components/progress/RecipeUnlocks.
 import { Upgrades } from '../components/progress/Upgrades.js'
 import { FloorRenderer, GRID_ORIGIN_X, GRID_ORIGIN_Y, CELL_SIZE, DISCARD_MARGIN } from '../ui/FloorRenderer.js'
 import { InventoryPanel } from '../ui/InventoryPanel.js'
+import { ShelfPresets } from '../components/floor/ShelfPresets.js'
+import { PresetMenu } from '../ui/PresetMenu.js'
 import { CraftMenu } from '../ui/CraftMenu.js'
 import { HUD } from '../ui/HUD.js'
 import { PurchaseMenu } from '../ui/PurchaseMenu.js'
@@ -67,6 +69,8 @@ export class GameScene extends Phaser.Scene {
   private recipeUnlocks!: RecipeUnlocks
   private world!: WorldState
   private upgrades!: Upgrades
+  /** 品出しの型（マイセット。#27） */
+  private shelfPresets = new ShelfPresets()
 
   private floorRenderer!: FloorRenderer
   private inventoryPanel!: InventoryPanel
@@ -80,6 +84,7 @@ export class GameScene extends Phaser.Scene {
   private messageLog!: MessageLog
   /** 「行く場所」の枠（#58）。**いまどこに居るかはこれが持つ** */
   private placeFrame!: PlaceFrame
+  private presetMenu!: PresetMenu
 
   private speedLabel!: Phaser.GameObjects.Text
   /** グリッドの下地。棚を広げたら一緒に広げる */
@@ -120,6 +125,7 @@ export class GameScene extends Phaser.Scene {
     )
     this.progress = new GameProgress(
       this.economy, this.inventory, this.floorGrid, this.timeManager, this.world, this.upgrades,
+      this.shelfPresets,
     )
     this.recipeUnlocks = new RecipeUnlocks(this.registry_, this.inventory, this.progress)
 
@@ -172,6 +178,16 @@ export class GameScene extends Phaser.Scene {
       () => this.applyShelfSize(),
     )
 
+    this.presetMenu = new PresetMenu(
+      this,
+      this.shelfPresets,
+      this.placeFrame,
+      () => this.floorGrid.getAllSlots().length,
+      index => this.savePreset(index),
+      index => this.applyPreset(index),
+      () => this.updateStatus(),
+    )
+
     this.saveLoadMenu = new SaveLoadMenu(
       this,
       (slot) => this.progress.getSlotMeta(slot),
@@ -205,6 +221,7 @@ export class GameScene extends Phaser.Scene {
         this.world.restore(data.soldCounts ?? {})
         this.world.setDay(data.currentTime.day)  // 現在地は日付から決まる（#2）
         this.upgrades.restore(data.upgrades ?? {})
+        this.shelfPresets.restore(data.shelfPresets)
         this.progress.restoreUnlockedRecipes(data.unlockedRecipes ?? [])
         this.applyShelfSize()
         this.timeManager.setTime(data.currentTime)
@@ -333,7 +350,8 @@ export class GameScene extends Phaser.Scene {
     const R = 1278               // panel right edge
     const PW = 176               // panel width
     const L = R - PW             // panel left (= 1102)
-    const IW = 40, IH = 38      // icon button size
+    // ⚠ **アイコンは5つ。**幅を広げると入らない（`PW` は 176px しかない）
+    const IW = 33, IH = 38      // icon button size
     const AH = 42                // action button height
     const GAP = 5
 
@@ -345,7 +363,7 @@ export class GameScene extends Phaser.Scene {
     const yPurch = yCraft - AH / 2 - GAP - AH / 2
     const yUpg   = yPurch - AH / 2 - GAP - AH / 2
     const yIcon  = yUpg   - AH / 2 - GAP - IH / 2
-    const iconGap = (PW - 4 * IW) / 3  // ~5px
+    const iconGap = (PW - 5 * IW) / 4
 
     // ── Tooltip ──────────────────────────────────────
     this.tooltip = this.add.text(0, 0, '', {
@@ -366,6 +384,7 @@ export class GameScene extends Phaser.Scene {
     const iconDefs: { emoji: string; tip: string; action: () => void }[] = [
       { emoji: '💾', tip: 'セーブ',    action: () => this.doSave() },
       { emoji: '📂', tip: 'ロード',    action: () => this.doLoad() },
+      { emoji: '🗂', tip: '品出しの型', action: () => this.openPresetMenu() },
       { emoji: '⚙️', tip: 'オプション', action: () => this.updateStatus('オプション: 準備中') },
       { emoji: '❓', tip: 'ヘルプ',    action: () => this.tutorial.show(() => this.updateStatus()) },
     ]
@@ -373,7 +392,7 @@ export class GameScene extends Phaser.Scene {
       const cx = L + IW / 2 + i * (IW + iconGap)
       const bg = this.add.rectangle(cx, yIcon, IW, IH, 0x2a2a4a)
         .setStrokeStyle(1, 0x555577).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
-      this.add.text(cx, yIcon, emoji, { fontSize: '18px' }).setOrigin(0.5).setDepth(DEPTH)
+      this.add.text(cx, yIcon, emoji, { fontSize: '16px' }).setOrigin(0.5).setDepth(DEPTH)
       bg.on('pointerdown', action)
       bg.on('pointerover', () => { bg.setFillStyle(0x4a4a6a); showTip(cx, yIcon, tip) })
       bg.on('pointerout',  () => { bg.setFillStyle(0x2a2a4a); hideTip() })
@@ -893,6 +912,59 @@ export class GameScene extends Phaser.Scene {
   private onPurchaseMenuClosed(): void {
     this.refreshInventoryPanel()
     this.updateStatus()
+  }
+
+  private openPresetMenu(): void {
+    this.stopAdvancing()
+    this.presetMenu.open()
+  }
+
+  /**
+   * いまの並びを型に覚える（#27）。
+   *
+   * ⚠ **在庫も持ち物も動かない。**棚は「どこに何をどの向きで出しているか」を表すだけで、
+   *   並べても在庫は減らない（段2.5）。だから覚えるのも呼び出すのも**何も消費しない。**
+   */
+  private savePreset(index: number): void {
+    const slots = this.floorGrid.getAllSlots()
+    this.shelfPresets.save(index, slots)
+    this.presetMenu.refresh()
+    this.updateStatus(
+      slots.length === 0
+        ? `型${index + 1}に「全部下ろす」を覚えた`
+        : `型${index + 1}に、いまの${slots.length}区画を覚えた`,
+    )
+  }
+
+  /**
+   * 型を呼び出して並べ直す（#27）。
+   *
+   * ⚠ **入らないものは黙って落とさず、数を言う。**棚は強化で広がるので、
+   *   **広い盤面で覚えた型を狭い盤面で呼ぶ**ことが起こる（ロード直後など）。
+   * ⚠ **手持ちが0の品も並べる。**棚は在庫を持たないので置けてしまうが、
+   *   **売り切れとして赤く出る**ので「何を仕入れ直すか」がそのまま分かる。
+   */
+  private applyPreset(index: number): void {
+    const preset = this.shelfPresets.get(index)
+    if (!preset) return
+
+    for (const existing of this.floorGrid.getAllSlots()) this.floorRenderer.clearSlot(existing.id)
+    this.floorGrid.clear()
+
+    let placed = 0
+    for (const p of preset.slots) {
+      // `tryPlace` が品から今のかたちを引き直す。型はかたちを覚えていない
+      if (this.placementManager.tryPlace(p.itemId, p.position, p.rotation)) placed++
+    }
+
+    const dropped = preset.slots.length - placed
+    this.presetMenu.refresh()
+    this.refreshInventoryPanel()
+    this.updateStatus(
+      dropped === 0
+        ? `型${index + 1}を呼び出した（${placed}区画）`
+        : `型${index + 1}を呼び出した（${placed}区画。${dropped}区画は盤面に入らず外した）`,
+    )
   }
 
   private doSave(): void { this.saveLoadMenu.openSave() }

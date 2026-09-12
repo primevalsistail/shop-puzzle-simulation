@@ -9,6 +9,7 @@ import { WorldState } from './WorldState.js'
 import { Upgrades } from './Upgrades.js'
 import { ALL_ITEMS } from '../../taxonomy/items.js'
 import type { TimeManager } from '../core/TimeManager.js'
+import { ShelfPresets } from '../floor/ShelfPresets.js'
 
 function makeTimeManagerMock(): TimeManager {
   return {
@@ -30,7 +31,7 @@ describe('GameProgress', () => {
     const inv = new Inventory()
     const reg = new ItemRegistry(ALL_ITEMS)
     const grid = new FloorGrid({ width: 6, height: 5 }, reg)
-    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), new Upgrades())
+    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), new Upgrades(), new ShelfPresets())
     expect(gp.isRecipeUnlocked('recipe_buckwheat_flour')).toBe(false)
     gp.unlockRecipe('recipe_buckwheat_flour')
     expect(gp.isRecipeUnlocked('recipe_buckwheat_flour')).toBe(true)
@@ -41,7 +42,7 @@ describe('GameProgress', () => {
     const inv = new Inventory()
     const reg = new ItemRegistry(ALL_ITEMS)
     const grid = new FloorGrid({ width: 6, height: 5 }, reg)
-    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), new Upgrades())
+    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), new Upgrades(), new ShelfPresets())
     gp.unlockFeature('second_floor')
     expect(gp.isFeatureUnlocked('second_floor')).toBe(true)
     expect(gp.isFeatureUnlocked('other')).toBe(false)
@@ -52,7 +53,7 @@ describe('GameProgress', () => {
     const inv = new Inventory()
     const reg = new ItemRegistry(ALL_ITEMS)
     const grid = new FloorGrid({ width: 6, height: 5 }, reg)
-    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), new Upgrades())
+    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), new Upgrades(), new ShelfPresets())
 
     expect(gp.getGridSizeForRevenue(0)).toEqual({ width: 6, height: 5 })
     expect(gp.getGridSizeForRevenue(200000)).toEqual({ width: 9, height: 7 })
@@ -71,7 +72,7 @@ describe('GameProgress', () => {
     const inv = new Inventory()
     const reg = new ItemRegistry(ALL_ITEMS)
     const grid = new FloorGrid({ width: 6, height: 5 }, reg)
-    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), new Upgrades())
+    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), new Upgrades(), new ShelfPresets())
 
     gp.save()
     expect(gp.hasSave()).toBe(true)
@@ -84,6 +85,47 @@ describe('GameProgress', () => {
     expect(gp.hasSave()).toBe(false)
 
     vi.unstubAllGlobals()
+  })
+
+  /** ⚠ 積まないと、ロードのたびに覚えた型が消える（#27） */
+  it('品出しの型がセーブに載り、読み直すと戻る', () => {
+    const store: Record<string, string> = {}
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store[k] ?? null,
+      setItem: (k: string, v: string) => { store[k] = v },
+    })
+    const reg = new ItemRegistry(ALL_ITEMS)
+    const grid = new FloorGrid({ width: 6, height: 5 }, reg)
+    const presets = new ShelfPresets()
+    presets.save(1, [{
+      id: 's1', itemId: 'apple', shape: [[1]], position: { x: 2, y: 3 }, rotation: 2,
+    }], 999)
+
+    new GameProgress(
+      new EconomyManager(), new Inventory(), grid, makeTimeManagerMock(),
+      new WorldState(), new Upgrades(), presets,
+    ).save(0)
+
+    const restored = new ShelfPresets()
+    const loaded = new GameProgress(
+      new EconomyManager(), new Inventory(), grid, makeTimeManagerMock(),
+      new WorldState(), new Upgrades(), restored,
+    ).load(0)
+    restored.restore(loaded!.shelfPresets)
+
+    expect(restored.get(1)?.savedAt).toBe(999)
+    expect(restored.get(1)?.slots).toEqual([
+      { itemId: 'apple', position: { x: 2, y: 3 }, rotation: 2 },
+    ])
+    expect(restored.get(0)).toBeNull()
+    vi.unstubAllGlobals()
+  })
+
+  /** ⚠ 型が入る前のセーブがすでに手元にある。読めなくなってはいけない */
+  it('型の無い古いセーブも読める', () => {
+    const presets = new ShelfPresets()
+    presets.restore(undefined)
+    expect(presets.get(0)).toBeNull()
   })
 
   it('強化の段がセーブに載り、読み直すと戻る（積まないと買った強化が消える）', () => {
@@ -99,10 +141,10 @@ describe('GameProgress', () => {
     const up = new Upgrades()
     up.advance('棚'); up.advance('棚'); up.advance('手際')
 
-    new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), up).save(0)
+    new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), up, new ShelfPresets()).save(0)
 
     const restored = new Upgrades()
-    const loaded = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), restored).load(0)
+    const loaded = new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), restored, new ShelfPresets()).load(0)
     restored.restore(loaded!.upgrades ?? {})
     expect(restored.getStage('棚')).toBe(2)
     expect(restored.getStage('手際')).toBe(1)

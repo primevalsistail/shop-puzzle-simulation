@@ -12,6 +12,7 @@ import { ALL_ITEMS } from '../../taxonomy/items.js'
 import { ALL_RECIPES } from '../../taxonomy/recipes.js'
 import { DAYS_PER_PORT } from '../../taxonomy/islands.js'
 import type { TimeManager } from '../core/TimeManager.js'
+import { ShelfPresets } from '../floor/ShelfPresets.js'
 
 /**
  * ⚠ ここで確かめている「作れる／作れない」は、**クラフトメニューに並ぶかどうか**である。
@@ -141,7 +142,7 @@ describe('RecipeUnlocks — セーブ', () => {
 
   const progressWith = (inv: Inventory) => new GameProgress(
     new EconomyManager(), inv, new FloorGrid({ width: 6, height: 5 }, registry()),
-    makeTimeManagerMock(), new WorldState(), new Upgrades(),
+    makeTimeManagerMock(), new WorldState(), new Upgrades(), new ShelfPresets(),
   )
 
   it('解禁がセーブに載り、読み直すと戻る（積まないとクラフトメニューが空に戻る）', () => {
