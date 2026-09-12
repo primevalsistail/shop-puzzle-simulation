@@ -214,8 +214,13 @@ export class GameScene extends Phaser.Scene {
     this.inventory.setInitialStock(INITIAL_STOCK)
 
     this.hud.create()
-    this.world.setDay(this.timeManager.getCurrentTime().day)
+    // 器を置いただけでは値が入らない。初期値をここで流し込む
+    const t0 = this.timeManager.getCurrentTime()
+    this.world.setDay(t0.day)
+    this.hud.updateTime(t0.day, t0.hour, t0.minute)
     this.hud.updateLocation(this.world.getLocation())
+    this.hud.updateMoney(this.economy.getMoney())
+    this.hud.updateRevenue(this.economy.getTotalRevenue(), false)
     this.inventoryPanel.onSelect(id => {
       // 1つの品は棚に1区画まで。**掴んだ時点で知らせる**（どこへ持って行っても置けないため）
       if (this.placementManager.isDisplayed(id)) {

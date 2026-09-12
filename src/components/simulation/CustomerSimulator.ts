@@ -4,16 +4,26 @@ import type { EvaluationResult, Modifiers } from '../../taxonomy/evaluate.js'
 import { finalModifiers } from '../../taxonomy/evaluate.js'
 import { luxuryTurnover } from '../../taxonomy/derive.js'
 
-/** 1分あたりに客が来る確率（店全体の集客がこれに掛かる） */
-const CUSTOMER_ARRIVAL_RATE = 0.3
+/**
+ * 1分あたりに客が来る確率（店全体の集客と、来客の強化がこれに掛かる）。
+ *
+ * 営業600分なので **1日およそ90人**。
+ * ⚠ **ここを下げて売れ行きを絞らないこと。**客の数が減ると店が閑散として見える。
+ *   絞るのは下の `BASE_PURCHASE_PROB`（1人が買うかどうか）で行う。
+ */
+export const CUSTOMER_ARRIVAL_RATE = 0.15
 
 /**
  * 足を止めた客が買う素の確率。**贅沢さの回転率がこれに掛かる。**
  *
  * ⚠ **品ごとに手書きの確率を持たせない。**回転率は `贅沢さ` が担う唯一の軸で、
  *   日用1.0 ／ 上等0.7 ／ 贅沢0.45。品側に数値を置くと、なぜ速く捌けるのかが読めなくなる。
+ *
+ * ⚠ **売れ行きはここで絞る。**開始の3品×15個が **4日ほどもつ**水準
+ *   （1日およそ11個）。ここを上げると開始在庫が半日で尽き、
+ *   「買って並べる」の判断が起きないまま空になる。
  */
-const BASE_PURCHASE_PROB = 0.4
+export const BASE_PURCHASE_PROB = 0.06
 
 const NEUTRAL: Modifiers = { 売れやすさ: 1, 値段: 1, 集客: 1 }
 

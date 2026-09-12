@@ -19,6 +19,10 @@ export class HUD {
 
   constructor(private scene: Phaser.Scene) {}
 
+  /**
+   * ⚠ **作ったあとに `updateMoney` / `updateTime` / `updateLocation` を必ず呼ぶこと。**
+   *   ここは器を置くだけで、値は持っていない。呼ばないと所持金が ¥0 のまま出る。
+   */
   create(): void {
     const { width } = this.scene.scale
     this.panelX = width - PW / 2 - 8

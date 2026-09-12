@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { CustomerSimulator } from './CustomerSimulator.js'
+import { CustomerSimulator, CUSTOMER_ARRIVAL_RATE, BASE_PURCHASE_PROB } from './CustomerSimulator.js'
 import { ItemRegistry } from '../items/ItemRegistry.js'
 import { ALL_ITEMS } from '../../taxonomy/items.js'
 import { ALL_RECIPES } from '../../taxonomy/recipes.js'
@@ -27,10 +27,9 @@ function evaluation(
   }
 }
 
-/** 1回目の乱数＝来店判定、2回目以降＝品ごとの購入判定 */
+/** 1回目の乱数＝来店判定、2回目以降＝品ごとの購入判定。どちらも必ず通る値 */
 function arriveThenBuy(): () => number {
-  let n = 0
-  return () => (++n === 1 ? 0.1 : 0.01)
+  return () => 0
 }
 
 describe('CustomerSimulator', () => {
@@ -71,26 +70,30 @@ describe('CustomerSimulator', () => {
 
   it('売れやすさは店全体ぶんも掛かる', () => {
     const slot = makeSlot('s1', 'snap_pea', 5)
-    // さやえんどうは 上等 ＝ 回転率0.7 → 素の確率は 0.4×0.7 = 0.28
+    // さやえんどうは 上等 ＝ 回転率 0.7。素の購入確率は BASE × 0.7
+    const bare = BASE_PURCHASE_PROB * 0.7
     const rngAt = (p: number) => {
       let n = 0
-      return () => (++n === 1 ? 0.1 : p)
+      return () => (++n === 1 ? 0 : p)   // 1回目は必ず来店させる
     }
-    expect(sim.simulateMinute([slot], evaluation(), rngAt(0.3))).toHaveLength(0)
+    // 素のままでは届かないが、売れやすさ 1.5 × 1.5 = 2.25倍 なら届く値を突く
+    const between = bare * 1.5
+    expect(sim.simulateMinute([slot], evaluation(), rngAt(between))).toHaveLength(0)
     expect(
-      sim.simulateMinute([slot], evaluation({ s1: { 売れやすさ: 1.5 } }, { 売れやすさ: 1.5 }), rngAt(0.3)),
+      sim.simulateMinute([slot], evaluation({ s1: { 売れやすさ: 1.5 } }, { 売れやすさ: 1.5 }), rngAt(between)),
     ).toHaveLength(1)
   })
 
   it('集客は店全体ぶんが来店判定に効く', () => {
     const slot = makeSlot('s1', 'snap_pea', 5)
-    // 来店の素の確率は 0.3。0.35 では客が来ないが、集客が 1.5倍なら 0.45 で来る
+    // 素のままでは来ないが、集客 1.5倍なら来る値を突く
+    const between = CUSTOMER_ARRIVAL_RATE * 1.2
     const rngAt = (p: number) => {
       let n = 0
-      return () => (++n === 1 ? p : 0.01)
+      return () => (++n === 1 ? p : 0)
     }
-    expect(sim.simulateMinute([slot], evaluation(), rngAt(0.35))).toHaveLength(0)
-    expect(sim.simulateMinute([slot], evaluation({}, { 集客: 1.5 }), rngAt(0.35))).toHaveLength(1)
+    expect(sim.simulateMinute([slot], evaluation(), rngAt(between))).toHaveLength(0)
+    expect(sim.simulateMinute([slot], evaluation({}, { 集客: 1.5 }), rngAt(between))).toHaveLength(1)
   })
 
   it('複数スロットが存在する場合も正しく処理する', () => {
