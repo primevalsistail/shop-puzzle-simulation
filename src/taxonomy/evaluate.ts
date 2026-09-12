@@ -306,13 +306,51 @@ export function stockedByIslandMerchant(
   rules: readonly UnlockRule[] = UNLOCK_RULES,
 ): readonly ItemDef[] {
   return items.filter(item => {
-    const ctx = { item, state }
     const isLocal = item.origin === state.現在地   // U3（場所の条件。規則データには無い）
     const isSeaborne = item.origin === 'なし'      // U4（同上）
     if (!isLocal && !isSeaborne) return false
-
-    const passesTierGate = rules.some(r => r.id === 'U1' && evalCondition(r.condition, ctx))
-    const passesSalesGate = rules.some(r => r.id === 'U2' && evalCondition(r.condition, ctx))
-    return passesTierGate || passesSalesGate
+    return passesStockGates(item, state, rules)
   })
+}
+
+/**
+ * 入荷解禁（U1・U2）を通るか。**場所の条件（U3・U4）は見ない。**
+ *
+ * ⚠ 評価器は `r.id === 'U1'` と**IDで名指し**して拾う（`rules.ts` の注記）。
+ *   規則を足しても、ここに名前を書かないかぎり無視される。
+ */
+export function passesStockGates(
+  item: ItemDef,
+  state: GameState,
+  rules: readonly UnlockRule[] = UNLOCK_RULES,
+): boolean {
+  const ctx = { item, state }
+  const passesTierGate = rules.some(r => r.id === 'U1' && evalCondition(r.condition, ctx))
+  const passesSalesGate = rules.some(r => r.id === 'U2' && evalCondition(r.condition, ctx))
+  return passesTierGate || passesSalesGate
+}
+
+/**
+ * その品が売れたことで、**新しく商人に並ぶようになったか**（#60）。
+ *
+ * 段4-4 で「作れるようになった」は知らせているのに、**買えるようになったほうは静かだった。**
+ *
+ * ⚠ **しきい値（100）をここに書き写さないこと。**それは規則データの中の値で、
+ *   書き写すと**規則を変えたときに知らせだけが古い数のまま**になる。
+ *   だから**売る前と売った後で規則そのものを評価し、通り方が変わったかを見る。**
+ *
+ * ⚠ **覚えるものを足していない。**「前回の品揃え」を持たずに済むのは、
+ *   進む解禁が **U2（その品を一定数売る）ただ1つ**だからである
+ *   （U1 は `tier == 1` で、進まない）。**U1・U2 以外が進むようになったらここを見直す。**
+ */
+export function becameBuyable(
+  item: ItemDef,
+  island: IslandName,
+  soldBefore: number,
+  soldAfter: number,
+  rules: readonly UnlockRule[] = UNLOCK_RULES,
+): boolean {
+  const passesAt = (sold: number): boolean =>
+    passesStockGates(item, { 現在地: island, 累計販売数: new Map([[item.id, sold]]) }, rules)
+  return !passesAt(soldBefore) && passesAt(soldAfter)
 }

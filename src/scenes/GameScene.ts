@@ -31,7 +31,7 @@ import { GameEvents } from '../types/index.js'
 import type { DisplaySlot, GameTime, GridCell, GridSize, Rotation } from '../types/index.js'
 import { ALL_ITEMS } from '../taxonomy/items.js'
 import { ALL_RECIPES } from '../taxonomy/recipes.js'
-import { stockedByIslandMerchant } from '../taxonomy/evaluate.js'
+import { stockedByIslandMerchant, becameBuyable } from '../taxonomy/evaluate.js'
 import { materialNeeds } from '../taxonomy/materials.js'
 
 /** 初期の盤面。**棚の強化で広がる**（`Upgrades.gridSize()`） */
@@ -649,7 +649,7 @@ export class GameScene extends Phaser.Scene {
     })
 
     EventBus.on(GameEvents.FLOOR_SLOT_SOLD, (sale: unknown) => {
-      const s = sale as { slotId: string; revenue: number }
+      const s = sale as { slotId: string; revenue: number; itemId: string; qtySold: number }
       const slot = this.floorGrid.getAllSlots().find(sl => sl.id === s.slotId)
       if (slot) {
         this.floorRenderer.refreshSlot(slot)
@@ -658,6 +658,7 @@ export class GameScene extends Phaser.Scene {
         const item = this.registry_.getItem(slot.itemId)
         this.messageLog.addMessage(`${item.display.name}が売れた！ +¥${s.revenue}`, 'sale')
       }
+      this.checkStockUnlock(s.itemId, s.qtySold)
     })
 
     EventBus.on(GameEvents.CRAFTING_COMPLETED, (payload: unknown) => {
@@ -841,6 +842,27 @@ export class GameScene extends Phaser.Scene {
         'event',
       )
     }
+  }
+
+  /**
+   * 売った数が届いて、**商人に並ぶようになった**か（#60）。
+   *
+   * 段4-4 で「**作れる**ようになった」は知らせているのに、**買えるほうは静かだった。**
+   *
+   * ⚠ **しきい値（100）をここに書き写さない。**それは規則データの中の値なので、
+   *   `becameBuyable` が**売る前と売った後で規則そのものを評価**して比べる。
+   * ⚠ **1品につき生涯1回**しか起きず、売れるのは1分に1件ずつなので、
+   *   系統単位にまとめなくても log は埋まらない（レシピの解禁とはそこが違う）。
+   */
+  private checkStockUnlock(itemId: string, qtySold: number): void {
+    const after = this.world.getSoldCount(itemId)
+    const item = this.registry_.getItem(itemId)
+    if (!becameBuyable(item, this.world.getIsland(), after - qtySold, after)) return
+    // **買えることが得だとは言わない。**買値は売値の7割で、作るほうが取り分は大きい
+    this.messageLog.addMessage(
+      `${item.display.name}が商人の店先に並ぶようになった。作るより高いが、時間はかからない`,
+      'event',
+    )
   }
 
   private onCraftMenuClosed(): void {

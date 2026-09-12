@@ -10,8 +10,10 @@ import { tier, salePrice, purchasePrice } from './derive.js'
 import { ALL_RECIPES } from './recipes.js'
 import {
   adjacentPairs, evaluate, finalModifiers, stockedByIslandMerchant,
+  passesStockGates, becameBuyable,
   type GameState, type Placement,
 } from './evaluate.js'
+import { ROUTE } from './islands.js'
 import { MAX_TIER, SAME_ORIGIN_RULE, shopWideWeight } from './rules.js'
 
 const noSales = new Map<string, number>()
@@ -272,5 +274,68 @@ describe('導出', () => {
     expect(ALL_ITEMS).toHaveLength(135)
     expect(ALL_ITEMS.filter(i => i.basePrice !== undefined)).toHaveLength(50)
     expect(ALL_RECIPES).toHaveLength(85)
+  })
+})
+
+describe('becameBuyable —「買えるようになった」の知らせ（#60）', () => {
+  const crafted = ALL_ITEMS.find(i => tier(i.id) >= 2)!
+  const material = ALL_ITEMS.find(i => tier(i.id) === 1)!
+
+  it('しきい値をまたいだ瞬間だけ true', () => {
+    expect(becameBuyable(crafted, 'ハルヴェラ', 99, 100)).toBe(true)
+  })
+
+  it('またぐ前は false', () => {
+    expect(becameBuyable(crafted, 'ハルヴェラ', 90, 99)).toBe(false)
+  })
+
+  /** ⚠ 生涯1回。毎回流れると log が埋まる */
+  it('またいだあとは何度売っても false', () => {
+    expect(becameBuyable(crafted, 'ハルヴェラ', 100, 130)).toBe(false)
+    expect(becameBuyable(crafted, 'ハルヴェラ', 500, 600)).toBe(false)
+  })
+
+  it('一気にまたいでも true', () => {
+    expect(becameBuyable(crafted, 'ハルヴェラ', 0, 250)).toBe(true)
+  })
+
+  /** 素材は最初から並んでいる（U1）ので、解禁という出来事が起きない */
+  it('素材では起きない', () => {
+    expect(becameBuyable(material, 'ハルヴェラ', 0, 1000)).toBe(false)
+  })
+
+  it('どの島でも同じ（U2 は現在地を読まない）', () => {
+    for (const island of ROUTE) {
+      expect(becameBuyable(crafted, island, 99, 100)).toBe(true)
+    }
+  })
+})
+
+/**
+ * ⚠ **知らせが島に依存しないことの根拠。**
+ *   加工品に島の産地が付くと、その島の外では並ばないのに
+ *   「並ぶようになった」と知らせてしまう。
+ */
+describe('tier2以上の産地', () => {
+  it('すべて「なし」（どの島でも並ぶ）', () => {
+    const withIsland = ALL_ITEMS.filter(i => tier(i.id) >= 2 && i.origin !== 'なし')
+    expect(withIsland.map(i => i.display.name)).toEqual([])
+  })
+})
+
+describe('passesStockGates — 場所の条件を見ない', () => {
+  const material = ALL_ITEMS.find(i => tier(i.id) === 1)!
+  const crafted = ALL_ITEMS.find(i => tier(i.id) >= 2)!
+
+  it('素材は現在地に関わらず通る（U1）', () => {
+    for (const island of ROUTE) expect(passesStockGates(material, at(island))).toBe(true)
+  })
+
+  it('売っていない加工品は通らない（U2 の手前）', () => {
+    expect(passesStockGates(crafted, at('ミフユリア'))).toBe(false)
+  })
+
+  it('売った数が届けば通る', () => {
+    expect(passesStockGates(crafted, at('ミフユリア', new Map([[crafted.id, 100]])))).toBe(true)
   })
 })
