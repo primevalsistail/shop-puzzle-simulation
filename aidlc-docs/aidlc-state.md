@@ -24,6 +24,10 @@
 **PO 判断が3件たまっている** → [questions-58-places.md](sessions/questions-58-places.md) Q3〜Q5。
 **既定を入れて進めてあるので、止まってはいない。**
 
+⚠ **束F の出力に対する指摘が #68 で来ている**（PO 起票）。
+**「画面に表示される情報が多すぎる & 足りない」** —— 名指しされた4つのうち**3つは束F で足したもの。**
+**束K（画面の読みやすさと情報量）で、#56・#10 と一緒に見る。**
+
 ⚠ **着手前に issue 本文と現状の差を洗うこと。**束F では**3件（#55・#23・#60）の本文が
 古い前提で書かれていた**うえ、**#55 は2件のうち1件が既に実装済み**だった。
 
@@ -44,7 +48,7 @@
 ### リポジトリの状態（2026-09-12）
 
 **321テスト全件パス** ／ `tsc --noEmit` ／ `npm run build` 成功。
-OPEN issue **34件**（束の割り当ては [issue-grouping.md](inception/plans/issue-grouping.md)）。
+OPEN issue **40件**（束の割り当ては [issue-grouping.md](inception/plans/issue-grouping.md)）。
 
 ### 進捗
 
