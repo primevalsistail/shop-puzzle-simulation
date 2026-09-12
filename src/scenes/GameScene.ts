@@ -27,7 +27,7 @@ import { MessageLog } from '../ui/MessageLog.js'
 import { installDebugTools } from '../debug/DebugTools.js'
 import { EventBus } from '../services/EventBus.js'
 import { GameEvents } from '../types/index.js'
-import type { DisplaySlot, GameTime, GridCell, Rotation } from '../types/index.js'
+import type { DisplaySlot, GameTime, GridCell, GridSize, Rotation } from '../types/index.js'
 import { ALL_ITEMS } from '../taxonomy/items.js'
 import { ALL_RECIPES } from '../taxonomy/recipes.js'
 import { stockedByIslandMerchant } from '../taxonomy/evaluate.js'
@@ -76,6 +76,8 @@ export class GameScene extends Phaser.Scene {
   private messageLog!: MessageLog
 
   private speedLabel!: Phaser.GameObjects.Text
+  /** グリッドの下地。棚を広げたら一緒に広げる */
+  private gridBackdrop!: Phaser.GameObjects.Rectangle
   private advanceBtnBg!: Phaser.GameObjects.Rectangle
   private advanceBtnLabel!: Phaser.GameObjects.Text
   private tooltip!: Phaser.GameObjects.Text
@@ -273,16 +275,10 @@ export class GameScene extends Phaser.Scene {
     this.add.rectangle(640, 360, 1280, 720, 0x1a1a2e)
     // 左パネル (x=0〜220, 全高)
     this.add.rectangle(110, 360, 220, 720, 0x16213e)
-    // グリッドエリア下地 (CELL_SIZE は FloorRenderer 定数から自動計算)
-    const gw = INITIAL_GRID.width * CELL_SIZE
-    const gh = INITIAL_GRID.height * CELL_SIZE
-    this.add.rectangle(
-      GRID_ORIGIN_X + gw / 2,
-      GRID_ORIGIN_Y + gh / 2,
-      gw + 10,
-      gh + 4,   // bottom = 5+300+302 = 607 < 610 (メッセージ境界に収める)
-      0x0d2340,
-    )
+    // グリッドエリア下地。⚠ **棚を広げたら `applyShelfSize` で一緒に広げること。**
+    //   ここを固定にすると、広げた部分だけ地の色が違って見える
+    this.gridBackdrop = this.add.rectangle(0, 0, 1, 1, 0x0d2340)
+    this.resizeGridBackdrop(INITIAL_GRID)
     // 右パネル (x=1090〜1280)
     this.add.rectangle(1185, 305, 190, 610, 0x13122a)
       .setStrokeStyle(1, 0x2a2a4a)
@@ -296,6 +292,15 @@ export class GameScene extends Phaser.Scene {
     const divGfx = this.add.graphics()
     divGfx.lineStyle(1, 0x334455, 0.6)
     divGfx.lineBetween(220, 609, 1280, 609)
+  }
+
+  /** グリッドの下地を盤面の大きさに合わせる */
+  private resizeGridBackdrop(size: GridSize): void {
+    const gw = size.width * CELL_SIZE
+    const gh = size.height * CELL_SIZE
+    this.gridBackdrop
+      .setPosition(GRID_ORIGIN_X + gw / 2, GRID_ORIGIN_Y + gh / 2)
+      .setSize(gw + 10, gh + 4)
   }
 
   private setupUI(): void {
@@ -658,6 +663,7 @@ export class GameScene extends Phaser.Scene {
   private applyShelfSize(): void {
     const size = this.upgrades.gridSize()
     this.floorGrid.expandGrid(size)
+    this.resizeGridBackdrop(size)
     this.floorRenderer.drawGrid(size)
     for (const slot of this.floorGrid.getAllSlots()) this.floorRenderer.drawSlot(slot)
     this.updateStatus(`売り場が ${size.width}×${size.height} に広がった`)

@@ -96,8 +96,9 @@ export function installDebugTools(scene: Phaser.Scene, deps: DebugDeps): void {
     })
   }
 
-  // 画面にも出しておく。押せるキーが分からないと使えない
-  scene.add.text(228, 613, '確認用 ' + keys.map(k => `${k.key}:${k.label}`).join('  '), {
+  // 画面にも出しておく。押せるキーが分からないと使えない。
+  // ⚠ メッセージログ（y=610〜）にかからない位置に置くこと
+  scene.add.text(228, 598, '確認用 ' + keys.map(k => `${k.key}:${k.label}`).join('  '), {
     fontSize: '10px', color: '#667788',
-  }).setDepth(50)
+  }).setOrigin(0, 1).setDepth(50)
 }

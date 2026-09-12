@@ -8,7 +8,7 @@ const PH = 126  // panel height（#44 の場所表示ぶん 108 から広げた�
 
 export class HUD {
   private timeText!: Phaser.GameObjects.Text
-  private dayText!: Phaser.GameObjects.Text
+  private phaseText!: Phaser.GameObjects.Text
   private placeText!: Phaser.GameObjects.Text
   private moneyText!: Phaser.GameObjects.Text
   private barBg!: Phaser.GameObjects.Rectangle
@@ -31,9 +31,11 @@ export class HUD {
     this.scene.add.rectangle(px, py, PW, PH, 0x0a0a22, 0.85)
       .setStrokeStyle(1, 0x334477).setDepth(5)
 
-    // Row 1 — Day (left) + Time (right, big)
-    this.dayText = this.scene.add.text(px - PW / 2 + 12, py - 47, 'Day 1', {
-      fontSize: '13px', color: '#7788aa',
+    // Row 1 — 区分（左・小）＋ 時刻（右・大）
+    // ⚠ **この行に長い文字を足さないこと。**時刻が 26px で右寄せなので、
+    //   左の文字と重なる（幅は 174px しかない）
+    this.phaseText = this.scene.add.text(px - PW / 2 + 10, py - 47, 'D1 作業', {
+      fontSize: '12px', color: '#7788aa',
     }).setOrigin(0, 0.5).setDepth(5)
 
     this.timeText = this.scene.add.text(px + PW / 2 - 12, py - 47, '06:00', {
@@ -104,8 +106,8 @@ export class HUD {
   updateTime(day: number, hour: number, minute: number): void {
     const h = String(hour).padStart(2, '0')
     const m = String(minute).padStart(2, '0')
-    // 区分を併記する（#25）。客が来るのは 10:00-20:00 の「営業」だけ
-    this.timeText.setText(`${h}:${m}  ${phaseOf(hour)}`)
-    this.dayText.setText(`Day ${day}`)
+    this.timeText.setText(`${h}:${m}`)
+    // 客が来るのは 10:00-20:00 の「営業」だけ（#25）
+    this.phaseText.setText(`D${day} ${phaseOf(hour)}`)
   }
 }
