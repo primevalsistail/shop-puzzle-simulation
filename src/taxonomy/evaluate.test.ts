@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { ALL_ITEMS } from './items.js'
-import { tier, salePrice, purchasePrice, ingredientCost } from './derive.js'
+import { tier, salePrice, purchasePrice } from './derive.js'
 import { ALL_RECIPES } from './recipes.js'
 import {
   adjacentPairs, evaluate, finalModifiers, stockedByIslandMerchant,
@@ -177,12 +177,17 @@ describe('入荷解禁（解禁 U1・U2 ／ 場所 U3・U4）', () => {
     expect(ids).toContain('fur_lined_coat')
   })
 
-  it('U2 の成立条件(a) — 買う方が高い（作れば安く、買えば高い）', () => {
+  it('U2 — 出来上がりを買うより、材料を買って作るほうが安く済む', () => {
+    // ⚠ 2026-09-12 に検査の中身を変えた。以前は「買値 > 売値（買うと必ず損）」を見ていたが、
+    //   その規則は廃止した。いまの土台は「**買値は全品同じ率**」で、そこから
+    //   「材料を買って作る < 出来上がりを買う」が自動的に出る。
+    //   U2 の「時間を金で買う」は、**損をすることではなく、割高なことで表される。**
     for (const recipe of ALL_RECIPES) {
-      const perUnitCost = ingredientCost(recipe) / recipe.outputQuantity
+      const buyMaterials = recipe.ingredients
+        .reduce((sum, g) => sum + purchasePrice(g.itemId) * g.quantity, 0) / recipe.outputQuantity
       expect(purchasePrice(recipe.outputItemId),
-        `${recipe.outputItemId}: 仕入れ ${purchasePrice(recipe.outputItemId)} vs 材料費 ${perUnitCost}`,
-      ).toBeGreaterThan(perUnitCost)
+        `${recipe.outputItemId}: 出来上がりを買う ${purchasePrice(recipe.outputItemId)} vs 材料を買う ${buyMaterials.toFixed(0)}`,
+      ).toBeGreaterThan(buyMaterials)
     }
   })
 })

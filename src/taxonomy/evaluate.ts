@@ -253,8 +253,23 @@ export function evaluate(
   for (const p of placements) {
     perSlot.set(p.slotId, perSlotAcc.get(p.slotId)?.resolve() ?? NEUTRAL)
   }
-  return { perSlot, shopWide: shopAcc.resolve(), firedRules: fired }
+  const shopWide = shopAcc.resolve()
+  return {
+    perSlot,
+    shopWide: { ...shopWide, 集客: Math.min(shopWide.集客, SHOP_ATTRACTION_CAP) },
+    firedRules: fired,
+  }
 }
+
+/**
+ * 店全体の集客の上限。
+ *
+ * ⚠ 上限が無いと、R5（同じ島の産）を狙って敷き詰めたときに **7.6倍以上**まで伸び、
+ *   `来店率 × 集客 × 来客頻度` が 1.0 で頭打ちになって
+ *   **買った来客頻度の強化が無価値**になる。実測の到達上限（13×10 で 6.9〜7.8）より
+ *   上に置いてあるので、**いまの並べ方の価値は1つも削らない。**
+ */
+export const SHOP_ATTRACTION_CAP = 8.0
 
 /** 区画の最終倍率 ＝ その品の倍率 × 店全体の倍率 */
 export function finalModifiers(result: EvaluationResult, slotId: string): Modifiers {

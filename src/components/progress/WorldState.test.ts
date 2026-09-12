@@ -9,7 +9,7 @@ describe('WorldState', () => {
     expect(new WorldState().getIsland()).toBe('ハルヴェラ')
   })
 
-  describe('巡回（#2 / #4）— 寄港10日 ＋ 航海1日 = 11日で1島', () => {
+  describe('巡回（#2）— 寄港10日で次の島へ。航海日は無い', () => {
     const at = (day: number) => {
       const w = new WorldState()
       w.setDay(day)
@@ -21,70 +21,34 @@ describe('WorldState', () => {
       expect(at(10)).toMatchObject({ island: 'ハルヴェラ', atSea: false, daysLeftAtPort: 1 })
     })
 
-    it('Day11 は航海日。出港した島を現在地のまま持ち、次はリナツィア', () => {
-      expect(at(11)).toMatchObject({
-        island: 'ハルヴェラ', atSea: true, next: 'リナツィア', daysLeftAtPort: 0,
-      })
+    it('Day11 にはもうリナツィアにいる（航海日を挟まない）', () => {
+      expect(at(11)).toMatchObject({ island: 'リナツィア', atSea: false, daysLeftAtPort: 10 })
     })
 
-    it('Day12 にリナツィアへ着く', () => {
-      expect(at(12)).toMatchObject({ island: 'リナツィア', atSea: false, daysLeftAtPort: 10 })
+    it('Day21 ノアキータ、Day31 ミフユリア', () => {
+      expect(at(21).island).toBe('ノアキータ')
+      expect(at(31).island).toBe('ミフユリア')
     })
 
-    it('Day23 にノアキータ、Day34 にミフユリア', () => {
-      expect(at(23).island).toBe('ノアキータ')
-      expect(at(34).island).toBe('ミフユリア')
+    it('4島を回ると先頭へ戻る。**1周は40日**', () => {
+      expect(at(41).island).toBe('ハルヴェラ')
+      // 200日 = 20回の寄港・5周
+      expect(at(200).island).toBe('ミフユリア')
     })
 
-    it('4島を回ると先頭へ戻る（順序固定・スキップ不可）', () => {
-      expect(at(45).island).toBe('ハルヴェラ')
-    })
-
-    it('航海日は11日ごとに1日だけ', () => {
-      const seaDays = []
-      for (let d = 1; d <= 44; d++) if (at(d).atSea) seaDays.push(d)
-      expect(seaDays).toEqual([11, 22, 33, 44])
-    })
-
-    it('isAtSea は航海日だけ true（この日は店を開けない）', () => {
+    it('航海日は存在しない（isAtSea は常に false）', () => {
       const w = new WorldState()
-      w.setDay(10); expect(w.isAtSea()).toBe(false)
-      w.setDay(11); expect(w.isAtSea()).toBe(true)
-      w.setDay(12); expect(w.isAtSea()).toBe(false)
+      for (const d of [1, 10, 11, 20, 21, 40, 41, 200]) {
+        w.setDay(d)
+        expect(w.isAtSea()).toBe(false)
+      }
     })
 
     it('島が変われば規則が読む現在地も変わる', () => {
       const w = new WorldState()
       w.setDay(1);  expect(w.getState().現在地).toBe('ハルヴェラ')
-      w.setDay(12); expect(w.getState().現在地).toBe('リナツィア')
+      w.setDay(11); expect(w.getState().現在地).toBe('リナツィア')
     })
-
-    it('仕入れに並ぶ品は島ごとに違う（需要表4行が全部効く前提）', () => {
-      const w = new WorldState()
-      w.setDay(1)
-      const halvera = stockedByIslandMerchant(ALL_ITEMS, w.getState()).map(i => i.id)
-      w.setDay(12)
-      const linazia = stockedByIslandMerchant(ALL_ITEMS, w.getState()).map(i => i.id)
-      expect(halvera).not.toEqual(linazia)
-      // 旬を持たない品（産地なし）はどちらでも並ぶ
-      expect(halvera.filter(id => linazia.includes(id)).length).toBeGreaterThan(0)
-    })
-  })
-
-  it('累計販売数を積める（U2 の解禁条件が読む）', () => {
-    const w = new WorldState()
-    expect(w.getSoldCount('snap_pea')).toBe(0)
-    w.recordSale('snap_pea', 3)
-    w.recordSale('snap_pea')
-    expect(w.getSoldCount('snap_pea')).toBe(4)
-  })
-
-  it('保存して読み直すと累計販売数が戻る', () => {
-    const w = new WorldState()
-    w.recordSale('snap_pea', 7)
-    const restored = new WorldState()
-    restored.restore(w.toRecord())
-    expect(restored.getSoldCount('snap_pea')).toBe(7)
   })
 
   describe('仕入れに並ぶ品', () => {

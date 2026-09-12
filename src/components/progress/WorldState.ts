@@ -4,19 +4,25 @@ import { ROUTE, DAYS_PER_PORT } from '../../taxonomy/islands.js'
 import type { ItemId } from '../../taxonomy/axes.js'
 
 /**
- * 航海に使う日数（#4 / 束B Q1）。**寄港10日 ＋ 航海1日 = 11日で1島。**
+ * 航海に使う日数。**0 ＝ 航海日は無い**（2026-09-12）。
  *
- * ⚠ `world.md` の「10日ごとに移る」は**寄港している長さ**を指すと読む。
- *   航海日は寄港日の外側にあり、`DAYS_PER_PORT` の意味は変わっていない。
+ * ⚠ 以前は1日置いていた（#4）。**廃止した理由は2つ**:
+ *   - **長いレシピの居場所にならなかった。**実測で、手際を2段上げると
+ *     「航海日にしか入らないレシピ」は0本になり、その間も作られるのは tier2 だけだった
+ *   - **判断の無い日だった。**このゲームは「毎日どこに投じるか決める」のが骨格で、
+ *     航海日は進めるボタンを押すだけの日になっていた
+ *
+ * これで周期は10日・4島一周は40日になり、`world.md` の「10日ごとに移る」と素直に一致する。
+ * **200日 ＝ 20回の寄港・5周。**
  */
-export const DAYS_AT_SEA = 1
+export const DAYS_AT_SEA = 0
 
 /** 1島ぶんの周期（寄港＋航海） */
 export const DAYS_PER_CYCLE = DAYS_PER_PORT + DAYS_AT_SEA
 
 export interface Location {
-  /** 寄港中はその島。**航海中は出港した島**（まだ着いていないので次の島ではない） */
   readonly island: IslandName
+  /** 航海日は廃止したので常に false。呼び出し側を壊さないために残している */
   readonly atSea: boolean
   /** 次の寄港地 */
   readonly next: IslandName

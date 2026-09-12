@@ -9,7 +9,15 @@ import type { DisplaySlot } from '../types/index.js'
 import type { Placement } from '../taxonomy/evaluate.js'
 import { evaluate } from '../taxonomy/evaluate.js'
 
-const GOAL_AMOUNT = 1_000_000
+/**
+ * クリアの基準。**所持金**がこれに届いたら達成（#26）。
+ *
+ * ⚠ 以前は 100万で、しかも `getTotalRevenue()`（累計売上）と比べていた。
+ *   #26 で「所持金100万」と決めたのに実装が追いついておらず、額も 2026-09-12 に 1000万へ上げた。
+ *   **所持金基準だから、強化に払った金は目標から遠ざかる** ——
+ *   「いま強化を買うか、目標まで我慢するか」という判断はここから生まれる。
+ */
+const GOAL_AMOUNT = 10_000_000
 
 export class GameService {
   private isEndlessMode = false
@@ -47,8 +55,8 @@ export class GameService {
       EventBus.emit(GameEvents.FLOOR_SLOT_SOLD, sale)
     }
 
-    if (!this.isEndlessMode && this.economy.getTotalRevenue() >= GOAL_AMOUNT) {
-      EventBus.emit(GameEvents.PROGRESS_GOAL_COMPLETE, this.economy.getTotalRevenue())
+    if (!this.isEndlessMode && this.economy.getMoney() >= GOAL_AMOUNT) {
+      EventBus.emit(GameEvents.PROGRESS_GOAL_COMPLETE, this.economy.getMoney())
     }
 
     if (this.economy.getMoney() <= 0 && !this.isEndlessMode) {

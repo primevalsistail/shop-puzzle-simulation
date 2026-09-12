@@ -18,6 +18,16 @@ const BASE_PURCHASE_PROB = 0.4
 
 const NEUTRAL: Modifiers = { 売れやすさ: 1, 値段: 1, 集客: 1 }
 
+/** Fisher-Yates。渡された乱数をそのまま使うのでテストから固定できる */
+function shuffle<T>(items: T[], rng: () => number): T[] {
+  const a = [...items]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
 export class CustomerSimulator {
   constructor(private registry: ItemRegistry) {}
 
@@ -38,7 +48,10 @@ export class CustomerSimulator {
     if (rng() > CUSTOMER_ARRIVAL_RATE * evaluation.shopWide.集客) return []
 
     const results: SaleResult[] = []
-    const activeSlots = slots.filter(s => s.quantity > 0)
+    // ⚠ **巡回順をランダムにする。**`getAllSlots()` の順は `Map` の挿入順＝**置いた順**で、
+    //   プレイヤーには見えない。1人が買う数に上限を入れると、この見えない順序が
+    //   売れ行きを決めてしまう。売れ行きを決めるのは**配置の工夫**であるべき。
+    const activeSlots = shuffle(slots.filter(s => s.quantity > 0), rng)
 
     for (const slot of activeSlots) {
       const own = evaluation.perSlot.get(slot.id) ?? NEUTRAL

@@ -20,8 +20,25 @@ describe('ItemRegistry', () => {
     expect(reg.salePriceOf('buckwheat_flour')).toBeGreaterThan(reg.salePriceOf('buckwheat'))
   })
 
-  it('仕入れ値は素の売値より高い（買う方が高い＝時間を金で買う）', () => {
-    expect(reg.purchasePriceOf('buckwheat_flour')).toBeGreaterThan(reg.salePriceOf('buckwheat_flour'))
+  it('買値は全品が売値より安い（買ってそのまま売れば薄利で成立する）', () => {
+    // ⚠ 2026-09-12 に反転させた。以前は加工品だけ「買値 > 売値」で、買うと必ず損だった。
+    //    tier1 は転売で儲かるのに tier2以上は損、という符号の非対称が説明できなかった
+    for (const id of ['snap_pea', 'buckwheat_flour', 'buckwheat_bread']) {
+      expect(reg.purchasePriceOf(id)).toBeLessThan(reg.salePriceOf(id))
+    }
+  })
+
+  it('材料を買って作るほうが、買って転売するより儲かる（全72レシピ）', () => {
+    // これがこのゲームの土台。**全品同じ買値率にするだけで自動的に成立する**:
+    //   作る利益 − 転売利益 ＝ 加工利益 × 買値率 … 常に正
+    for (const recipe of reg.getAllRecipes()) {
+      const id = recipe.outputItemId
+      const resale = reg.salePriceOf(id) - reg.purchasePriceOf(id)
+      const materialCost = recipe.ingredients
+        .reduce((sum, g) => sum + reg.purchasePriceOf(g.itemId) * g.quantity, 0) / recipe.outputQuantity
+      const craft = reg.salePriceOf(id) - materialCost
+      expect(craft).toBeGreaterThan(resale)
+    }
   })
 
   it('配置の倍率は加工利益にだけ乗る（材料費には乗らない）', () => {

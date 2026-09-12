@@ -189,7 +189,14 @@ export function finalPrice(
 ): number {
   const item = lookup(itemId)
   const recipe = recipesByOutput.get(itemId)
-  if (!recipe) return Math.round(salePrice(itemId, recipesByOutput, lookup) * priceModifier)
+  // tier1 も「倍率は粗利にだけ乗る」に揃える（2026-09-12）。
+  // ⚠ 以前は売値全体に乗せていたため、値段の強化が**生売りだけを不当に強くしていた**
+  //   （実測: 倍率2倍のとき 加工品2.0倍に対し生売り3.1倍）。
+  if (!recipe) {
+    const sale = salePrice(itemId, recipesByOutput, lookup)
+    const cost = sale * PURCHASE_RATE
+    return Math.round(cost + (sale - cost) * priceModifier)
+  }
 
   const ingredientTotal = recipe.ingredients.reduce(
     (sum, ing) => sum + salePrice(ing.itemId, recipesByOutput, lookup) * ing.quantity,
@@ -212,38 +219,56 @@ export function ingredientCost(
 }
 
 /**
- * 仕入れ値。
+ * 仕入れ値。**全品同じ率**（`買値 = 売値 × PURCHASE_RATE`）。
  *
- * U2 の成立条件 (a)「**買う方が高い**」— 作れば安く、買えば高い（時間を金で買う）。
+ * ## なぜ全品同じ率でよいのか
+ *
+ * これだけで「**買ってそのまま売っても薄利で成立。ただし材料を買って作るほうが儲かる**」が
+ * 自動的に成立する。式で1行:
  *
  * ```
- * 買値 = 材料費 + 加工利益 × 割増
+ * 作る利益 − 転売利益 ＝ 加工利益 × 買値率     … 買値率が正である限り常に正
  * ```
  *
- * ⚠ **割増は加工利益にだけ掛かる。材料費には掛からない**（売値と同じ扱い）。
- *   旧式は `材料費 × 加工倍率 × 1.25` で**材料費に比例**していたため、
- *   「余分に払う金 ÷ 節約できる時間」が **144倍**散っていた（issue #36）。
- *   買っているのは時間なのに、対価が材料費で決まっていた。
+ * 実測で **72本すべてが「作る > 転売」**。例外条件も、tier ごとの場合分けも要らない。
  *
- * ⚠ **買った品は、素で売ると必ず損をする**（買値 > 売値）。
- *   **配置の効き目が割増を超えたときだけ得になる。**
- *   つまり「買う」は**時間を金で買い、配置で回収する**選択になる。
+ * さらに**連鎖を1段深くするごとに、その段の「加工利益 × 買値率」が上乗せされる**ので、
+ * **深く作るほど取り分が増える** —— 深さの報酬がここから出る
+ * （蕎麦粉のパン: 転売 +50 ／ 材料を買って作る +106 ／ 材料も自分で作る **+124**）。
+ *
+ * ## ⚠ Cycle 4 の設計を意図的に反転させている（2026-09-12）
+ *
+ * 以前は `買値 = 材料費 + 加工利益 × 1.25` で、**加工品は買うと必ず損**だった。
+ * 狙いは「全部買えるとクラフトループが痩せる」ことの防止
+ * （`cycle4-phase1-axes.md` の成立条件 (b)）。
+ *
+ * **その心配は「作るほうが取り分が大きい」という形で担保されるので、
+ * 「買うと損」という保険は要らなくなった。**
+ * 逆に、tier1 だけ転売で儲かり tier2以上は損、という**符号の非対称**が説明できなかった。
+ *
+ * ## 率を高めに置く理由（薄利にする）
+ *
+ * **薄利にするほど「どこで売るか」が効く。**売値S・需要1.3倍の島で売ったときの、仕入れに対する利益率:
+ *
+ * | 買値 | 普通の島 | 需要1.3倍の島 | 差 |
+ * |---|---|---|---|
+ * | 0.5S | 100% | 160% | 1.6倍 |
+ * | **0.7S** | **43%** | **86%** | **2.0倍** |
+ *
+ * そして上の式のとおり、**率を上げるほど「作る」の優位も大きくなる**（優位 ＝ 加工利益 × 率）。
+ *
+ * ⚠ **品ごとに散らさない。**散らすと「何を買うか」と「どこで売るか」の2つの理由が混ざって
+ *   読めなくなる。**差は需要表（islands.ts）に持たせる。**
  */
-const TIER1_PURCHASE_RATE = 0.5
-const CRAFTED_PURCHASE_MARKUP = 1.25
+/** 全品共通。**tier による場合分けは無い** */
+export const PURCHASE_RATE = 0.7
 
 export function purchasePrice(
   itemId: ItemId,
   recipesByOutput: ReadonlyMap<string, RecipeDef> = RECIPES_BY_OUTPUT,
   lookup: (id: ItemId) => ItemDef = getItem,
 ): number {
-  const recipe = recipesByOutput.get(itemId)
-  if (!recipe) {
-    return Math.round(salePrice(itemId, recipesByOutput, lookup) * TIER1_PURCHASE_RATE)
-  }
-  const item = lookup(itemId)
-  const perUnitCost = ingredientCost(recipe, recipesByOutput, lookup) / recipe.outputQuantity
-  return Math.round(perUnitCost + craftProfit(recipe, item) * CRAFTED_PURCHASE_MARKUP)
+  return Math.round(salePrice(itemId, recipesByOutput, lookup) * PURCHASE_RATE)
 }
 
 // ─── レシピ由来の導出（INV-3: 型に持たない） ─────────────

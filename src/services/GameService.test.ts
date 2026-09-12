@@ -96,7 +96,7 @@ describe('GameService', () => {
     const listener = vi.fn()
     EventBus.on(GameEvents.PROGRESS_GOAL_COMPLETE, listener)
 
-    // ちょうど1品売れば届くところまで積む（売値は導出値なので、数字を直書きしない）
+    // ⚠ 判定は**所持金**（#26）。ちょうど1品売れば届くところまで積む
     eco.addRevenue(gs.getGoalAmount() - reg.salePriceOf('snap_pea'))
     pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 10)
 
@@ -141,8 +141,8 @@ describe('GameService', () => {
     expect(world.getSoldCount('snap_pea')).toBe(1)
   })
 
-  it('getGoalAmountは100万を返す', () => {
+  it('getGoalAmountは1000万を返す', () => {
     const { gs } = setup()
-    expect(gs.getGoalAmount()).toBe(1_000_000)
+    expect(gs.getGoalAmount()).toBe(10_000_000)
   })
 })
