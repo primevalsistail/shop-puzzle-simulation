@@ -6,7 +6,7 @@ import {
   UPCOMING_FONT_PX, upcomingLabel, PRESET_TEXT_FONT_PX, PRESET_SUB_FONT_PX,
   PRESET_COLS, PRESET_GAP_X, PRESET_CELL_W, PRESET_TEXT_L_OFFSET, PRESET_TEXT_W,
   PRESET_NAME_INPUT_W, PRESET_NAME_INPUT_H,
-  CRAFT_TEXT_MAX_W, CRAFT_ROUTE_FONT_PX,
+  CRAFT_TEXT_MAX_W, CRAFT_ROUTE_FONT_PX, craftTimeLabel,
   LEFT_PANEL_R, STRIP_L, STRIP_W, RIGHT_PANEL_L, LOG_T,
   PLACE_L, PLACE_R, PLACE_T, PLACE_B, PLACE_W, PLACE_H, PLACE_CX, PLACE_CY,
   CONTENT_L, CONTENT_R,
@@ -335,6 +335,26 @@ describe('金額の文字が枠に収まる', () => {
   it('3ルートの行が、7桁でも `…` に切られない', () => {
     const line = '転売+1,234,567レン → 作る+2,345,678レン → 材料も作る+3,456,789レン（計14064分）'
     expect(estTextWidth(line, CRAFT_ROUTE_FONT_PX)).toBeLessThanOrEqual(CRAFT_TEXT_MAX_W)
+  })
+
+  /**
+   * 1行目の「完成品×個数(在庫)　所要分（営業分）」（#53）。
+   *
+   * ⚠ **`…` で切れると、払う額が消える行である。**営業◯分こそが加工の値段なので、
+   *   ここが落ちると #53 で足した意味そのものが無くなる。
+   */
+  it('所要分に「営業◯分」を足しても、1行目が `…` に切られない', () => {
+    // 最悪値 — いちばん長い品名 × 4桁の個数・在庫 × 5桁の分数
+    const longest = [...ALL_ITEMS].sort(
+      (a, b) => b.display.name.length - a.display.name.length)[0].display.name
+    const line = `${longest}×9999(999)　${craftTimeLabel(14064, 9999)}`
+    expect(estTextWidth(line, 14)).toBeLessThanOrEqual(CRAFT_TEXT_MAX_W)
+  })
+
+  it('営業を削らないときは「（営業0分）」を足さない（削る行だけが目立つように）', () => {
+    expect(craftTimeLabel(90, 0)).toBe('90分')
+    expect(craftTimeLabel(90, 0)).not.toContain('営業')
+    expect(craftTimeLabel(90, 30)).toContain('営業30分')
   })
 })
 

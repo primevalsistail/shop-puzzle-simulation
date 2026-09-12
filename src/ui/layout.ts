@@ -359,6 +359,28 @@ export const CRAFT_TEXT_MAX_W = CRAFT_CONTROLS_L - CONTENT_L - 22
  */
 export const CRAFT_ROUTE_FONT_PX = 12
 
+/**
+ * 加工が**何分かかり、そのうち何分が営業時間か**を1行にする（#53）。
+ *
+ * ⚠ **「所要分」だけでは値段が見えない。**加工中は `TimeManager.skipMinutes` が
+ *   `TIME_MINUTE_PASSED` を出さないので**客が1人も来ない**。つまり営業時間に
+ *   食い込んだ分はそのまま売上が消える（実測: 営業600分のうち240分を加工に使うと
+ *   その日の売上は 41.7% 減）。**払っているのに画面に出ていなかったのがこれ。**
+ *
+ * ⚠ **`recipe.durationMinutes` を渡さないこと。**あれは手際を掛ける前の素の値で、
+ *   `CraftingSystem.minutesFor` とは**初期手際 S=10 の時点ですでに食い違う**
+ *   （tier3 以上は2倍。最悪は `recipe_feast_hamper` の 240分 → 実際728分）。
+ *
+ * ⚠ **営業0分のときは何も足さない。**夜と朝に作るのが「削らない作り方」で、
+ *   そこに毎回`（営業0分）`と出ると、**削っている行だけが目立つ形にならない。**
+ * ⚠ **ここに置いてあるのは、幅を測るため**（`upcomingLabel` と同じ理由）。
+ *   ⚠ **言い回しは PO の領分（#79）。**仮置き。
+ */
+export function craftTimeLabel(minutes: number, businessMinutes: number): string {
+  if (businessMinutes <= 0) return `${minutes}分`
+  return `${minutes}分（営業${businessMinutes}分）`
+}
+
 // ─── 納品の帯（#28） ──────────────────────────────────
 /**
  * いま受けている注文を**1行**で出す帯。**盤面の下端とメッセージ欄の上端のあいだ。**

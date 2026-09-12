@@ -108,6 +108,36 @@ export class TimeManager {
   }
 
   /**
+   * いまから `minutes` 分進めたとき、**そのうち何分が営業時間か**（#53）。
+   *
+   * ⚠ **これが加工の本当の値段である。**`skipMinutes` は `TIME_MINUTE_PASSED` を
+   *   出さないので、ここで数えた分だけ**客が1人も来ない**（実測: 営業600分のうち
+   *   240分を加工に使うと、その日の売上は 41.7% 減った）。
+   *
+   * ⚠ **`minutesUntilEndOfDay` と混ぜないこと。**あちらは「24:00 に間に合うか」で、
+   *   **朝6:00 なら 1080分も残っているが、その中に営業600分がまるごと入っている。**
+   *   「今日のうちに終わる」と「営業時間を削らずに終わる」は別物で、
+   *   **朝に無料で作れるのは 239分まで**（240分目は 10:00 ちょうどに着き、もう営業）。
+   *
+   * ⚠ **数え方を `tick()` に合わせる。**`tick()` は「1分進めてから `isOpen()` を見る」
+   *   順なので、ここも進めてから数える。ずらすと境界の1分だけ答えが食い違う。
+   */
+  openMinutesWithin(minutes: number): number {
+    let { hour, minute } = this.time
+    let open = 0
+    for (let i = 0; i < minutes; i++) {
+      minute++
+      if (minute >= MINUTES_PER_HOUR) {
+        minute = 0
+        hour++
+      }
+      if (hour >= HOURS_PER_DAY) hour = WAKE_HOUR
+      if (phaseOf(hour) === '営業') open++
+    }
+    return open
+  }
+
+  /**
    * 時計を n 分だけ**飛ばす**（#25 Q2 = B）。
    *
    * ⚠ **`TIME_MINUTE_PASSED` を出さない。**この間は客が来ない、というのがこの関数の意味。

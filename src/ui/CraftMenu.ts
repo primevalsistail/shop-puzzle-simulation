@@ -15,7 +15,7 @@ import { CONTENT_DEPTH } from './PlaceFrame.js'
 import {
   PLACE_CX, CONTENT_L, CONTENT_R,
   FILTER_Y_NO_SUBTITLE as FILTER_Y, ROWS_TOP_NO_SUBTITLE as ROWS_TOP, PAGER_Y, rowsThatFit,
-  CRAFT_CONTROLS_L, CRAFT_TEXT_MAX_W, CRAFT_ROUTE_FONT_PX, LOG_T,
+  CRAFT_CONTROLS_L, CRAFT_TEXT_MAX_W, CRAFT_ROUTE_FONT_PX, LOG_T, craftTimeLabel,
 } from './layout.js'
 
 const ROW_H = 84
@@ -400,9 +400,14 @@ export class CraftMenu {
     // 数の欄は、読める値のときだけ書き換える（編集中に数字が踊らないように）
     if (times !== null) {
       const out = this.registry.getItem(recipe.outputItemId)
+      // ⚠ **`recipe.durationMinutes` を出さないこと**（#53）。あれは手際を掛ける前の素の値で、
+      //   **初期手際 S=10 の時点ですでに tier3 以上は実際の半分**を表示していた。
+      //   時間が値段である以上、ここがずれると**払う額を間違えて見せている**ことになる。
+      const minutes = this.craftingSystem.minutesFor(recipe.id) * times
+      const business = this.craftingSystem.businessMinutesFor(recipe.id, times)
       this.setText(row.outText,
         `${out.display.name}×${recipe.outputQuantity * times}(${this.inventory.getQuantity(out.id)})`
-        + `　${recipe.durationMinutes * times}分`)
+        + `　${craftTimeLabel(minutes, business)}`)
       // ⚠ **ここで手に入らない材料にだけ産地を付ける**（#33）。
       //   全部に付けると行が溢れるうえ、**答えたいのは「ここで手に入るか」**である。
       //   産地が `なし` の品はどの島でも買えるので付けない

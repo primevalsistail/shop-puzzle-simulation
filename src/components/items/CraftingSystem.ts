@@ -33,6 +33,15 @@ export interface CraftResult {
   times: number
   /** 実際に手に入る個数（`outputQuantity × times`） */
   quantity: number
+  /**
+   * 実際にかかった分数（**手際で縮んだあと**）。
+   *
+   * ⚠ **`recipe.durationMinutes × times` を使い直さないこと**（#53）。
+   *   あれは手際を掛ける前の素の値で、**手際 S=10 の時点ですでに tier3 以上は2倍ずれる。**
+   */
+  minutes: number
+  /** そのうち営業時間だった分数。**この分だけ客が来なかった** */
+  businessMinutes: number
 }
 
 interface ActiveCraftJob {
@@ -105,6 +114,28 @@ export class CraftingSystem {
   }
 
   /**
+   * いま着手したら**営業時間を何分削るか**（#53）。
+   *
+   * ⚠ **`fitsInToday` と同じものではない。**あちらは 24:00 に間に合うかだけを見る。
+   *   **朝6:00 は 1080分まで通すが、その中に営業600分がまるごと入っている。**
+   *   実測: 営業600分のうち 240分を加工に使うと、その日の売上は 41.7% 減る。
+   */
+  businessMinutesFor(recipeId: string, times = 1): number {
+    return this.timeManager.openMinutesWithin(this.minutesFor(recipeId) * times)
+  }
+
+  /**
+   * 営業時間を**1分も削らずに**終わるか。
+   *
+   * ⚠ **着手の可否ではない**（#53）。売上を削ってでも作るのはプレイヤーが選べる
+   *   ——「深さを取るか、今日の広さを取るか」がこの選択そのものなので、**禁じない。**
+   *   ここは `canCraft` に混ぜず、**見せるためだけに使う。**
+   */
+  fitsBeforeOpen(recipeId: string, times = 1): boolean {
+    return this.businessMinutesFor(recipeId, times) === 0
+  }
+
+  /**
    * いま何回まで繰り返せるか。**材料・在庫の空き・当日の残り時間のいちばん小さいもの。**
    * 0 なら着手できない（材料不足か、在庫がいっぱいか、今日はもう時間が足りない）。
    *
@@ -145,13 +176,17 @@ export class CraftingSystem {
     }
 
     const quantity = recipe.outputQuantity * times
-    EventBus.emit(GameEvents.CRAFTING_STARTED, { recipeId, times, quantity })
+    // ⚠ **飛ばす前に数える**（#53）。飛ばしたあとでは、削った営業時間はもう分からない
+    const minutes = this.minutesFor(recipeId) * times
+    const businessMinutes = this.timeManager.openMinutesWithin(minutes)
+    const result: CraftResult = { recipeId, times, quantity, minutes, businessMinutes }
+    EventBus.emit(GameEvents.CRAFTING_STARTED, result)
 
     // ゲーム内時間を消費する。この間は客が来ない（＝店が閉まる）
-    this.timeManager.skipMinutes(this.minutesFor(recipeId) * times)
+    this.timeManager.skipMinutes(minutes)
 
     this.inventory.add(recipe.outputItemId, quantity)
-    EventBus.emit(GameEvents.CRAFTING_COMPLETED, { recipeId, times, quantity })
+    EventBus.emit(GameEvents.CRAFTING_COMPLETED, result)
     return true
   }
 

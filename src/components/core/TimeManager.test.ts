@@ -178,3 +178,70 @@ describe('節目の合図（速さを上げても判断の瞬間を通り過ぎ�
     expect(day).toBe(2)
   })
 })
+
+/**
+ * 加工が営業時間を何分削るか（#53）。
+ *
+ * ⚠ **issue #53 の本文は「加工が営業時間を食わないのでコストになっていない」と
+ *   書いていたが、実測は逆だった。**`skipMinutes` が `TIME_MINUTE_PASSED` を
+ *   出さないので、加工中は客が来ない ——コストは**すでに**払っている。
+ *   足りなかったのは、**払っている額が画面に出ていないこと**のほう。
+ */
+describe('openMinutesWithin —— 加工が削る営業時間', () => {
+  let tm: TimeManager
+
+  beforeEach(() => {
+    EventBus.removeAllListeners()
+    tm = new TimeManager()
+  })
+
+  it('作業帯に収まるあいだは0分（夜20:00 から240分は削らない）', () => {
+    tm.setTime({ day: 1, hour: 20, minute: 0 })
+    expect(tm.openMinutesWithin(240)).toBe(0)
+  })
+
+  it('⚠ 朝6:00 は「24:00 まで1080分」あるが、その中に営業600分がまるごと入っている', () => {
+    tm.setTime({ day: 1, hour: 6, minute: 0 })
+    // fitsInToday はこの1080分を丸ごと通す。「今日のうちに終わる」と
+    // 「営業時間を削らずに終わる」が別物である、というのがこの数字
+    expect(tm.minutesUntilEndOfDay()).toBe(1080)
+    // ⚠ **無料枠は 240分ではなく 239分。**240分目は 10:00 ちょうどに着き、
+    //   その1分はもう営業（tick と同じ数え方）。夜20:00 側は 24:00→6:00 へ飛ぶので 240分
+    expect(tm.openMinutesWithin(239)).toBe(0)
+    expect(tm.openMinutesWithin(240)).toBe(1)
+    expect(tm.openMinutesWithin(1080)).toBe(600) // 営業日をまるごと潰す
+  })
+
+  it('営業中に始めれば1分目から削る', () => {
+    tm.setTime({ day: 1, hour: 15, minute: 0 })
+    expect(tm.openMinutesWithin(1)).toBe(1)
+    expect(tm.openMinutesWithin(60)).toBe(60)
+  })
+
+  it('⚠ 数え方が tick と揃っている（1分進めてから営業かを見る）', () => {
+    // 9:59 → 10:00 の1分は「客が回る分」。tick は進めてから isOpen() を見るので、
+    // ここも同じ順で数える。ずらすと境界の1分だけ答えが食い違う
+    tm.setTime({ day: 1, hour: 9, minute: 59 })
+    expect(tm.openMinutesWithin(1)).toBe(1)
+    // 19:59 → 20:00 は閉店側。営業には数えない
+    tm.setTime({ day: 1, hour: 19, minute: 59 })
+    expect(tm.openMinutesWithin(1)).toBe(0)
+  })
+
+  it('実測と一致する —— 10:00 から600分で営業599分（睡眠を跨ぐと翌日ぶんも数える）', () => {
+    tm.setTime({ day: 1, hour: 10, minute: 0 })
+    expect(tm.openMinutesWithin(600)).toBe(599) // 10:01〜19:59
+    // 24:00 は 6:00 へ飛ぶので、長い加工は翌日の営業まで食い込む
+    tm.setTime({ day: 1, hour: 23, minute: 0 })
+    // 23:00 +60分 で 24:00 → 6:00 へ飛ぶ。そこから240分で翌朝10:00 ちょうど
+    expect(tm.openMinutesWithin(60 + 239)).toBe(0)
+    expect(tm.openMinutesWithin(60 + 240)).toBe(1)      // 10:00 に着いた1分は営業
+    expect(tm.openMinutesWithin(60 + 240 + 29)).toBe(30)
+  })
+
+  it('0分と負の分は0（ガード）', () => {
+    tm.setTime({ day: 1, hour: 15, minute: 0 })
+    expect(tm.openMinutesWithin(0)).toBe(0)
+    expect(tm.openMinutesWithin(-5)).toBe(0)
+  })
+})
