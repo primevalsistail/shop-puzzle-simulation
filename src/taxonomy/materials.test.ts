@@ -123,3 +123,34 @@ describe('実データ（135品 / 85レシピ）', () => {
     }
   })
 })
+
+/**
+ * ⚠ **85本中59本が `outputQuantity` 2個以上。**
+ *   割らずに数えると、要る素材を段ごとに最大4倍に見積もる。
+ */
+describe('1回で複数できるレシピ', () => {
+  const BATCH: RecipeDef[] = [
+    {
+      id: 'r_dough2', display: { name: '生地' }, outputItemId: 'dough', outputQuantity: 2,
+      ingredients: [{ itemId: 'wheat', quantity: 2 }], durationMinutes: 10,
+    },
+    {
+      id: 'r_bread2', display: { name: 'パン' }, outputItemId: 'bread', outputQuantity: 1,
+      ingredients: [{ itemId: 'dough', quantity: 3 }], durationMinutes: 20,
+    },
+  ]
+
+  it('1個あたりで割る（生地1個 = 小麦1）', () => {
+    expect(expandToMaterials('dough', BATCH).get('wheat')).toBe(1)
+  })
+
+  it('親も割ったぶんで積む（パン1個 = 生地3 = 小麦3）', () => {
+    expect(expandToMaterials('bread', BATCH).get('wheat')).toBe(3)
+  })
+
+  it('materialNeeds は1回ぶん（出来高）に戻す', () => {
+    const needs = materialNeeds(BATCH)
+    // 生地の1回 = 小麦2 ／ パンの1回 = 小麦3 → 合計5
+    expect(needs.get('wheat')?.quantity).toBe(5)
+  })
+})

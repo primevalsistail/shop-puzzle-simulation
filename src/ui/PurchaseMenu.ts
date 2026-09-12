@@ -107,19 +107,29 @@ export class PurchaseMenu {
   }
 
   /**
-   * その品が**この島でしか買えない素材**で、かつ作れる品に要るなら、その要り具合。
+   * その品が、作れる品の材料になっているか（#23）。
    *
-   * ⚠ **産地が `なし` の品は対象外。**どの島でも買えるので、切らしても取り返せる。
+   * **これが「買って売るだけではない」の印**になる。品数が増えると、
+   * どれが材料でどれが売り物か分からなくなるので、仕入れの行で言う。
    */
   private needOf(mat: ItemDef): MaterialNeed | null {
-    if (mat.origin !== this.islandName) return null
     return this.needs.get(mat.id) ?? null
   }
 
-  /** 商人が並べているもののうち、要るのに手持ちが0の素材の種類数 */
+  /**
+   * **この島でしか買えない**品か（#33）。
+   *
+   * ⚠ **産地が `なし` の品は違う。**どの島でも買えるので、切らしても取り返せる。
+   *   急ぐ必要があるのはこの島の産だけ。
+   */
+  private isLocalOnly(mat: ItemDef): boolean {
+    return mat.origin === this.islandName
+  }
+
+  /** 商人が並べているもののうち、この島でしか買えず、要るのに手持ちが0の種類数 */
   private shortMaterialCount(): number {
     return this.materials.filter(
-      m => this.needOf(m) !== null && this.inventory.getQuantity(m.id) === 0,
+      m => this.isLocalOnly(m) && this.needOf(m) !== null && this.inventory.getQuantity(m.id) === 0,
     ).length
   }
 
@@ -247,14 +257,16 @@ export class PurchaseMenu {
       }).setOrigin(0, 0.5),
     )
 
-    // **この島でしか買えない素材**なら、作れる品の何本に要るかを出す（#33）。
+    // 作れる品の材料になっているなら、その本数を出す（#23）。
+    // **この島でしか買えない**うえ切らしているなら、急ぐ理由として強く出す（#33）。
     // ⚠ **必要数は出さない。**誰も「1回ずつ」は作らないので嘘になる
     const need = this.needOf(mat)
     if (need) {
+      const urgent = this.isLocalOnly(mat) && stock === 0
       objs.push(
         this.scene.add.text(NEED_R, y,
-          stock === 0 ? `⚠ 切らしている（${need.recipes}品に要る）` : `${need.recipes}品に要る`, {
-          fontSize: '12px', color: stock === 0 ? '#ffaa66' : '#8899aa',
+          urgent ? `⚠ 切らしている（${need.recipes}品に要る）` : `${need.recipes}品に要る`, {
+          fontSize: '12px', color: urgent ? '#ffaa66' : '#8899aa',
         }).setOrigin(1, 0.5),
       )
     }

@@ -6,6 +6,7 @@ import type { RecipeUnlocks } from '../components/progress/RecipeUnlocks.js'
 import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
 import { SearchBox } from './SearchBox.js'
 import type { IslandName } from '../taxonomy/islands.js'
+import { routeValues } from '../taxonomy/routes.js'
 import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
 import {
@@ -276,10 +277,10 @@ export class CraftMenu {
         .setStrokeStyle(focused ? 2 : 1, focused ? 0xffdd88 : 0x555555),
     )
 
-    // 左は3段 — 完成品／材料／合計時間。数は括弧が在庫
+    // 左は3段 — 完成品と時間／材料／**儲け方の3ルート**（#23）。数は括弧が在庫
     const outText = this.text(CONTENT_L, cy - 24, '', 14, '#ffffff')
     const ingText = this.text(CONTENT_L, cy - 2, '', 11, '#aaaaaa')
-    const timeText = this.text(CONTENT_L, cy + 22, '', 12, '#88ccff')
+    const timeText = this.text(CONTENT_L, cy + 22, '', 12, '#aaddaa')
     const reason = this.scene.add.text(CONTROLS_L - 10, cy + 22, '', {
       fontSize: '11px', color: '#dd8888',
     }).setOrigin(1, 0.5)
@@ -430,7 +431,9 @@ export class CraftMenu {
     // 数の欄は、読める値のときだけ書き換える（編集中に数字が踊らないように）
     if (times !== null) {
       const out = this.registry.getItem(recipe.outputItemId)
-      this.setText(row.outText, `${out.display.name}×${recipe.outputQuantity * times}(${this.inventory.getQuantity(out.id)})`)
+      this.setText(row.outText,
+        `${out.display.name}×${recipe.outputQuantity * times}(${this.inventory.getQuantity(out.id)})`
+        + `　${recipe.durationMinutes * times}分`)
       // ⚠ **ここで手に入らない材料にだけ産地を付ける**（#33）。
       //   全部に付けると行が溢れるうえ、**答えたいのは「ここで手に入るか」**である。
       //   産地が `なし` の品はどの島でも買えるので付けない
@@ -443,7 +446,7 @@ export class CraftMenu {
           return `${item.display.name}×${ing.quantity * times}(${this.inventory.getQuantity(ing.itemId)})${at}`
         })
         .join('  '))
-      this.setText(row.timeText, `${recipe.durationMinutes * times}分`)
+      this.setText(row.timeText, this.routeLabel(recipe, times))
     }
 
     const reason = this.reasonFor(row, times)
@@ -456,6 +459,21 @@ export class CraftMenu {
     } else {
       row.craftBg.disableInteractive()
     }
+  }
+
+  /**
+   * 儲け方の3ルートを金額で1行にする（#23）。
+   *
+   * **設計としては3ルート成立しているのに、遊んでいる側に見えていない**のが #23。
+   * ⚠ **目安であることを忘れないこと。**実際の売上は配置の効き目・島の需要・強化で変わる。
+   * ⚠ **③ は時間も一緒に出す。**取り分だけ見せると「材料も作る」がただ得に見える。
+   */
+  private routeLabel(recipe: RecipeDef, times: number): string {
+    const v = routeValues(recipe, this.unlocks.unlockedRecipes(), this.islandOf())
+    const yen = (n: number) => `${n >= 0 ? '+' : '−'}¥${Math.abs(n * times).toLocaleString()}`
+    const base = `転売${yen(v.resell)} → 作る${yen(v.craft)}`
+    if (!v.hasDeeper) return base
+    return `${base} → 材料も作る${yen(v.deepCraft)}（計${v.deepMinutes * times}分）`
   }
 
   /** 作れない理由。作れるなら空文字 */

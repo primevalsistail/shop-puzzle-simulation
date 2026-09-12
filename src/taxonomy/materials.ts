@@ -14,23 +14,29 @@ export interface MaterialNeed {
   /** その素材を（間接にでも）要するレシピの本数。**画面に出すのはこれ** */
   readonly recipes: number
   /**
-   * 渡したレシピを**1回ずつ**作るのに要る数。
+   * 渡したレシピを**1回ずつ**作るのに要る数（出来高 `outputQuantity` 個ぶん）。
    *
    * ⚠ **画面に出さないこと。**誰も1回ずつは作らないので、
-   *   「必要数」として出すと嘘になる（実測で綿 214個・稲わら 150個）。
-   *   issue #33 の「最適解を教えない」にも反する。測るとき用に持っているだけ。
+   *   「必要数」として出すと嘘になる（実測で綿 94.8個・稲わら 47.3個）。
+   *   issue #33 の「最適解を教えない」にも反する。**費用の計算と測定のためだけ**に持つ。
+   * ⚠ **端数が出る**（1回で2個できるレシピを3個ぶん使う、など）。整数と思って表示しない。
    */
   readonly quantity: number
 }
 
 /**
- * その品を**素材まで**展開する。
+ * その品**1個**を作るのに要る素材を出す。
  *
  * ⚠ **展開に使うのは「作れるレシピ」だけ。**作り方を知らない品は**買うしかない**ので、
  *   そこで止めて「要るもの」に数える。**これが実際の不足と一致する。**
  *   全レシピで展開すると、知らない品まで「作れば済む」ことになって不足が消える。
  *
- * 戻り値は「素材 → 要る数」。
+ * ⚠ **1回の加工は `outputQuantity` 個できる**（85本中59本が2個以上）。
+ *   割らずに数えると**要る素材を最大4倍に見積もる。**
+ *   端数は丸めない —— 3個要るのに1回で2個できるなら、**材料は1.5回ぶん**として扱う。
+ *   （実際には2回まわして1個余るが、**余りは次に使える**ので、費用としては1.5回ぶんが正しい）
+ *
+ * 戻り値は「素材 → 1個あたりに要る数」。
  */
 export function expandToMaterials(
   itemId: ItemId,
@@ -54,9 +60,11 @@ function expand(
 
   const next = new Set(onPath).add(itemId)
   const out = new Map<ItemId, number>()
+  // ⚠ **1回で `outputQuantity` 個できる。**割らないと段ごとに最大4倍に膨らむ
+  const perUnit = recipe.outputQuantity > 0 ? recipe.outputQuantity : 1
   for (const ing of recipe.ingredients) {
     for (const [id, n] of expand(ing.itemId, byOutput, next)) {
-      out.set(id, (out.get(id) ?? 0) + n * ing.quantity)
+      out.set(id, (out.get(id) ?? 0) + (n * ing.quantity) / perUnit)
     }
   }
   return out
@@ -75,9 +83,11 @@ export function materialNeeds(recipes: readonly RecipeDef[]): Map<ItemId, Materi
   const recipeCount = new Map<ItemId, number>()
   const quantity = new Map<ItemId, number>()
   for (const r of recipes) {
+    // `expand` は1個あたりなので、1回ぶんに戻す
+    const perRun = r.outputQuantity > 0 ? r.outputQuantity : 1
     for (const [id, n] of expand(r.outputItemId, byOutput, new Set())) {
       recipeCount.set(id, (recipeCount.get(id) ?? 0) + 1)
-      quantity.set(id, (quantity.get(id) ?? 0) + n)
+      quantity.set(id, (quantity.get(id) ?? 0) + n * perRun)
     }
   }
 
@@ -86,4 +96,34 @@ export function materialNeeds(recipes: readonly RecipeDef[]): Map<ItemId, Materi
     out.set(id, { recipes: recipesNeeding, quantity: quantity.get(id) ?? 0 })
   }
   return out
+}
+
+/**
+ * その品**1個**を作るのに要る合計時間（分）。**材料を自分で作る時間も足す。**
+ *
+ * ⚠ **深く作るほど取り分が増えるが、時間も増える。**取り分だけ見せると、
+ *   「材料も自分で作る」が**ただ得な選択に見えてしまう。**#23 はこの2つを並べて出す。
+ *
+ * 作れない品（買うしかない品）は 0 分。
+ */
+export function craftMinutes(itemId: ItemId, recipes: readonly RecipeDef[]): number {
+  const byOutput = new Map<ItemId, RecipeDef>()
+  for (const r of recipes) byOutput.set(r.outputItemId, r)
+  return minutesOf(itemId, byOutput, new Set())
+}
+
+function minutesOf(
+  itemId: ItemId,
+  byOutput: Map<ItemId, RecipeDef>,
+  onPath: Set<ItemId>,
+): number {
+  const recipe = byOutput.get(itemId)
+  if (!recipe || onPath.has(itemId)) return 0
+
+  const next = new Set(onPath).add(itemId)
+  let total = recipe.durationMinutes
+  for (const ing of recipe.ingredients) {
+    total += minutesOf(ing.itemId, byOutput, next) * ing.quantity
+  }
+  return total / (recipe.outputQuantity > 0 ? recipe.outputQuantity : 1)
 }
