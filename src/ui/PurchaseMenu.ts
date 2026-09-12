@@ -107,6 +107,24 @@ export class PurchaseMenu {
   }
 
   /**
+   * 見出しの下の知らせ。
+   *
+   * ⚠ **「切れていない」の理由は2つある。**
+   *   「**揃っている**」と「**まだ作れるものが無いので、要る素材が決まっていない**」。
+   *   これを一緒にすると、序盤に**何も知らないまま「揃っている」と言われる。**
+   *   （`CraftMenu` が 0件の理由を書き分けているのと同じ話。#48）
+   */
+  private summary(short: number, days: number): string {
+    if (short > 0) {
+      return `⚠ この島でしか買えない素材が ${short}種 切れている（次に戻るのは${days}日後）`
+    }
+    if (this.needs.size === 0) {
+      return `まだ作れるものが無い（この島を次に訪れるのは${days}日後）`
+    }
+    return `この島でしか買えない素材は揃っている（次に戻るのは${days}日後）`
+  }
+
+  /**
    * その品が、作れる品の材料になっているか（#23）。
    *
    * **これが「買って売るだけではない」の印**になる。品数が増えると、
@@ -161,10 +179,7 @@ export class PurchaseMenu {
       // ⚠ **何個買うべきかは言わない**（#33「最適解を教えない」）。
       //   言うのは「切れている」ことと「次は何日後か」だけ。
       // ⚠ **右そろえにすること。**所持金は7桁まで伸びるので、中央に置くと重なる
-      this.scene.add.text(CONTENT_R, SUBTITLE_Y,
-        short > 0
-          ? `⚠ この島でしか買えない素材が ${short}種 切れている（次に戻るのは${days}日後）`
-          : `この島でしか買えない素材は揃っている（次に戻るのは${days}日後）`, {
+      this.scene.add.text(CONTENT_R, SUBTITLE_Y, this.summary(short, days), {
         fontSize: '13px', color: short > 0 ? '#ffaa66' : '#778899',
       }).setOrigin(1, 0.5),
     )
@@ -188,6 +203,20 @@ export class PurchaseMenu {
     this.paging.slice(materials).forEach((mat, i) => {
       this.buildRow(mat, ROWS_TOP + ROW_H / 2 + i * ROW_H, objs)
     })
+
+    // ⚠ **0件のまま何も言わないと、画面がまっさらで不具合に見える。**
+    //   理由は「絞り込んだ結果」と「そもそも並んでいない」の2つある（`CraftMenu` と同じ扱い。#48）
+    if (total === 0) {
+      const filtered = this.paging.hasQuery() || this.paging.hasFilter()
+      objs.push(
+        this.scene.add.text(PLACE_CX, ROWS_TOP + 60,
+          filtered
+            ? `${this.islandName}島の商人に、当てはまる品はありません`
+            : `${this.islandName}島の商人は、いま何も並べていません`, {
+          fontSize: '14px', color: '#889999',
+        }).setOrigin(0.5),
+      )
+    }
 
     this.buildPager(total, objs)
 
