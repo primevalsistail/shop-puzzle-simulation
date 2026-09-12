@@ -181,10 +181,13 @@ export class GameScene extends Phaser.Scene {
     this.presetMenu = new PresetMenu(
       this,
       this.shelfPresets,
+      this.registry_,
       this.placeFrame,
+      () => this.floorGrid.getGridSize(),
       () => this.floorGrid.getAllSlots().length,
       index => this.savePreset(index),
       index => this.applyPreset(index),
+      index => this.deletePreset(index),
       () => this.updateStatus(),
     )
 
@@ -938,10 +941,16 @@ export class GameScene extends Phaser.Scene {
     this.shelfPresets.save(index, slots)
     this.presetMenu.refresh()
     this.updateStatus(
-      slots.length === 0
-        ? `型${index + 1}に「全部下ろす」を覚えた`
-        : `型${index + 1}に、いまの${slots.length}区画を覚えた`,
+      slots.length === 0 ? '「全部下ろす」を型に覚えた' : `いまの${slots.length}区画を型に覚えた`,
     )
+  }
+
+  /** 覚えた型を消す（#27） */
+  private deletePreset(index: number): void {
+    if (!this.shelfPresets.get(index)) return
+    this.shelfPresets.clear(index)
+    this.presetMenu.refresh()
+    this.updateStatus('型を1つ消した')
   }
 
   /**
@@ -970,8 +979,8 @@ export class GameScene extends Phaser.Scene {
     this.refreshInventoryPanel()
     this.updateStatus(
       dropped === 0
-        ? `型${index + 1}を呼び出した（${placed}区画）`
-        : `型${index + 1}を呼び出した（${placed}区画。${dropped}区画は盤面に入らず外した）`,
+        ? `型を呼び出した（${placed}区画）`
+        : `型を呼び出した（${placed}区画。${dropped}区画は盤面に入らず外した）`,
     )
   }
 

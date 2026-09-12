@@ -110,14 +110,26 @@ describe('rowsThatFit — 行数は高さから出す', () => {
  *   型を選ぶのに送らせたくないので、**数を増やしたら行が縮む。**
  *   縮みすぎて読めなくなったら、ページ送りに切り替える合図。
  */
-describe('品出しの型が1画面に入る', () => {
-  it('行の高さが 36px を下回らない', () => {
-    const rowH = Math.floor((ROWS_BOTTOM - ROWS_TOP) / PRESET_COUNT)
-    expect(rowH).toBeGreaterThanOrEqual(36)
+describe('品出しの型が1画面に入る（2列 × 5行）', () => {
+  const COLS = 2
+  const rows = PRESET_COUNT / COLS
+  const cellH = Math.floor((ROWS_BOTTOM - ROWS_TOP) / rows)
+  const cellW = Math.floor((CONTENT_R - CONTENT_L - 14 * (COLS - 1)) / COLS)
+
+  it('2で割り切れる本数である（2列に並べるため）', () => {
+    expect(PRESET_COUNT % COLS).toBe(0)
   })
 
-  it('全部の行が一覧の範囲に収まる', () => {
-    const rowH = Math.floor((ROWS_BOTTOM - ROWS_TOP) / PRESET_COUNT)
-    expect(ROWS_TOP + PRESET_COUNT * rowH).toBeLessThanOrEqual(ROWS_BOTTOM)
+  it('升の高さが、縮小図とボタンの2段ぶん（56px）を下回らない', () => {
+    expect(cellH).toBeGreaterThanOrEqual(56)
+  })
+
+  /** 縮小図70 ＋ ボタン3つ（76×3 ＋ 隙間7×2）＋ 余白 */
+  it('升の幅に、縮小図とボタン3つが入る', () => {
+    expect(cellW).toBeGreaterThanOrEqual(10 + 70 + 12 + 76 * 3 + 7 * 2 + 10)
+  })
+
+  it('全部の升が一覧の範囲に収まる', () => {
+    expect(ROWS_TOP + rows * cellH).toBeLessThanOrEqual(ROWS_BOTTOM)
   })
 })
