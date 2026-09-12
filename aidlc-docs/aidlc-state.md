@@ -6,7 +6,7 @@
 - **Tech Stack**: TypeScript + Phaser.js 3 + Vite
 - **Platform**: Webブラウザ
 - **Started**: 2026-07-05T02:00:00Z
-- **Last Updated**: 2026-09-12（**束M 完了 ＋ 段取りを5段階に切り直した**。次の着手先は PO 判断待ち）
+- **Last Updated**: 2026-09-13（**段階1「機能作成」の着手前調査を完了。質問票への回答待ち**）
 
 ## Current Status
 
@@ -31,7 +31,21 @@
 **#73・#76 は #79 より先**（数字が嘘のまま情報を足しても、足した情報も嘘になる）。
 **それ以外は PO が入れ替えてよい。**
 
-**次にどこから入るかは PO 判断待ち。**
+**段階1「機能作成」の着手前調査は完了した**（2026-09-13。サブ3体）。
+⚠ **16件中 7件で、issue 本文が実装に追い越されていた。**すべて issue のコメントに訂正を書き戻した。
+**新設**: **#80**（クリア後の状態がロードで復元されない。⚠ **#7 の前提**）／**#81**（コード内の注記が古い）。
+**main が確定させた技術判断**: **#31 = B（足さない）** ／ **#34 は #9 に畳む**。
+
+⚠ **PO の回答待ち** → [stage1-features-questions.md](sessions/stage1-features-questions.md)
+**調査の全文** → [stage1-features-plan.md](construction/plans/stage1-features-plan.md)
+
+**段階2「世界観」の #15（キャラグラフィック）に先行して着手した**（PO 指示 2026-09-13）。
+⚠ **絵に関する決定はゼロだった** —— 色の指定が一色も無く、**画像アセットも1枚も無い**
+（`BootScene.ts` の `load.*` が0件）。人物像のほうは8人とも確定済み。
+**三面図を基準にし、SD はその後**という段取り。
+⚠ **PO の回答待ち（3問）** → [character-visual-questions.md](sessions/character-visual-questions.md)
+**土台** → [char-visual.md](inception/worldbuilding/char-visual.md)
+／ **計画** → [character-visual-plan.md](construction/plans/character-visual-plan.md)
 
 ### 直近で入ったもの
 
@@ -58,7 +72,7 @@
 ### リポジトリの状態（2026-09-12）
 
 **348テスト全件パス** ／ `tsc --noEmit` ／ `npm run build` 成功。**作業ツリーはきれい。**
-OPEN issue **42件**（段取りは [issue-grouping.md](inception/plans/issue-grouping.md)）。
+OPEN issue **44件**（段取りは [issue-grouping.md](inception/plans/issue-grouping.md)）。
 **直近のコミット**: `4e72d62`（段取り）／ `33a4bda`（工房の帯）／ `f93ca59`（束M 本体）。
 
 **ブラウザで実際に動かして確認済み**（2026-09-12）。⚠ **やり方はこの資料に残す価値がある**:
