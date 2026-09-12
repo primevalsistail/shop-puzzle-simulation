@@ -5,6 +5,7 @@ import type { ItemRegistry, RecipeDef } from '../components/items/ItemRegistry.j
 import type { RecipeUnlocks } from '../components/progress/RecipeUnlocks.js'
 import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
 import { SearchBox } from './SearchBox.js'
+import { money } from './money.js'
 import { createInput, tryAddDom, setGameKeyboard, readCount } from './domInput.js'
 import type { IslandName } from '../taxonomy/islands.js'
 import { routeValues } from '../taxonomy/routes.js'
@@ -12,7 +13,8 @@ import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
 import {
   PLACE_CX, CONTENT_L, CONTENT_R,
-  SUBTITLE_Y, FILTER_Y, ROWS_TOP, PAGER_Y, rowsThatFit,
+  FILTER_Y, ROWS_TOP, PAGER_Y, rowsThatFit,
+  CRAFT_CONTROLS_L, CRAFT_TEXT_MAX_W, CRAFT_ROUTE_FONT_PX,
 } from './layout.js'
 
 const ROW_H = 84
@@ -29,10 +31,12 @@ const VISIBLE_ROWS = rowsThatFit(ROW_H)
 /**
  * 右側の操作列の左端。ここから右は数量入力とボタンの領域で、文字は入れない
  * （**名前が長くてもボタンに被らない**ようにするため）。
+ *
+ * ⚠ **値は `layout.ts` にある。**3ルートの行が `…` に切れないかをテストが見ている。
  */
-const CONTROLS_L = CONTENT_R - 260
+const CONTROLS_L = CRAFT_CONTROLS_L
 /** 左の文字列に使える幅 */
-const TEXT_MAX_W = CONTROLS_L - CONTENT_L - 22
+const TEXT_MAX_W = CRAFT_TEXT_MAX_W
 
 const INPUT_W = 52
 const INPUT_H = 22
@@ -178,12 +182,6 @@ export class CraftMenu {
     const objs: Phaser.GameObjects.GameObject[] = []
     const shown = this.shown()
 
-    objs.push(
-      this.scene.add.text(CONTENT_L, SUBTITLE_Y, '材料を組み合わせて、深く作るほど取り分が増える', {
-        fontSize: '13px', color: '#8899aa',
-      }).setOrigin(0, 0.5),
-    )
-
     this.buildFilterBar(objs)
     this.paging.slice(shown).forEach((recipe, i) => {
       this.buildRecipeRow(recipe, ROWS_TOP + ROW_H / 2 + i * ROW_H, objs)
@@ -275,7 +273,7 @@ export class CraftMenu {
     // 左は3段 — 完成品と時間／材料／**儲け方の3ルート**（#23）。数は括弧が在庫
     const outText = this.text(CONTENT_L, cy - 24, '', 14, '#ffffff')
     const ingText = this.text(CONTENT_L, cy - 2, '', 11, '#aaaaaa')
-    const timeText = this.text(CONTENT_L, cy + 22, '', 12, '#aaddaa')
+    const timeText = this.text(CONTENT_L, cy + 22, '', CRAFT_ROUTE_FONT_PX, '#aaddaa')
     const reason = this.scene.add.text(CONTROLS_L - 10, cy + 22, '', {
       fontSize: '11px', color: '#dd8888',
     }).setOrigin(1, 0.5)
@@ -426,16 +424,16 @@ export class CraftMenu {
    */
   private routeLabel(recipe: RecipeDef, times: number): string {
     const v = routeValues(recipe, this.unlocks.unlockedRecipes(), this.islandOf())
-    const yen = (n: number) => `${n >= 0 ? '+' : '−'}¥${Math.abs(n * times).toLocaleString()}`
-    const base = `転売${yen(v.resell)} → 作る${yen(v.craft)}`
+    const amount = (n: number) => `${n >= 0 ? '+' : '−'}${money(Math.abs(n * times))}`
+    const base = `転売${amount(v.resell)} → 作る${amount(v.craft)}`
     if (!v.hasDeeper) return base
-    return `${base} → 材料も作る${yen(v.deepCraft)}（計${v.deepMinutes * times}分）`
+    return `${base} → 材料も作る${amount(v.deepCraft)}（計${v.deepMinutes * times}分）`
   }
 
   /** 作れない理由。作れるなら空文字 */
   private reasonFor(row: Row, times: number | null): string {
     if (times === null) {
-      return row.input.value.trim() === '' ? '数量を入れてください' : '1以上の整数を入力'
+      return row.input.value.trim() === '' ? '回数を入れて' : '1以上の整数'
     }
     if (!this.craftingSystem.hasIngredients(row.recipe.id, times)) return '材料が足りない'
     if (!this.craftingSystem.fitsInToday(row.recipe.id, times)) return '今日はもう時間がない'

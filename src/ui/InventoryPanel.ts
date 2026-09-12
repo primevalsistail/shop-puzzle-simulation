@@ -1,9 +1,8 @@
 import Phaser from 'phaser'
 import type { ItemDef, ItemRegistry } from '../components/items/ItemRegistry.js'
 import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
-import { MAX_QUANTITY } from '../components/economy/Inventory.js'
 import { SearchBox } from './SearchBox.js'
-import type { IslandName } from '../taxonomy/islands.js'
+import { money } from './money.js'
 
 const PANEL_X = 20
 const PANEL_WIDTH = 200
@@ -55,7 +54,6 @@ export class InventoryPanel {
    *
    * ⚠ 渡さないと仕入れ画面と**同じ品に別の値段**が出る。`GameScene` が毎回渡す。
    */
-  private storedIsland: IslandName | undefined
   /** ⚠ **`filterObjects` に入れないこと。**打鍵のたびに作り直されてカーソルが飛ぶ（#55） */
   private search: SearchBox
 
@@ -87,20 +85,17 @@ export class InventoryPanel {
     items: ItemDef[],
     inventory: Record<string, number>,
     onShelf: Set<string> = new Set(),
-    island?: IslandName,
   ): void {
     this.storedItems = items
     this.storedInventory = { ...inventory }
     this.storedOnShelf = new Set(onShelf)
-    this.storedIsland = island
     this.redraw()
   }
 
   private countLabel(itemId: string): string {
     const held = this.storedInventory[itemId] ?? 0
-    // 上限に達した品は数の横で言う。**買う画面まで行かないと分からない、にしない**（段4-7）
-    const capped = held >= MAX_QUANTITY ? `${held}個（上限）` : `${held}個`
-    return this.storedOnShelf.has(itemId) ? `${held}個（売り場に出している）` : capped
+    // ⚠ **棚に出しているかは色（`#88bbaa`）で示す。**文字では言わない（束M）
+    return `${held}個`
   }
 
   private redraw(): void {
@@ -233,13 +228,12 @@ export class InventoryPanel {
         fontSize: '11px', color: this.storedOnShelf.has(item.id) ? '#88bbaa' : '#aaaaaa',
       })
       // 値段は持ち物ではなく導出値。表示のたびに出す（ItemRegistry の注記を参照）
-      // 仕入れ値は**いまいる島**のもの。産地の島なら安い（段4-6）
-      const local = this.storedIsland !== undefined && item.origin === this.storedIsland
-      const priceLabel =
-        `売¥${this.registry.salePriceOf(item.id)} / 仕¥${this.registry.purchasePriceOf(item.id, this.storedIsland)}`
-        + (local ? ' 産地' : '')
-      const priceText = this.scene.add.text(PANEL_X + 54, y + 16, priceLabel, {
-        fontSize: '11px', color: local ? '#88bb99' : '#778899',
+      // ⚠ **売値だけ。**仕入れ値と産地は「買う判断」で、棚に出す判断には効かない（束M）。
+      //   ⚠ **産地は色にも残さない。**残すと、同じ行に意味の違う緑が2つ並ぶ
+      //   （数量の緑＝棚に出している）。色で見分けさせるものは1行に1つ
+      const priceText = this.scene.add.text(PANEL_X + 54, y + 16,
+        `売${money(this.registry.salePriceOf(item.id))}`, {
+        fontSize: '11px', color: '#778899',
       })
       this.allObjects.push(nameText, qtyText, priceText)
       this.quantityTexts.set(item.id, qtyText)

@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 import type { SlotMeta } from '../types/index.js'
+import { money } from './money.js'
 
 const SLOT_COUNT = 3
 /**
@@ -129,7 +130,6 @@ export class SaveLoadMenu {
     const dd  = String(d.getDate()).padStart(2, '0')
     const hh  = String(d.getHours()).padStart(2, '0')
     const min = String(d.getMinutes()).padStart(2, '0')
-    const rev = meta.totalRevenue.toLocaleString()
-    return `Day ${meta.day}  ¥${rev}  ${mm}/${dd} ${hh}:${min}`
+    return `Day ${meta.day}  ${money(meta.totalRevenue)}  ${mm}/${dd} ${hh}:${min}`
   }
 }

@@ -87,7 +87,7 @@ export class PresetMenu {
 
     objs.push(
       this.scene.add.text(CONTENT_L, SUBTITLE_Y,
-        `いま棚に出しているのは ${this.currentCount()}区画。島ごと・売り方ごとの並べ替えを覚えておける`, {
+        `いま棚に出しているのは ${this.currentCount()}区画`, {
         fontSize: '13px', color: '#8899aa',
       }).setOrigin(0, 0.5),
     )
@@ -181,8 +181,9 @@ export class PresetMenu {
 
   private describe(preset: { savedAt: number; slots: readonly PresetSlot[] } | null): string {
     if (!preset) return '空'
-    if (preset.slots.length === 0) return `全部下ろす　${formatWhen(preset.savedAt)}`
-    return `${preset.slots.length}区画　${formatWhen(preset.savedAt)}`
+    // ⚠ **現実の時刻は出さない。**「どの型を呼ぶか」の判断に一切効かない（束M・ペルソナ3人）
+    if (preset.slots.length === 0) return '全部下ろす'
+    return `${preset.slots.length}区画`
   }
 
   private button(
@@ -206,14 +207,4 @@ export class PresetMenu {
       }).setOrigin(0.5),
     )
   }
-}
-
-function formatWhen(savedAt: number): string {
-  if (!savedAt) return ''
-  const d = new Date(savedAt)
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mi = String(d.getMinutes()).padStart(2, '0')
-  return `${mm}/${dd} ${hh}:${mi}`
 }

@@ -1,12 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import {
   SCREEN_W, SCREEN_H,
+  HUD_PANEL_W, HUD_MONEY_FONT_PX, estTextWidth,
+  BUY_W, BUY_FONT_PX, BUY_SUFFIX, INFO_MAX_W, INFO_FONT_PX,
+  CRAFT_TEXT_MAX_W, CRAFT_ROUTE_FONT_PX,
   LEFT_PANEL_R, STRIP_L, STRIP_W, RIGHT_PANEL_L, LOG_T,
   PLACE_L, PLACE_R, PLACE_T, PLACE_B, PLACE_W, PLACE_H, PLACE_CX, PLACE_CY,
   CONTENT_L, CONTENT_R,
   TITLE_Y, SUBTITLE_Y, FILTER_Y, ROWS_TOP, PAGER_Y, ROWS_BOTTOM,
   rowsThatFit,
 } from './layout.js'
+import { money } from './money.js'
 import { PRESET_COUNT } from '../components/floor/ShelfPresets.js'
 
 /**
@@ -131,5 +135,95 @@ describe('品出しの型が1画面に入る（2列 × 5行）', () => {
 
   it('全部の升が一覧の範囲に収まる', () => {
     expect(ROWS_TOP + rows * cellH).toBeLessThanOrEqual(ROWS_BOTTOM)
+  })
+})
+
+/**
+ * **`¥` を `レン` にしたぶん、文字が枠から出ていないか**（束M）。
+ *
+ * `¥1234` は半角4文字だったが `1,234レン` は**全角2文字ぶん増える。**
+ * 幅の決まった枠に中央ぞろえで置いているところは、**黙ってはみ出す。**
+ *
+ * ⚠ **ここで見ているのは見積もりであって実測ではない**（`estTextWidth` の注記）。
+ *   落ちたら必ずはみ出しているが、通ってもぎりぎりのことはある。
+ */
+describe('金額の文字が枠に収まる', () => {
+  /**
+   * 見積もりが**実測を下回らない**ことを確かめておく。下回ると、
+   * このファイルの残りの検査が「収まっている」と嘘をつくようになる。
+   * 右の数は Chromium での実測（`Courier` 22px 太字 ／ 13px）。
+   */
+  it('見積もりは実測を下回らない', () => {
+    expect(estTextWidth('10,000,000レン', 22, true)).toBeGreaterThanOrEqual(183.2)
+    expect(estTextWidth('123,456レン で買う', 13)).toBeGreaterThanOrEqual(122.9)
+    expect(estTextWidth('1,234レン/個　在庫 100/999', 11)).toBeGreaterThanOrEqual(150.4)
+    // ⚠ `+` が3つ出る行。`+` を数字と同じ幅で数えると、ここが実測を下回る
+    expect(estTextWidth(
+      '転売+1,234,567レン → 作る+2,345,678レン → 材料も作る+3,456,789レン（計14064分）', 12,
+    )).toBeGreaterThanOrEqual(514.9)
+  })
+
+  /**
+   * ⚠ **1000万は実際に到達する額。**クリア条件が所持金 1000万（`GameService`）なので、
+   *   **目標に届いた瞬間にはみ出す**という壊れ方をする。
+   */
+  it('右パネルの所持金は、1000万レンでも枠に収まる', () => {
+    expect(estTextWidth(money(10_000_000), HUD_MONEY_FONT_PX, true))
+      .toBeLessThanOrEqual(HUD_PANEL_W)
+  })
+
+  /** ⚠ **下げすぎない。**所持金は右パネルの主要な情報である */
+  it('所持金の文字を 20px より小さくしない', () => {
+    expect(HUD_MONEY_FONT_PX).toBeGreaterThanOrEqual(20)
+  })
+
+  /**
+   * 「買う」の中身は `合計 買う`。合計は `仕入れ値 × 個数`。
+   *
+   * ⚠ **最悪値は 3,237,759 で、7桁。**いちばん高い品（仕入れ値 3,241。`celebration_hamper`。
+   *   産地が `なし` なので U2 で商人に並び得る）を、在庫の上限 999個 買うとこうなる。
+   *   **ここを 6桁で見てはいけない。**6桁で通してしまうと、遊びの終盤だけ壊れる。
+   */
+  it('「買う」は、7桁の合計（3,241 × 999）でもボタンに収まる', () => {
+    expect(estTextWidth(`${money(3_241 * 999)}${BUY_SUFFIX}`, BUY_FONT_PX))
+      .toBeLessThanOrEqual(BUY_W)
+  })
+
+  /** ⚠ **隣の「最大」「＋」「−」が 12px。**主たるボタンだけ小さいのはおかしい */
+  it('「買う」の文字を、隣のボタン（12px）より小さくしない', () => {
+    expect(BUY_FONT_PX).toBeGreaterThanOrEqual(12)
+  })
+
+  /**
+   * ⚠ **「買う」という語を落とさない。**ボタンが何をするか読めなくなる。
+   *   収まらないときに削ってよいのは助詞までである。
+   */
+  it('「買う」ボタンに「買う」という語が残っている', () => {
+    expect(BUY_SUFFIX).toContain('買う')
+  })
+
+  /**
+   * 仕入れの行の右側 `1,234レン/個　在庫 100/999`。
+   * **左隣の「N品に要る」との間隔 `INFO_MAX_W` を超えると、字が重なる。**
+   *
+   * ⚠ **最悪値は4桁の仕入れ値・3桁の在庫。**桁が1つ増えるだけで重なるので、
+   *   `51レン/個`（いまよく出る形）で見てはいけない。
+   */
+  it('仕入れ値が4桁でも、左隣の「N品に要る」に重ならない', () => {
+    expect(estTextWidth(`${money(1_234)}/個　在庫 100/999`, INFO_FONT_PX))
+      .toBeLessThanOrEqual(INFO_MAX_W)
+  })
+
+  /**
+   * 工房の「転売 → 作る → 材料も作る」の行（#23）。
+   *
+   * ⚠ **`…` で切れたら意味が消える行である。**3つ並んで初めて比べられる。
+   *   最悪値は**全レシピ × その日に回せる最大回数**を当たって出したもので、
+   *   `転売+10,464レン → 作る+15,120レン → 材料も作る+25,776レン（計14064分）`。
+   *   ここでは**さらに余裕を見て7桁**の形で見る。
+   */
+  it('3ルートの行が、7桁でも `…` に切られない', () => {
+    const line = '転売+1,234,567レン → 作る+2,345,678レン → 材料も作る+3,456,789レン（計14064分）'
+    expect(estTextWidth(line, CRAFT_ROUTE_FONT_PX)).toBeLessThanOrEqual(CRAFT_TEXT_MAX_W)
   })
 })

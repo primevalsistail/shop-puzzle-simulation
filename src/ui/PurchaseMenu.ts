@@ -8,12 +8,14 @@ import type { IslandName } from '../taxonomy/islands.js'
 import type { MaterialNeed } from '../taxonomy/materials.js'
 import type { ItemId } from '../taxonomy/axes.js'
 import { SearchBox } from './SearchBox.js'
+import { money } from './money.js'
 import { createInput, tryAddDom, readCount } from './domInput.js'
 import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
 import {
   PLACE_CX, CONTENT_L, CONTENT_R,
   SUBTITLE_Y, FILTER_Y, ROWS_TOP, PAGER_Y, rowsThatFit,
+  BUY_W, BUY_FONT_PX, BUY_SUFFIX, INFO_MAX_W, INFO_FONT_PX,
 } from './layout.js'
 
 const ROW_H = 56
@@ -35,17 +37,17 @@ const STEP_W = 26
  */
 const ROW_W = CONTENT_R - CONTENT_L
 const NAME_X = CONTENT_L + 16
-const BUY_W = 118
+/** ⚠ **`BUY_W` は `layout.ts` にある**（`3,237,759レン 買う` が収まるかをテストが見ている） */
 const BUY_L = CONTENT_R - 8 - BUY_W
 const MAX_W = 40
 const MAX_L = BUY_L - 6 - MAX_W
 const PLUS_L = MAX_L - 6 - STEP_W
 const INPUT_L = PLUS_L - 4 - INPUT_W
 const MINUS_L = INPUT_L - 4 - STEP_W
-/** 「¥51/個　在庫 100/999」。右そろえ */
+/** 「51レン/個　在庫 100/999」。右そろえ */
 const INFO_R = MINUS_L - 14
-/** 「作れるN品に要る」。右そろえ */
-const NEED_R = INFO_R - 160
+/** 「作れるN品に要る」。右そろえ。⚠ **間隔は `layout.ts` の `INFO_MAX_W`**（テストが見ている） */
+const NEED_R = INFO_R - INFO_MAX_W
 
 /** 1行ぶんの、あとから書き換える部品 */
 interface Row {
@@ -93,6 +95,8 @@ export class PurchaseMenu {
     private materialNeeds: () => Map<ItemId, MaterialNeed>,
     /** 次にこの島へ戻るまでの日数（#33） */
     private daysUntilReturn: () => number,
+    /** この島をあと何日で出るか。⚠ `daysUntilReturn` の内訳の一部（#33・束M） */
+    private daysLeftAtPort: () => number,
     private onClose: () => void,
   ) {
     this.search = new SearchBox(scene)
@@ -115,7 +119,7 @@ export class PurchaseMenu {
     this.paging.setQuery('')
     this.needs = this.materialNeeds()
     if (focusId) this.paging.jumpTo(this.shown().findIndex(m => m.id === focusId), this.shown().length)
-    this.frame.show(`${islandName}島の商人のところ`, () => this.close())
+    this.frame.show('商人のところ', () => this.close())
     this.search.place(
       CONTENT_R - SEARCH_W / 2, FILTER_Y, SEARCH_W, SEARCH_H, '名前で探す',
       q => { this.paging.setQuery(q); this.rebuild() },
@@ -140,24 +144,6 @@ export class PurchaseMenu {
   }
 
   /**
-   * 見出しの下の知らせ。
-   *
-   * ⚠ **「切れていない」の理由は2つある。**
-   *   「**揃っている**」と「**まだ作れるものが無いので、要る素材が決まっていない**」。
-   *   これを一緒にすると、序盤に**何も知らないまま「揃っている」と言われる。**
-   *   （`CraftMenu` が 0件の理由を書き分けているのと同じ話。#48）
-   */
-  private summary(short: number, days: number): string {
-    if (short > 0) {
-      return `⚠ この島でしか買えない素材が ${short}種 切れている（次に戻るのは${days}日後）`
-    }
-    if (this.needs.size === 0) {
-      return `まだ作れるものが無い（この島を次に訪れるのは${days}日後）`
-    }
-    return `この島でしか買えない素材は揃っている（次に戻るのは${days}日後）`
-  }
-
-  /**
    * その品が、作れる品の材料になっているか（#23）。
    *
    * **これが「買って売るだけではない」の印**になる。品数が増えると、
@@ -175,13 +161,6 @@ export class PurchaseMenu {
    */
   private isLocalOnly(mat: ItemDef): boolean {
     return mat.origin === this.islandName
-  }
-
-  /** 商人が並べているもののうち、この島でしか買えず、要るのに手持ちが0の種類数 */
-  private shortMaterialCount(): number {
-    return this.materials.filter(
-      m => this.isLocalOnly(m) && this.needOf(m) !== null && this.inventory.getQuantity(m.id) === 0,
-    ).length
   }
 
   private shown(): ItemDef[] {
@@ -203,20 +182,32 @@ export class PurchaseMenu {
     const objs: Phaser.GameObjects.GameObject[] = []
     const total = materials.length
 
-    // ── 見出しの下の1行 — 所持金 ／ 切らしている素材 ／ 何件目を見ているか ──
-    const short = this.shortMaterialCount()
+    // ── 見出しの下の1行 — 所持金 ＋ いつまで買えて、次はいつ買えるか ──
+    // ⚠ **何個買うべきかは言わない**（#33「最適解を教えない」）。
+    //   切らしている素材は**行ごとの `N品に要る` が言う**ので、まとめ行では言わない（束M）。
+    // ⚠ **「次に戻るのは40日後」だけを出さないこと。**この島にはまだ何日か居られるので、
+    //   40日後だけ見せると「もう来られない、いま全部買え」と読まれる（束M・ペルソナ2巡目）。
+    //   ⚠ **40 の中に 10 が入っている**（`daysLeftAtPort + 3周ぶん`）。両方出して関係を見せる
+    const stay = this.daysLeftAtPort()
     const days = this.daysUntilReturn()
     objs.push(
-      this.scene.add.text(CONTENT_L, SUBTITLE_Y, `所持金: ¥${this.economy.getMoney().toLocaleString()}`, {
+      this.scene.add.text(CONTENT_L, SUBTITLE_Y,
+        `所持金 ${money(this.economy.getMoney())}　`
+        + `あと${stay}日でこの島を出る（次に戻るのは${days}日後）`, {
         fontSize: '15px', color: '#ffdd44',
       }).setOrigin(0, 0.5),
-      // ⚠ **何個買うべきかは言わない**（#33「最適解を教えない」）。
-      //   言うのは「切れている」ことと「次は何日後か」だけ。
-      // ⚠ **右そろえにすること。**所持金は7桁まで伸びるので、中央に置くと重なる
-      this.scene.add.text(CONTENT_R, SUBTITLE_Y, this.summary(short, days), {
-        fontSize: '13px', color: short > 0 ? '#ffaa66' : '#778899',
-      }).setOrigin(1, 0.5),
     )
+
+    // ⚠ **まだ1本も作れないときだけ出す。**#48「0件の理由を書き分ける」の分岐で、
+    //   これが無いと**行に `N品に要る` が1つも付かない理由**が画面のどこにも無くなる。
+    //   序盤に商人の前へ立って「何を買えばいいのか」の手がかりがゼロになる（束M・ペルソナ2巡目）
+    if (this.needs.size === 0) {
+      objs.push(
+        this.scene.add.text(CONTENT_R, SUBTITLE_Y, 'まだ作れるものが無い', {
+          fontSize: '13px', color: '#889999',
+        }).setOrigin(1, 0.5),
+      )
+    }
 
     // ── 絞り込み（主種類） ──
     const btnW = 64, btnH = 22, gap = 8
@@ -245,8 +236,8 @@ export class PurchaseMenu {
       objs.push(
         this.scene.add.text(PLACE_CX, ROWS_TOP + 60,
           filtered
-            ? `${this.islandName}島の商人に、当てはまる品はありません`
-            : `${this.islandName}島の商人は、いま何も並べていません`, {
+            ? '商人に、当てはまる品はありません'
+            : '商人は、いま何も並べていません', {
           fontSize: '14px', color: '#889999',
         }).setOrigin(0.5),
       )
@@ -323,8 +314,9 @@ export class PurchaseMenu {
       )
     }
 
+    // ⚠ **大きさは `layout.ts` の `INFO_FONT_PX`。**12px だと4桁の仕入れ値で左隣に重なる
     const infoText = this.scene.add.text(INFO_R, y, '', {
-      fontSize: '12px', color: '#aaaaaa',
+      fontSize: `${INFO_FONT_PX}px`, color: '#aaaaaa',
     }).setOrigin(1, 0.5)
     objs.push(infoText)
 
@@ -358,7 +350,7 @@ export class PurchaseMenu {
     const buyBg = this.scene.add.rectangle(BUY_L + BUY_W / 2, y, BUY_W, 26, 0x6a5a2a)
       .setStrokeStyle(1, 0x8a7a3a)
     const buyLabel = this.scene.add.text(BUY_L + BUY_W / 2, y, '', {
-      fontSize: '13px', color: '#ffffff',
+      fontSize: `${BUY_FONT_PX}px`, color: '#ffffff',
     }).setOrigin(0.5)
     objs.push(buyBg, buyLabel)
 
@@ -401,11 +393,12 @@ export class PurchaseMenu {
     row.valueText?.setText(row.input.value)
 
     const stock = this.inventory.getQuantity(row.item.id)
-    row.infoText.setText(`¥${row.unitCost}/個　在庫 ${stock}/${MAX_QUANTITY}`)
+    row.infoText.setText(`${money(row.unitCost)}/個　在庫 ${stock}/${MAX_QUANTITY}`)
 
     const reason = this.reasonFor(row, qty)
     const total = qty === null ? 0 : row.unitCost * qty
-    row.buyLabel.setText(reason === '' ? `¥${total.toLocaleString()} で買う` : reason)
+    // ⚠ **「で」を足さないこと**（`BUY_SUFFIX` の注記）。7桁の合計がボタンから出る
+    row.buyLabel.setText(reason === '' ? `${money(total)}${BUY_SUFFIX}` : reason)
     row.buyLabel.setColor(reason === '' ? '#ffffff' : '#998877')
     row.buyBg.setFillStyle(reason === '' ? 0x6a5a2a : 0x3a3a3a)
     if (reason === '') row.buyBg.setInteractive({ useHandCursor: true })
@@ -418,7 +411,7 @@ export class PurchaseMenu {
     // **上限を超える買い物はさせない。**払ってから溢れて消える、を起こさないため（段4-7）
     if (this.inventory.spaceFor(row.item.id) < qty) return `上限${MAX_QUANTITY}`
     if (!this.economy.canAfford(row.unitCost * qty)) {
-      return `¥${(row.unitCost * qty).toLocaleString()} 不足`
+      return `${money(row.unitCost * qty)} 足りない`
     }
     return ''
   }

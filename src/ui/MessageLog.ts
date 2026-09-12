@@ -54,6 +54,12 @@ export class MessageLog {
   }
 
   addMessage(text: string, type: MessageType = 'info'): void {
+    // ⚠ **`info` の同じ文を続けて出さない。**`info` は「いまどうなっているか」の説明なので、
+    //   2回並べても増える情報が無い。5行しか無い欄が、掴み直しや回転で埋まって
+    //   `売れた` が押し流される（束M・ペルソナ2巡目）。
+    //   ⚠ `sale` と `event` は出来事なので、同じ文でも回数が情報。抑止しない
+    const last = this.queue[this.queue.length - 1]
+    if (type === 'info' && last?.type === 'info' && last.text === text) return
     this.queue.push({ text, type })
     if (this.queue.length > MAX_MESSAGES) {
       this.queue.shift()

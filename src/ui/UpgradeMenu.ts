@@ -5,6 +5,7 @@ import { UPGRADE_KINDS, MAX_STAGE } from '../components/progress/Upgrades.js'
 import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
 import { PLACE_CX, CONTENT_L, CONTENT_R, SUBTITLE_Y, ROWS_TOP } from './layout.js'
+import { money } from './money.js'
 
 const ROW_H = 100
 const ROW_W = CONTENT_R - CONTENT_L
@@ -73,13 +74,26 @@ export class UpgradeMenu {
 
     objs.push(
       this.scene.add.text(CONTENT_L, SUBTITLE_Y,
-        `所持金 ¥${this.economy.getMoney().toLocaleString()}`, {
+        `所持金 ${money(this.economy.getMoney())}`, {
         fontSize: '15px', color: '#ffdd44',
       }).setOrigin(0, 0.5),
-      this.scene.add.text(CONTENT_R, SUBTITLE_Y, '払えば目標が遠のく。いま買うか、我慢するか', {
-        fontSize: '12px', color: '#778899',
-      }).setOrigin(1, 0.5),
     )
+
+    // ⚠ **消してはいけない。**この画面で下す判断は「いま買うか、目標まで我慢するか」で、
+    //   その「目標まで我慢する」側を担う文字はここにしか無い。
+    //   右パネルの目標バーは **累計売上を測っている**ので、改装で払っても動かない（#73）
+    // ⚠ **1つも買えないときは出さない。**買える段が無いなら「いま買うか」という選択自体が無く、
+    //   問いだけが出ることになる（束M・ペルソナ2巡目 ⑮）
+    if (UPGRADE_KINDS.some(k => {
+      const c = this.upgrades.nextCost(k)
+      return c !== null && this.economy.canAfford(c)
+    })) {
+      objs.push(
+        this.scene.add.text(CONTENT_R, SUBTITLE_Y, '払えば目標が遠のく。いま買うか、我慢するか', {
+          fontSize: '12px', color: '#778899',
+        }).setOrigin(1, 0.5),
+      )
+    }
 
     UPGRADE_KINDS.forEach((kind, i) => {
       this.buildRow(kind, ROWS_TOP + ROW_H / 2 + i * ROW_H, objs)
@@ -117,7 +131,7 @@ export class UpgradeMenu {
       return
     }
 
-    const label = `¥${cost.toLocaleString()}`
+    const label = money(cost)
     if (afford) {
       const btn = this.scene.add.text(CONTENT_R - 28, y, label, {
         fontSize: '15px', color: '#ffffff',

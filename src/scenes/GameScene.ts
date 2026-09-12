@@ -27,6 +27,7 @@ import { CharacterStrip } from '../ui/CharacterStrip.js'
 import { PlaceFrame } from '../ui/PlaceFrame.js'
 import { LEFT_PANEL_R, RIGHT_PANEL_L, LOG_T, SCREEN_W, SCREEN_H } from '../ui/layout.js'
 import { MessageLog } from '../ui/MessageLog.js'
+import { money } from '../ui/money.js'
 import { installDebugTools } from '../debug/DebugTools.js'
 import { EventBus } from '../services/EventBus.js'
 import { GameEvents } from '../types/index.js'
@@ -166,6 +167,7 @@ export class GameScene extends Phaser.Scene {
       //   そこで展開が止まり、それが実際の不足と一致する
       () => materialNeeds(this.recipeUnlocks.unlockedRecipes()),
       () => this.world.daysUntilReturn(),
+      () => this.world.getLocation().daysLeftAtPort,
       () => this.onPurchaseMenuClosed(),
     )
 
@@ -196,7 +198,7 @@ export class GameScene extends Phaser.Scene {
       (slot) => this.progress.getSlotMeta(slot),
       (slot) => {
         this.progress.save(slot)
-        this.updateStatus(`スロット${slot + 1}に保存しました`)
+        this.updateStatus(`スロット ${slot + 1}に保存しました`)
       },
       (slot) => {
         const data = this.progress.load(slot)
@@ -237,7 +239,7 @@ export class GameScene extends Phaser.Scene {
         this.hud.updateTime(data.currentTime.day, data.currentTime.hour, data.currentTime.minute)
         this.hud.updateLocation(this.world.getLocation())
         this.refreshInventoryPanel()
-        this.updateStatus(`スロット${slot + 1}からロードしました`)
+        this.updateStatus(`スロット ${slot + 1}からロードしました`)
       },
     )
 
@@ -324,9 +326,6 @@ export class GameScene extends Phaser.Scene {
     // ⚠ **ボタン列の上端（346）にかからない高さにすること**
     this.add.rectangle(1185, 235, 170, 200, 0x0d1530)
       .setStrokeStyle(1, 0x223355).setDepth(1)
-    this.add.text(1185, 235, 'キャラ絵\n(準備中)', {
-      fontSize: '13px', color: '#445577', align: 'center',
-    }).setOrigin(0.5).setDepth(2)
     // メッセージウィンドウ区切り（グリッド+キャラ+右パネルのみ。左パネルはアイテムリストが続く）
     const divGfx = this.add.graphics()
     divGfx.lineStyle(1, 0x334455, 0.6)
@@ -420,8 +419,10 @@ export class GameScene extends Phaser.Scene {
     }
 
     makeAction(yUpg, '改装', '⬆', 0x3a5a8a, 0x4a7ab0, () => this.openUpgradeMenu())
-    makeAction(yPurch, '仕入れ', '🛒', 0x6a5a2a, 0x8a7a3a, () => this.openPurchaseMenu())
-    makeAction(yCraft, 'クラフト', '🔨', 0x4a6a3a, 0x5a8a4a, () => this.openCraftMenu())
+    // ⚠ **行った先の見出しと同じ名にすること**（`PlaceFrame.show('商人のところ')`）。
+    //   同じ場所を2つの名で呼ばない（`クラフト`→`工房` と同じ直し。束M）
+    makeAction(yPurch, '商人のところ', '🛒', 0x6a5a2a, 0x8a7a3a, () => this.openPurchaseMenu())
+    makeAction(yCraft, '工房', '🔨', 0x4a6a3a, 0x5a8a4a, () => this.openCraftMenu())
 
     // 速度切り替え。⚠ 飛ばすのではなく速くする（飛ばすと売れた実感が消える）。
     //   **「進める」ボタンの上に独立した行として置く。**ボタンの中に入れると文字が重なる
@@ -473,7 +474,9 @@ export class GameScene extends Phaser.Scene {
         const inZone = this.isOverDiscardZone(pointer.x, pointer.y)
         this.floorRenderer.drawDiscardZone(inZone, this.floorGrid.getGridSize())
         if (inZone) {
-          this.messageLog.addMessage('離すとリストへ返します', 'info')
+          // ⚠ **`pointermove` ごとに呼ぶが、同じ文は `MessageLog` が落とす**（束M）。
+          //   ⚠ **呼び出し側ごとに印を持たないこと。**同じ失敗が別の経路でまた出る
+          this.messageLog.addMessage('離すと持ち物へ戻る', 'info')
           this.floorRenderer.clearPreview()
           return
         }
@@ -682,7 +685,7 @@ export class GameScene extends Phaser.Scene {
         this.refreshInventoryPanel()
         this.showSalePopup(s.revenue, slot)
         const item = this.registry_.getItem(slot.itemId)
-        this.messageLog.addMessage(`${item.display.name}が売れた！ +¥${s.revenue}`, 'sale')
+        this.messageLog.addMessage(`${item.display.name}が売れた！ +${money(s.revenue)}`, 'sale')
       }
       this.checkStockUnlock(s.itemId, s.qtySold)
     })
@@ -1006,7 +1009,7 @@ export class GameScene extends Phaser.Scene {
     // 棚に出している品には印を付ける。数量は持ち物と同じなので分けて出さない
     const onShelf = new Set(this.floorGrid.getAllSlots().map(s => s.itemId))
     // 現在地も渡す。**買値は島で変わる**ので、渡さないと仕入れ画面と食い違う（段4-6）
-    this.inventoryPanel.render(items, quantities, onShelf, this.world.getIsland())
+    this.inventoryPanel.render(items, quantities, onShelf)
   }
 
   private showSalePopup(revenue: number, slot: DisplaySlot): void {
@@ -1017,7 +1020,7 @@ export class GameScene extends Phaser.Scene {
     const cy = offsets.reduce((s, o) => s + o.y, 0) / offsets.length
     const px = GRID_ORIGIN_X + (slot.position.x + cx + 0.5) * CELL_SIZE
     const py = GRID_ORIGIN_Y + (slot.position.y + cy) * CELL_SIZE
-    const popup = this.add.text(px, py, `+¥${revenue}`, {
+    const popup = this.add.text(px, py, `+${money(revenue)}`, {
       fontSize: '14px', color: '#ffee44',
       stroke: '#000000', strokeThickness: 3,
       fontStyle: 'bold',
@@ -1035,10 +1038,10 @@ export class GameScene extends Phaser.Scene {
   private showGoalComplete(): void {
     const { width, height } = this.scale
     const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setDepth(200)
-    this.add.text(width / 2, height / 2 - 80, '🎉 目標達成!', {
+    this.add.text(width / 2, height / 2 - 80, '🎉 目標達成！', {
       fontSize: '52px', color: '#ffdd44', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(201)
-    this.add.text(width / 2, height / 2, `累計売上 ¥${this.economy.getTotalRevenue().toLocaleString()}`, {
+    this.add.text(width / 2, height / 2, `累計売上 ${money(this.economy.getTotalRevenue())}`, {
       fontSize: '26px', color: '#ffffff',
     }).setOrigin(0.5).setDepth(201)
 
@@ -1049,7 +1052,7 @@ export class GameScene extends Phaser.Scene {
       overlay.destroy(); endlessBtn.destroy()
       this.gameService.enterEndlessMode()
       this.progress.setEndlessMode(true)
-      this.updateStatus('エンドレスモード開始!')
+      this.updateStatus('エンドレスモード開始！')
     })
   }
 

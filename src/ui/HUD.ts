@@ -1,9 +1,12 @@
 import Phaser from 'phaser'
 import { phaseOf } from '../components/core/TimeManager.js'
 import type { Location } from '../components/progress/WorldState.js'
+import { money } from './money.js'
+import { HUD_PANEL_W, HUD_MONEY_FONT_PX } from './layout.js'
 
 const GOAL_AMOUNT = 1_000_000
-const PW = 174  // panel width (右パネル 190px - 余白 16px)
+/** panel width（右パネル 190px - 余白 16px）。⚠ **値は `layout.ts` にある**（テストが見ている） */
+const PW = HUD_PANEL_W
 const PH = 126  // panel height（#44 の場所表示ぶん 108 から広げた）
 
 export class HUD {
@@ -21,7 +24,7 @@ export class HUD {
 
   /**
    * ⚠ **作ったあとに `updateMoney` / `updateTime` / `updateLocation` を必ず呼ぶこと。**
-   *   ここは器を置くだけで、値は持っていない。呼ばないと所持金が ¥0 のまま出る。
+   *   ここは器を置くだけで、値は持っていない。呼ばないと所持金が 0レン のまま出る。
    */
   create(): void {
     const { width } = this.scene.scale
@@ -57,8 +60,10 @@ export class HUD {
     lineGfx.lineBetween(px - PW / 2 + 8, py - 12, px + PW / 2 - 8, py - 12)
 
     // Row 3 — Money (center, big)
-    this.moneyText = this.scene.add.text(px, py + 10, '¥0', {
-      fontSize: '22px', color: '#ffdd44', fontStyle: 'bold',
+    // ⚠ **大きさは `layout.ts` の `HUD_MONEY_FONT_PX`。**`10,000,000レン`（クリア条件の額）が
+    //   枠 174px に収まるかを `layout.test.ts` が見ている
+    this.moneyText = this.scene.add.text(px, py + 10, money(0), {
+      fontSize: `${HUD_MONEY_FONT_PX}px`, color: '#ffdd44', fontStyle: 'bold',
     }).setOrigin(0.5, 0.5).setDepth(5)
 
     // Row 4 — Goal progress bar
@@ -74,8 +79,8 @@ export class HUD {
     }).setOrigin(1, 0.5).setDepth(5)
   }
 
-  updateMoney(money: number): void {
-    this.moneyText.setText(`¥${money.toLocaleString()}`)
+  updateMoney(amount: number): void {
+    this.moneyText.setText(money(amount))
   }
 
   updateRevenue(totalRevenue: number, isEndless: boolean): void {
