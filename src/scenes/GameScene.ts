@@ -35,6 +35,9 @@ import { stockedByIslandMerchant } from '../taxonomy/evaluate.js'
 /** 初期の盤面。**棚の強化で広がる**（`Upgrades.gridSize()`） */
 const INITIAL_GRID = { width: 6, height: 5 }
 
+/** これ以上動かしたら「掴んだ」とみなす（押して離すだけなら補充） */
+const DRAG_THRESHOLD = 6
+
 /**
  * 新しく始めたときの在庫。**伯母から預かったぶん**という想定で、3品を15個ずつ。
  *
@@ -85,6 +88,8 @@ export class GameScene extends Phaser.Scene {
   private selectedItemId: string | null = null
   private currentRotation: Rotation = 0
   private pendingMoveSlot: DisplaySlot | null = null
+  /** 押された区画。**動かし始めるまで掴まない**（押して離すだけなら補充） */
+  private pressedSlot: { slot: DisplaySlot; x: number; y: number } | null = null
   private goalCompleted = false
 
   constructor() {
@@ -416,6 +421,15 @@ export class GameScene extends Phaser.Scene {
   private setupInput(): void {
     // ── ポインター移動: ゴーストとグリッドプレビュー ──
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      // 押したまま動かしたら、そこで初めて掴む
+      if (this.pressedSlot && !this.selectedItemId) {
+        const moved = Math.hypot(pointer.x - this.pressedSlot.x, pointer.y - this.pressedSlot.y)
+        if (moved > DRAG_THRESHOLD) {
+          const slot = this.pressedSlot.slot
+          this.pressedSlot = null
+          this.startMovingSlot(slot)
+        }
+      }
       if (!this.selectedItemId || this.craftMenu.isVisible() || this.purchaseMenu.isVisible() || this.saveLoadMenu.isVisible() || this.upgradeMenu.isVisible()) {
         this.floorRenderer.clearDragGhost()
         this.floorRenderer.clearPreview()
@@ -437,7 +451,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       // グリッド上ならプレビュー表示（中心基点で計算）
-      if (this.floorRenderer.isOverGrid(pointer.x, pointer.y, INITIAL_GRID)) {
+      if (this.floorRenderer.isOverGrid(pointer.x, pointer.y, this.floorGrid.getGridSize())) {
         const cell = this.floorRenderer.worldToGrid(pointer.x, pointer.y)
         if (cell) {
           const placementCell = this.calcPlacementCell(cell)
@@ -462,12 +476,14 @@ export class GameScene extends Phaser.Scene {
 
       // 左クリック かつ アイテム未保持 → スロット操作
       if (!this.selectedItemId && !this.craftMenu.isVisible() && !this.purchaseMenu.isVisible() && !this.saveLoadMenu.isVisible()) {
-        if (this.floorRenderer.isOverGrid(pointer.x, pointer.y, INITIAL_GRID)) {
+        if (this.floorRenderer.isOverGrid(pointer.x, pointer.y, this.floorGrid.getGridSize())) {
           const cell = this.floorRenderer.worldToGrid(pointer.x, pointer.y)
           if (cell) {
             const slot = this.floorGrid.getSlotAt(cell)
             if (slot) {
-              this.startMovingSlot(slot)
+              // ⚠ **ここではまだ掴まない。**押して離すだけなら補充、動かしたら移動。
+              //   多くのソフトと同じ分け方なので、操作の説明が要らない
+              this.pressedSlot = { slot, x: pointer.x, y: pointer.y }
             } else {
               this.slotPrompt.hide()
             }
@@ -478,6 +494,13 @@ export class GameScene extends Phaser.Scene {
 
     // ── pointerup: 左ボタンを離したとき → 配置 / 破棄 / キャンセル ──
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      // 動かさずに離した ＝ 補充
+      if (this.pressedSlot) {
+        const slot = this.pressedSlot.slot
+        this.pressedSlot = null
+        this.restockSlot(slot)
+        return
+      }
       if (!this.selectedItemId) return
       if (!pointer.leftButtonReleased()) return
       if (this.craftMenu.isVisible() || this.purchaseMenu.isVisible() || this.saveLoadMenu.isVisible() || this.upgradeMenu.isVisible()) return
@@ -488,7 +511,7 @@ export class GameScene extends Phaser.Scene {
         return
       }
 
-      if (this.floorRenderer.isOverGrid(pointer.x, pointer.y, INITIAL_GRID)) {
+      if (this.floorRenderer.isOverGrid(pointer.x, pointer.y, this.floorGrid.getGridSize())) {
         const cell = this.floorRenderer.worldToGrid(pointer.x, pointer.y)
         if (cell) {
           this.tryPlaceItem(this.calcPlacementCell(cell))
@@ -529,6 +552,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private cancelDrag(): void {
+    this.pressedSlot = null
     if (this.pendingMoveSlot) {
       this.floorGrid.place(this.pendingMoveSlot)
       this.floorRenderer.drawSlot(this.pendingMoveSlot)
@@ -735,6 +759,30 @@ export class GameScene extends Phaser.Scene {
     this.updateStatus()
   }
 
+  /**
+   * 区画に手持ちを足す。**足せるだけ足す。**
+   *
+   * ⚠ 1区画の上限は999なので、手持ちが多くても全部は入らない。
+   *   **入った数だけ手持ちから引く**（`ShopService` が実際に積めた数で処理する）。
+   */
+  private restockSlot(slot: DisplaySlot): void {
+    const item = this.registry_.getItem(slot.itemId)
+    const held = this.inventory.getQuantity(slot.itemId)
+    if (held <= 0) {
+      this.updateStatus(`${item.display.name}の手持ちがありません`)
+      return
+    }
+    const before = slot.quantity
+    if (!this.shopService.restockSlot(slot.id, held)) {
+      this.updateStatus(`${item.display.name}はもう満杯です`)
+      return
+    }
+    const after = this.floorGrid.getAllSlots().find(s => s.id === slot.id)
+    this.floorRenderer.refreshSlot(after ?? slot)
+    this.refreshInventoryPanel()
+    this.updateStatus(`${item.display.name}を ${(after?.quantity ?? before) - before}個 補充した`)
+  }
+
   private onSlotAction(slotId: string, action: 'restock' | 'remove'): void {
     if (action === 'restock') {
       const slot = this.floorGrid.getAllSlots().find(s => s.id === slotId)
@@ -884,6 +932,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onAdvancePressed(): void {
+    // ⚠ **仕入れ・強化・クラフトの最中は時間を進められない。**
+    //   店を離れている間に店が回ってしまうのを避ける。
+    //   加工そのものは時間を消費するが、それは `CraftingSystem` が別に行う
     if (this.craftMenu.isVisible() || this.purchaseMenu.isVisible() || this.saveLoadMenu.isVisible() || this.upgradeMenu.isVisible()) return
     if (this.timeManager.isAdvancing()) {
       this.timeManager.stopAdvancing()
