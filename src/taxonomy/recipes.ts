@@ -1,5 +1,7 @@
 /**
- * レシピ **85本**
+ * レシピ **92本**
+ *
+ * ⚠ **#86 で7本足した**（小麦粉・うどん ／ 麻糸・麻布・染めの麻布・麻の上着 ／ 染料）。
  *
  * 出どころ: aidlc-docs/inception/worldbuilding/crafted-goods.md
  *
@@ -152,6 +154,21 @@ export const ALL_RECIPES: readonly RecipeDef[] = [
     durationMinutes: 90,
   },
 
+  // ⚠ **#86。**小麦粉は蕎麦粉と同じ形（穀 ×3 → 粉）で置いた。**新しい倍率は作っていない。**
+  //   パンは足さない（蕎麦粉のパンが既にある）。小麦でしか出ない方向＝**つながる粉＝麺**だけを足す。
+  {
+    id: 'recipe_wheat_flour', display: { name: '小麦粉をつくる' },
+    outputItemId: 'wheat_flour', outputQuantity: 3,
+    ingredients: [{ itemId: 'wheat', quantity: 3 }],
+    durationMinutes: 90,
+  },
+  {
+    id: 'recipe_udon', display: { name: 'うどんをつくる' },
+    outputItemId: 'udon', outputQuantity: 3,
+    ingredients: [{ itemId: 'wheat_flour', quantity: 2 }, { itemId: 'salt', quantity: 1 }, { itemId: 'kelp', quantity: 1 }],
+    durationMinutes: 180,
+  },
+
   // ── 飲みもの ──
   {
     id: 'recipe_mugwort_tea', display: { name: 'よもぎの茶をつくる' },
@@ -257,6 +274,19 @@ export const ALL_RECIPES: readonly RecipeDef[] = [
     ingredients: [{ itemId: 'cotton', quantity: 3 }],
     durationMinutes: 60,
   },
+  // ⚠ **#86 の麻の系統。**糸は木綿糸と同じ形（繊維 ×3 → 糸 ×2 / 60分）で置いた。
+  {
+    id: 'recipe_hemp_yarn', display: { name: '麻糸をつくる' },
+    outputItemId: 'hemp_yarn', outputQuantity: 2,
+    ingredients: [{ itemId: 'hemp', quantity: 3 }],
+    durationMinutes: 60,
+  },
+  {
+    id: 'recipe_hemp_cloth', display: { name: '麻布をつくる' },
+    outputItemId: 'hemp_cloth', outputQuantity: 2,
+    ingredients: [{ itemId: 'hemp_yarn', quantity: 3 }, { itemId: 'pumice', quantity: 1 }],
+    durationMinutes: 150,
+  },
   {
     id: 'recipe_wool_felt', display: { name: '羊毛のフェルトをつくる' },
     outputItemId: 'wool_felt', outputQuantity: 1,
@@ -335,6 +365,20 @@ export const ALL_RECIPES: readonly RecipeDef[] = [
     ingredients: [{ itemId: 'reindeer_hide', quantity: 3 }, { itemId: 'canvas', quantity: 1 }, { itemId: 'antler_belt', quantity: 1 }, { itemId: 'beeswax', quantity: 1 }],
     durationMinutes: 300,
   },
+  // ⚠ **染めは1本だけ**（#86）。色ごとにレシピを分けない。
+  {
+    id: 'recipe_dyed_hemp_cloth', display: { name: '麻布を染める' },
+    outputItemId: 'dyed_hemp_cloth', outputQuantity: 1,
+    ingredients: [{ itemId: 'hemp_cloth', quantity: 1 }, { itemId: 'dye', quantity: 1 }],
+    durationMinutes: 120,
+  },
+  {
+    // ⚠ **暑い土地の終点（tier5）。**染めの麻布（tier4）が段を決めている。
+    id: 'recipe_hemp_jacket', display: { name: '麻の上着をしたてる' },
+    outputItemId: 'hemp_jacket', outputQuantity: 1,
+    ingredients: [{ itemId: 'dyed_hemp_cloth', quantity: 1 }, { itemId: 'hemp_yarn', quantity: 2 }, { itemId: 'reindeer_antler', quantity: 1 }],
+    durationMinutes: 180,
+  },
 
   // ── 道具 ──
   {
@@ -395,6 +439,14 @@ export const ALL_RECIPES: readonly RecipeDef[] = [
     id: 'recipe_fishing_rod', display: { name: '釣りざおをつくる' },
     outputItemId: 'fishing_rod', outputQuantity: 1,
     ingredients: [{ itemId: 'bamboo', quantity: 2 }, { itemId: 'rope', quantity: 1 }, { itemId: 'gull_feather', quantity: 1 }],
+    durationMinutes: 240,
+  },
+  // ⚠ **材料は藍だけ**（#86）。蕎麦粉・オリーブ油と同じ「素材1つを寝かせて絞る」形で、
+  //   **新しい倍率も例外も作っていない。**
+  {
+    id: 'recipe_dye', display: { name: '染料をつくる' },
+    outputItemId: 'dye', outputQuantity: 2,
+    ingredients: [{ itemId: 'indigo', quantity: 4 }],
     durationMinutes: 240,
   },
   // ══════ 道具の10品 ══════

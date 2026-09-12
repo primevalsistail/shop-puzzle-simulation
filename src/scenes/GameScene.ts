@@ -180,6 +180,7 @@ export class GameScene extends Phaser.Scene {
       this.placeFrame,
       () => this.world.getIsland(),
       () => this.upgrades.marginMultiplier(),
+      () => this.upgrades.skill(),
       () => this.onCraftMenuClosed(),
     )
     this.purchaseMenu = new PurchaseMenu(
@@ -1138,7 +1139,7 @@ export class GameScene extends Phaser.Scene {
    *   序盤は素材だけ（U1）なので、素材を出さないと**買った品を1つも置けない。**
    */
   private refreshInventoryPanel(): void {
-    // ⚠ **手に入れたことがある品だけ出す。**135品すべてを「在庫0」で並べると、
+    // ⚠ **手に入れたことがある品だけ出す。**145品すべてを「在庫0」で並べると、
     //   何が手元にあるのか読めなくなる。減って0になった品は残す（また仕入れられるので）
     const items = this.registry_.getAllItems().filter(i => this.inventory.hasEverHeld(i.id))
     const stock = this.inventory.getAllStock()

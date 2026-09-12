@@ -1,6 +1,7 @@
 import type { ItemId, RecipeDef } from './axes.js'
 import type { IslandName } from './islands.js'
 import { purchasePrice, finalPrice } from './derive.js'
+import { speedMultiplier } from './craft.js'
 import { expandToMaterials, craftMinutes } from './materials.js'
 
 /**
@@ -55,7 +56,18 @@ export function routeValues(
    *   3ルートとも同じ倍率を通るので、**「作る > 転売」の順序は変わらない。**
    */
   margin = 1,
+  /**
+   * 主人公の手際（#53）。**既定は無限大＝速さの倍率が下限に張り付く…ではなく、**
+   * `undefined` のとき**手際を見ない素の分数**を返す（従来どおり）。
+   *
+   * ⚠ **画面に出すなら渡すこと。**渡さないと、行が**手際を掛ける前の分数**を出し、
+   *   **実際と最大3倍ずれる**（#53 で実測）。**時間は値段なので、間違えると払う額を間違える。**
+   */
+  skill?: number,
 ): RouteValues {
+  const speedOf = skill === undefined
+    ? () => 1
+    : (id: ItemId) => speedMultiplier(id, skill)
   const revenue = finalPrice(recipe.outputItemId, margin) * recipe.outputQuantity
 
   let directCost = 0
@@ -77,7 +89,7 @@ export function routeValues(
     for (const [id, n] of mats) matCost += purchasePrice(id, at) * n
     deepCost += matCost * ing.quantity
 
-    const extra = craftMinutes(ing.itemId, craftable)
+    const extra = craftMinutes(ing.itemId, craftable, speedOf)
     if (extra > 0) hasDeeper = true
     deeperMinutes += extra * ing.quantity
   }
@@ -86,7 +98,7 @@ export function routeValues(
     resell: Math.round(resell),
     craft: Math.round(revenue - directCost),
     deepCraft: Math.round(revenue - deepCost),
-    minutes: recipe.durationMinutes,
+    minutes: Math.round(recipe.durationMinutes * speedOf(recipe.outputItemId)),
     deepMinutes: Math.round(recipe.durationMinutes + deeperMinutes),
     hasDeeper,
   }

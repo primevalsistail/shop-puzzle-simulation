@@ -21,7 +21,7 @@ import {
 const ROW_H = 84
 
 /**
- * 一度に映る行数。**レシピは85本ある**（#30。ただし並ぶのは解禁済みのぶんだけ。#48）ので、
+ * 一度に映る行数。**レシピは92本ある**（#30。ただし並ぶのは解禁済みのぶんだけ。#48）ので、
  * 全部は収まらない。
  *
  * ⚠ **決め打ちしない。**領域の高さから出す（`layout.ts` の `rowsThatFit`）。
@@ -99,6 +99,12 @@ export class CraftMenu {
      * ⚠ **渡さないと、強化を買うほど3ルートの数字が一覧とずれていく。**
      */
     private marginOf: () => number,
+    /**
+     * 主人公の手際（#53）。**3ルートの分数に掛ける。**
+     *
+     * ⚠ **渡さないと、行の分数（`craftTimeLabel`）と3ルートの `計◯分` が食い違う。**
+     */
+    private skillOf: () => number,
     private onClose: () => void,
   ) {
     this.search = new SearchBox(scene)
@@ -152,7 +158,7 @@ export class CraftMenu {
    * いま並べるレシピ。**主種類は「出来上がる品」で見る**（材料ではない）。
    * 「作れる」は材料・在庫の空き・当日の残り時間のすべてを見る（`maxCraftTimes > 0`）。
    *
-   * ⚠ **母集合は解禁済みのレシピ**（#48）。全85本を並べない。
+   * ⚠ **母集合は解禁済みのレシピ**（#48）。全92本を並べない。
    */
   private shown(): RecipeDef[] {
     // ⚠ **主種類も名前も「出来上がる品」で見る**（材料ではない）。行に出ているのが出来上がる品なので
@@ -444,7 +450,9 @@ export class CraftMenu {
    * ⚠ **③ は時間も一緒に出す。**取り分だけ見せると「材料も作る」がただ得に見える。
    */
   private routeLabel(recipe: RecipeDef, times: number): string {
-    const v = routeValues(recipe, this.unlocks.unlockedRecipes(), this.islandOf(), this.marginOf())
+    const v = routeValues(
+      recipe, this.unlocks.unlockedRecipes(), this.islandOf(), this.marginOf(), this.skillOf(),
+    )
     const amount = (n: number) => `${n >= 0 ? '+' : '−'}${money(Math.abs(n * times))}`
     const base = `転売${amount(v.resell)} → 作る${amount(v.craft)}`
     if (!v.hasDeeper) return base

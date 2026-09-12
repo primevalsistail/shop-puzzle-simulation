@@ -31,7 +31,7 @@ export interface MaterialNeed {
  *   そこで止めて「要るもの」に数える。**これが実際の不足と一致する。**
  *   全レシピで展開すると、知らない品まで「作れば済む」ことになって不足が消える。
  *
- * ⚠ **1回の加工は `outputQuantity` 個できる**（85本中59本が2個以上）。
+ * ⚠ **1回の加工は `outputQuantity` 個できる**（92本中64本が2個以上）。
  *   割らずに数えると**要る素材を最大4倍に見積もる。**
  *   端数は丸めない —— 3個要るのに1回で2個できるなら、**材料は1.5回ぶん**として扱う。
  *   （実際には2回まわして1個余るが、**余りは次に使える**ので、費用としては1.5回ぶんが正しい）
@@ -106,24 +106,38 @@ export function materialNeeds(recipes: readonly RecipeDef[]): Map<ItemId, Materi
  *
  * 作れない品（買うしかない品）は 0 分。
  */
-export function craftMinutes(itemId: ItemId, recipes: readonly RecipeDef[]): number {
+export function craftMinutes(
+  itemId: ItemId,
+  recipes: readonly RecipeDef[],
+  /**
+   * 品ごとの速さの倍率（**手際**）。既定は 1 ＝ 手際を見ない素の値（#53）。
+   *
+   * ⚠ **画面に出すなら必ず渡すこと。**渡さないと、工房の行が
+   *   **手際を掛ける前の分数**を出し、**実際と最大3倍ずれる**（#53 で実測）。
+   * ⚠ **関数で受けるのは `craft.ts` を読まないため。**あちらは `recipes.ts` を読むので、
+   *   ここから読むと輪になる。
+   */
+  speedOf: (id: ItemId) => number = () => 1,
+): number {
   const byOutput = new Map<ItemId, RecipeDef>()
   for (const r of recipes) byOutput.set(r.outputItemId, r)
-  return minutesOf(itemId, byOutput, new Set())
+  return minutesOf(itemId, byOutput, new Set(), speedOf)
 }
 
 function minutesOf(
   itemId: ItemId,
   byOutput: Map<ItemId, RecipeDef>,
   onPath: Set<ItemId>,
+  speedOf: (id: ItemId) => number,
 ): number {
   const recipe = byOutput.get(itemId)
   if (!recipe || onPath.has(itemId)) return 0
 
   const next = new Set(onPath).add(itemId)
-  let total = recipe.durationMinutes
+  // ⚠ **段ごとに掛ける。**深い段ほど手際の効きが違うので、合計に一度だけ掛けると合わない
+  let total = recipe.durationMinutes * speedOf(recipe.outputItemId)
   for (const ing of recipe.ingredients) {
-    total += minutesOf(ing.itemId, byOutput, next) * ing.quantity
+    total += minutesOf(ing.itemId, byOutput, next, speedOf) * ing.quantity
   }
   return total / (recipe.outputQuantity > 0 ? recipe.outputQuantity : 1)
 }

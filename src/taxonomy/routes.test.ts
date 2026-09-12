@@ -44,7 +44,7 @@ describe('craftMinutes — 材料を作る時間も足す', () => {
  * ⚠ `derive.ts` の不変条件（`作る利益 − 転売利益 ＝ 加工利益 × 買値率 > 0`）が
  *   画面に出す金額の上でも成り立っていること。**崩れたら「作るほうが儲かる」が嘘になる。**
  */
-describe('実データ（85レシピ × 4島 ＋ 島の外）', () => {
+describe('実データ（92レシピ × 4島 ＋ 島の外）', () => {
   const places = [...ROUTE, undefined] as const
 
   it('どのレシピ・どの島でも「作る > 転売」', () => {
@@ -126,5 +126,22 @@ describe('isIngredient', () => {
   it('倍率を渡さないと従来どおり（既定は 1）', () => {
     const recipe = ALL_RECIPES.find(r => r.ingredients.length > 0)!
     expect(routeValues(recipe, ALL_RECIPES, undefined, 1)).toEqual(routeValues(recipe, ALL_RECIPES))
+  })
+
+  it('手際を渡すと3ルートの分数が縮む（#53。渡さないと行の表示と食い違う）', () => {
+    const recipe = ALL_RECIPES.find(r => r.ingredients.some(i => ALL_RECIPES.some(x => x.outputItemId === i.itemId)))!
+    const raw = routeValues(recipe, ALL_RECIPES)
+    const skilled = routeValues(recipe, ALL_RECIPES, undefined, 1, 30)
+
+    // 手際30 は最大。素の値より短い
+    expect(skilled.minutes).toBeLessThan(raw.minutes)
+    expect(skilled.deepMinutes).toBeLessThan(raw.deepMinutes)
+    // ⚠ 深いほうが浅いほうより長い、は崩れない
+    expect(skilled.deepMinutes).toBeGreaterThanOrEqual(skilled.minutes)
+  })
+
+  it('手際を渡さないと従来どおりの素の分数', () => {
+    const recipe = ALL_RECIPES.find(r => r.ingredients.length > 0)!
+    expect(routeValues(recipe, ALL_RECIPES).minutes).toBe(recipe.durationMinutes)
   })
 })

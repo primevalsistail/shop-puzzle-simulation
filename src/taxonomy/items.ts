@@ -1,5 +1,9 @@
 /**
- * 実アイテム **135品**（素材50 ＋ 加工品85）
+ * 実アイテム **145品**（素材53 ＋ 加工品92）
+ *
+ * ⚠ **#86 で 麻・藍・小麦 の3素材と、そこから伸びる加工品7品を足した**（135品 → 145品）。
+ *   足さなかった理由は「無くても成立している」だったが、それは**商品として扱わない**という判断で
+ *   あって、**世界に無い**ではなかった（→ worldbuilding/world.md §8）。
  *
  * **このファイルは生成物ではなく、手で保守するデータである。**
  *
@@ -14,7 +18,7 @@
  *
  * ⚠ 数値（basePrice）は一度置いたもので、調整していない。
  *
- * ⚠ **`display.reading`（検索用の読み）も手で書くデータ**（#65）。**全135品に必ず置く。**
+ * ⚠ **`display.reading`（検索用の読み）も手で書くデータ**（#65）。**全145品に必ず置く。**
  *   ひらがなだけ（カタカナの品も `あすぱらがす` のようにひらがなで書く）。**画面には出さない。**
  *   判定は `invariants.test.ts`「検索用の読み（#65）」。
  */
@@ -22,7 +26,7 @@
 import type { ItemDef } from './axes.js'
 
 export const ALL_ITEMS: readonly ItemDef[] = [
-  // ══════ 素材（tier1）50品 ══════
+  // ══════ 素材（tier1）53品 ══════
 
   // ── ハルヴェラ島（春） ──
   {
@@ -147,6 +151,21 @@ export const ALL_ITEMS: readonly ItemDef[] = [
     shape: [[1]], basePrice: 34,
     originReason: '蜂蜜と同じ巣から採れる。旬は生きものに付く',
   },
+  // ⚠ **麻・藍は #86 で足した素材**（それまでは「無くても成立している」として置いていなかった）。
+  //   置いていなかったのは**商品として扱わない**という判断であって、**世界に無い**ではない。
+  //   産地は既存の規則どおり「その品が一般的にどの季節のイメージか」だけで決めている。
+  {
+    id: 'hemp', display: { name: '麻', reading: 'あさ', color: 0x4e9b3e },
+    mainKind: '衣類', origin: 'リナツィア', luxury: '日用', suitedLand: '暑い土地',
+    shape: [[1, 1], [1, 1]], basePrice: 28,
+    originReason: '丈が伸びきる真夏に刈り取る',
+  },
+  {
+    id: 'indigo', display: { name: '藍', reading: 'あい', color: 0x2b3f8f },
+    mainKind: '道具', origin: 'リナツィア', luxury: '上等', suitedLand: 'どこでも',
+    shape: [[1], [1]], basePrice: 26,
+    originReason: '葉がもっとも濃く茂る真夏に刈る',
+  },
 
   // ── ノアキータ島（秋） ──
   {
@@ -190,6 +209,14 @@ export const ALL_ITEMS: readonly ItemDef[] = [
     mainKind: '食料', origin: 'ノアキータ', luxury: '日用', suitedLand: 'どこでも',
     shape: [[1]], basePrice: 15,
     originReason: '実が黒く熟して脱粒する',
+  },
+  {
+    // ⚠ **#86 で足した素材。**旬は米・蕎麦の実と同じ「実り」＝秋。
+    //   ノアキータの性格が「熟したもの・実ったもの。木の実と穀」なので、穀はここに乗る。
+    id: 'wheat', display: { name: '小麦', reading: 'こむぎ', color: 0xe6b31e },
+    mainKind: '食料', origin: 'ノアキータ', luxury: '日用', suitedLand: 'どこでも',
+    shape: [[1, 1]], basePrice: 16,
+    originReason: '穂が黄金に実って刈り取る',
   },
   {
     id: 'walnut', display: { name: 'くるみ', reading: 'くるみ', color: 0xd0544e },
@@ -334,7 +361,7 @@ export const ALL_ITEMS: readonly ItemDef[] = [
     originReason: 'かもめは季節を問わず船について回る',
   },
 
-  // ══════ 加工品（tier2以上）60品 ══════
+  // ══════ 加工品（tier2以上）92品 ══════
   // 産地はすべて `なし`。**加工品は旬を持たないため**（island-goods.md §2）。
   // 「主材料の産地」を採らなかった理由は crafted-goods.md §5 を見ること。
 
@@ -460,6 +487,21 @@ export const ALL_ITEMS: readonly ItemDef[] = [
     originReason: '船倉で作る品。旬を持たないので産地なし',
   },
 
+  // ⚠ **#86。パンは足さない。**「蕎麦粉のパン」が既にあり、同じ形になる。
+  //   小麦でしか出ない方向（**つながる粉＝麺**）だけを足した。
+  {
+    id: 'wheat_flour', display: { name: '小麦粉', reading: 'こむぎこ', color: 0xefc96f },
+    mainKind: '食料', origin: 'なし', luxury: '日用', suitedLand: 'どこでも',
+    shape: [[1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'udon', display: { name: 'うどん', reading: 'うどん', color: 0xf5efd8 },
+    mainKind: '食料', origin: 'なし', luxury: '日用', suitedLand: '寒い土地',
+    shape: [[1, 1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+
   // ── 飲みもの ──
   {
     id: 'mugwort_tea', display: { name: 'よもぎの茶', reading: 'よもぎのちゃ', color: 0x6087af },
@@ -565,6 +607,22 @@ export const ALL_ITEMS: readonly ItemDef[] = [
     shape: [[1]],
     originReason: '船倉で作る品。旬を持たないので産地なし',
   },
+  // ⚠ **#86 の麻の系統**（麻 → 麻糸 → 麻布 → 染めの麻布 → 麻の上着）。
+  //   crafted-goods.md §7「暑い土地向けは3品で深さが出ていない（麻を足さない判断の帰結）」への答え。
+  //   ⚠ **麻糸は `どこでも`。**糸そのものは用途が一つに定まらない（木綿糸と同じ扱い）。
+  //   **布から先が `暑い土地`**（熱を逃がす布、という定義そのもの）。
+  {
+    id: 'hemp_yarn', display: { name: '麻糸', reading: 'あさいと', color: 0x8fc47a },
+    mainKind: '衣類', origin: 'なし', luxury: '日用', suitedLand: 'どこでも',
+    shape: [[1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'hemp_cloth', display: { name: '麻布', reading: 'あさぬの', color: 0xb9cf8e },
+    mainKind: '衣類', origin: 'なし', luxury: '日用', suitedLand: '暑い土地',
+    shape: [[1, 1, 1], [1, 1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
   {
     id: 'wool_felt', display: { name: '羊毛のフェルト', reading: 'ようもうのふぇると', color: 0x7662ca },
     mainKind: '衣類', origin: 'なし', luxury: '日用', suitedLand: '寒い土地',
@@ -643,6 +701,21 @@ export const ALL_ITEMS: readonly ItemDef[] = [
     shape: [[1, 1], [1, 1]],
     originReason: '船倉で作る品。旬を持たないので産地なし',
   },
+  // ⚠ **色を品目数の軸にしない**（#86 の PO 明示）。
+  //   染めた品は**この2品だけ**で、**名前に色を持たせていない。**
+  //   「藍染めの布」「紅花染めの布」と分けると、色の数だけ品目が増える＝水増しになる。
+  {
+    id: 'dyed_hemp_cloth', display: { name: '染めの麻布', reading: 'そめのあさぬの', color: 0x3f4fbf },
+    mainKind: '衣類', origin: 'なし', luxury: '上等', suitedLand: '暑い土地',
+    shape: [[1, 1, 1], [1, 1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'hemp_jacket', display: { name: '麻の上着', reading: 'あさのうわぎ', color: 0x6a7fe8 },
+    mainKind: '衣類', origin: 'なし', luxury: '上等', suitedLand: '暑い土地',
+    shape: [[1, 1], [1, 1], [1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
 
   // ── 道具 ──
   {
@@ -703,6 +776,15 @@ export const ALL_ITEMS: readonly ItemDef[] = [
     id: 'fishing_rod', display: { name: '釣りざお', reading: 'つりざお', color: 0x848f27 },
     mainKind: '道具', origin: 'なし', luxury: '上等', suitedLand: 'どこでも',
     shape: [[1], [1], [1], [1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  // ⚠ **染料は1品だけ**（#86）。**色ごとに分けない。**
+  //   `RECIPES_BY_OUTPUT` は出力1つにレシピ1本なので、
+  //   **「染料」という品が1つである限り、色を増やしても品目は増えない**という形になっている。
+  {
+    id: 'dye', display: { name: '染料', reading: 'せんりょう', color: 0x3a2f7a },
+    mainKind: '道具', origin: 'なし', luxury: '上等', suitedLand: 'どこでも',
+    shape: [[1]],
     originReason: '船倉で作る品。旬を持たないので産地なし',
   },
   // ══════ 道具 10品 ══════
@@ -813,8 +895,10 @@ export const ALL_ITEMS: readonly ItemDef[] = [
   //   深い段は「**すでに作った品を組み上げて一式にする**」ことだけで出している。
   //   crafted-goods.md §7 の限界（金属が無い・粘土が無い・卵と小麦が無い）はそのまま。
   //
-  // ⚠ **先細りにしてある**（tier4=10品 → tier5=7 → tier6=4 → tier7=2）。
-  //   深いほど品数は少なく、1品が占める升は大きい（3.4升 → 5.7 → 7.5 → 9.0）。
+  // ⚠ **先細りにしてある**（#86 の追加後: tier4=11品 → tier5=8 → tier6=4 → tier7=2）。
+  //   深いほど品数は少なく、1品が占める升は大きい（3.64升 → 5.75 → 7.50 → 9.00）。
+  //   ⚠ **麻の系統（#86）は tier4 に1品・tier5 に1品を足しており、この段の品はここだけに無い。**
+  //   （麻の品は主種類ごとの並びのほうに置いてある）
   //   9升は最大盤面 13×10=130升の 7%。**1品で盤面を食い潰さない。**
   //
   // ⚠ 産地はすべて `なし`。加工品は旬を持たないため（#22 / island-goods.md §2）。
