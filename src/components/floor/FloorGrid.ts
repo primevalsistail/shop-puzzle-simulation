@@ -62,10 +62,6 @@ export class FloorGrid {
     return Array.from(this.slots.values())
   }
 
-  getEmptySlots(): DisplaySlot[] {
-    return this.getAllSlots().filter(s => s.quantity === 0)
-  }
-
   getGridSize(): GridSize {
     return { ...this.size }
   }
@@ -109,11 +105,6 @@ export class FloorGrid {
   clear(): void {
     this.slots.clear()
     this.cells = this.createEmptyCells(this.size)
-  }
-
-  updateQuantity(slotId: string, newQty: number): void {
-    const slot = this.slots.get(slotId)
-    if (slot) slot.quantity = newQty
   }
 
   private getOffsets(shape: Shape, rotation: Rotation): GridCell[] {

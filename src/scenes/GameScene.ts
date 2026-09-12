@@ -8,7 +8,6 @@ import { EconomyManager } from '../components/economy/EconomyManager.js'
 import { CraftingSystem } from '../components/items/CraftingSystem.js'
 import type { CraftResult } from '../components/items/CraftingSystem.js'
 import { CustomerSimulator } from '../components/simulation/CustomerSimulator.js'
-import { ShopService } from '../services/ShopService.js'
 import { GameService } from '../services/GameService.js'
 import { GameProgress } from '../components/progress/GameProgress.js'
 import { WorldState } from '../components/progress/WorldState.js'
@@ -16,7 +15,6 @@ import { Upgrades } from '../components/progress/Upgrades.js'
 import { FloorRenderer, GRID_ORIGIN_X, GRID_ORIGIN_Y, CELL_SIZE, DISCARD_MARGIN } from '../ui/FloorRenderer.js'
 import { InventoryPanel } from '../ui/InventoryPanel.js'
 import { CraftMenu } from '../ui/CraftMenu.js'
-import { SlotActionPrompt } from '../ui/SlotActionPrompt.js'
 import { HUD } from '../ui/HUD.js'
 import { PurchaseMenu } from '../ui/PurchaseMenu.js'
 import { UpgradeMenu } from '../ui/UpgradeMenu.js'
@@ -60,7 +58,6 @@ export class GameScene extends Phaser.Scene {
   private economy!: EconomyManager
   private craftingSystem!: CraftingSystem
   private customerSim!: CustomerSimulator
-  private shopService!: ShopService
   private gameService!: GameService
   private progress!: GameProgress
   private world!: WorldState
@@ -70,7 +67,6 @@ export class GameScene extends Phaser.Scene {
   private inventoryPanel!: InventoryPanel
   private craftMenu!: CraftMenu
   private saveLoadMenu!: SaveLoadMenu
-  private slotPrompt!: SlotActionPrompt
   private hud!: HUD
   private purchaseMenu!: PurchaseMenu
   private upgradeMenu!: UpgradeMenu
@@ -106,11 +102,10 @@ export class GameScene extends Phaser.Scene {
     this.economy = new EconomyManager()
     this.timeManager = new TimeManager()
     this.craftingSystem = new CraftingSystem(this.registry_, this.inventory, this.timeManager, this.upgrades)
-    this.customerSim = new CustomerSimulator(this.registry_)
-    this.shopService = new ShopService(this.floorGrid, this.placementManager, this.inventory, this.registry_)
+    this.customerSim = new CustomerSimulator(this.registry_, this.inventory)
     this.gameService = new GameService(
       this.floorGrid,
-      this.placementManager,
+      this.inventory,
       this.customerSim,
       this.economy,
       this.world,
@@ -124,7 +119,7 @@ export class GameScene extends Phaser.Scene {
     this.setupBackground()
 
     // FloorRenderer は背景より後に init() することで z-order が正しくなる
-    this.floorRenderer = new FloorRenderer(this, this.registry_)
+    this.floorRenderer = new FloorRenderer(this, this.registry_, this.inventory)
     this.floorRenderer.init()
     this.floorRenderer.drawGrid(INITIAL_GRID)
 
@@ -147,12 +142,6 @@ export class GameScene extends Phaser.Scene {
       this.inventory,
       this.registry_,
       () => this.onCraftMenuClosed(),
-    )
-    this.slotPrompt = new SlotActionPrompt(
-      this,
-      this.shopService,
-      this.inventory,
-      (slotId, action) => this.onSlotAction(slotId, action),
     )
     this.purchaseMenu = new PurchaseMenu(
       this,
@@ -230,17 +219,12 @@ export class GameScene extends Phaser.Scene {
       // 1つの品は棚に1区画まで。**掴んだ時点で知らせる**（どこへ持って行っても置けないため）
       if (this.placementManager.isDisplayed(id)) {
         const item = this.registry_.getItem(id)
-        const slot = this.floorGrid.getAllSlots().find(s => s.itemId === id)
-        this.updateStatus(
-          `${item.display.name}はもう棚に出ています（${slot?.quantity ?? 0}個）。`
-          + '増やすなら、その棚をクリックしてください',
-        )
+        this.updateStatus(`${item.display.name}はもう棚に出しています`)
         this.inventoryPanel.clearSelection()
         return
       }
       this.selectedItemId = id
       this.currentRotation = 0
-      this.slotPrompt.hide()
       this.updateStatus()
     })
     this.refreshInventoryPanel()
@@ -489,7 +473,6 @@ export class GameScene extends Phaser.Scene {
               //   多くのソフトと同じ分け方なので、操作の説明が要らない
               this.pressedSlot = { slot, x: pointer.x, y: pointer.y }
             } else {
-              this.slotPrompt.hide()
             }
           }
         }
@@ -498,11 +481,11 @@ export class GameScene extends Phaser.Scene {
 
     // ── pointerup: 左ボタンを離したとき → 配置 / 破棄 / キャンセル ──
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      // 動かさずに離した ＝ 補充
+      // 動かさずに離した ＝ 売り場から下ろす（材料に取っておきたいとき）
       if (this.pressedSlot) {
         const slot = this.pressedSlot.slot
         this.pressedSlot = null
-        this.restockSlot(slot)
+        this.takeDownSlot(slot)
         return
       }
       if (!this.selectedItemId) return
@@ -533,7 +516,6 @@ export class GameScene extends Phaser.Scene {
       if (this.upgradeMenu.isVisible()) { this.upgradeMenu.close(); return }
       if (this.craftMenu.isVisible()) { this.craftMenu.close(); return }
       if (this.purchaseMenu.isVisible()) { this.purchaseMenu.close(); return }
-      this.slotPrompt.hide()
       this.cancelDrag()
     })
   }
@@ -570,16 +552,12 @@ export class GameScene extends Phaser.Scene {
     this.updateStatus()
   }
 
+  /** 売り場の外へ出して離す ＝ 下ろす。⚠ **持ち物は減らない** */
   private discardToInventory(): void {
     if (!this.pendingMoveSlot) return
-    const { itemId, quantity } = this.pendingMoveSlot
-    if (quantity > 0) {
-      this.inventory.add(itemId, quantity)
-      this.refreshInventoryPanel()
-      this.updateStatus(`リストへ返しました`)
-    } else {
-      this.updateStatus(`撤去しました`)
-    }
+    const item = this.registry_.getItem(this.pendingMoveSlot.itemId)
+    this.updateStatus(`${item.display.name}を売り場から下ろした`)
+    this.refreshInventoryPanel()
     this.pendingMoveSlot = null
     this.selectedItemId = null
     this.inventoryPanel.clearSelection()
@@ -593,7 +571,6 @@ export class GameScene extends Phaser.Scene {
     this.placementManager.removeSlot(slot.id)
     this.selectedItemId = slot.itemId
     this.currentRotation = slot.rotation
-    this.slotPrompt.hide()
     this.floorRenderer.drawDiscardZone(false)
     this.updateStatus()
   }
@@ -656,6 +633,7 @@ export class GameScene extends Phaser.Scene {
       const slot = this.floorGrid.getAllSlots().find(sl => sl.id === s.slotId)
       if (slot) {
         this.floorRenderer.refreshSlot(slot)
+        this.refreshInventoryPanel()
         this.showSalePopup(s.revenue, slot)
         const item = this.registry_.getItem(slot.itemId)
         this.messageLog.addMessage(`${item.display.name}が売れた！ +¥${s.revenue}`, 'sale')
@@ -721,41 +699,27 @@ export class GameScene extends Phaser.Scene {
   private tryPlaceItem(cell: GridCell): void {
     if (!this.selectedItemId) return
     const isMoving = this.pendingMoveSlot !== null
-    const quantity = isMoving
-      ? this.pendingMoveSlot!.quantity
-      : this.inventory.getQuantity(this.selectedItemId)
 
-    if (!isMoving && quantity <= 0) {
-      const item = this.registry_.getItem(this.selectedItemId)
-      this.updateStatus(`${item.display.name}は手元にありません。仕入れるか作ると並べられます`)
-      return
-    }
-
-    const alreadyDisplayed = !isMoving && this.placementManager.isDisplayed(this.selectedItemId)
-    const slot = this.placementManager.tryPlace(this.selectedItemId, cell, this.currentRotation, quantity)
+    // ⚠ **在庫は減らない。**棚は「どこに出しているか」を表すだけで、持ち物は1つしかない
+    const slot = this.placementManager.tryPlace(this.selectedItemId, cell, this.currentRotation)
     if (!slot) {
-      this.updateStatus(alreadyDisplayed ? 'もう並べています' : '配置できません')
+      const already = !isMoving && this.placementManager.isDisplayed(this.selectedItemId)
+      this.updateStatus(already ? 'もう棚に出しています' : 'ここには置けません')
       if (isMoving) {
         this.floorGrid.place(this.pendingMoveSlot!)
         this.floorRenderer.drawSlot(this.pendingMoveSlot!)
-        this.pendingMoveSlot = null
-        this.selectedItemId = null
-        this.inventoryPanel.clearSelection()
-        this.floorRenderer.clearPreview()
-        this.floorRenderer.clearDragGhost()
       }
+      this.clearSelection()
       return
     }
 
-    if (!isMoving) {
-      // ⚠ **置けた数だけ引く。**区画の上限は 999 なので、
-      //   1万個持っていても置けるのは 999 個で、残りは手持ちに戻る。
-      //   ここで `quantity`（持っている数）を引くと、**差が消滅する**
-      this.inventory.remove(this.selectedItemId, slot.quantity)
-      this.inventoryPanel.updateQuantity(this.selectedItemId, this.inventory.getQuantity(this.selectedItemId))
-    }
+    this.clearSelection()
+    this.refreshInventoryPanel()
+  }
 
+  private clearSelection(): void {
     this.pendingMoveSlot = null
+    this.pressedSlot = null
     this.selectedItemId = null
     this.inventoryPanel.clearSelection()
     this.floorRenderer.clearPreview()
@@ -765,42 +729,19 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * 区画に手持ちを足す。**足せるだけ足す。**
+   * 売り場から下ろす。**持ち物は減らない。**
    *
-   * ⚠ 1区画の上限は999なので、手持ちが多くても全部は入らない。
-   *   **入った数だけ手持ちから引く**（`ShopService` が実際に積めた数で処理する）。
+   * ⚠ 下ろすと客に売れなくなるので、**加工の材料に取っておきたいとき**に使う。
+   *   「売るか、材料にするか」の判断はここで表す。
    */
-  private restockSlot(slot: DisplaySlot): void {
+  private takeDownSlot(slot: DisplaySlot): void {
     const item = this.registry_.getItem(slot.itemId)
-    const held = this.inventory.getQuantity(slot.itemId)
-    if (held <= 0) {
-      // ⚠ **「手持ちがありません」では通じない。**棚には出ているので、
-      //   プレイヤーから見れば持っている。**何をすれば補充できるか**まで書く
-      this.updateStatus(
-        `${item.display.name}は手元にありません（棚に${slot.quantity}個）。仕入れるか作ると補充できます`,
-      )
-      return
-    }
-    const before = slot.quantity
-    if (!this.shopService.restockSlot(slot.id, held)) {
-      this.updateStatus(`${item.display.name}の棚はもう満杯です（${slot.quantity}個）`)
-      return
-    }
-    const after = this.floorGrid.getAllSlots().find(s => s.id === slot.id)
-    this.floorRenderer.refreshSlot(after ?? slot)
+    this.placementManager.removeSlot(slot.id)
+    this.floorRenderer.clearSlot(slot.id)
     this.refreshInventoryPanel()
-    this.updateStatus(`${item.display.name}を ${(after?.quantity ?? before) - before}個 補充した`)
-  }
-
-  private onSlotAction(slotId: string, action: 'restock' | 'remove'): void {
-    if (action === 'restock') {
-      const slot = this.floorGrid.getAllSlots().find(s => s.id === slotId)
-      if (slot) this.floorRenderer.refreshSlot(slot)
-      this.refreshInventoryPanel()
-    } else {
-      this.floorRenderer.clearSlot(slotId)
-    }
-    this.updateStatus()
+    this.updateStatus(
+      `${item.display.name}を売り場から下ろした（手元に${this.inventory.getQuantity(slot.itemId)}個）`,
+    )
   }
 
   private openCraftMenu(): void {
@@ -868,11 +809,8 @@ export class GameScene extends Phaser.Scene {
     for (const item of items) {
       quantities[item.id] = stock[item.id] ?? 0
     }
-    // 棚に出している数も渡す。手元の数だけだと、並べた品が「0」に見えて嘘になる
-    const onShelf: Record<string, number> = {}
-    for (const slot of this.floorGrid.getAllSlots()) {
-      onShelf[slot.itemId] = (onShelf[slot.itemId] ?? 0) + slot.quantity
-    }
+    // 棚に出している品には印を付ける。数量は持ち物と同じなので分けて出さない
+    const onShelf = new Set(this.floorGrid.getAllSlots().map(s => s.itemId))
     this.inventoryPanel.render(items, quantities, onShelf)
   }
 

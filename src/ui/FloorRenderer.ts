@@ -28,6 +28,8 @@ export class FloorRenderer {
   constructor(
     private scene: Phaser.Scene,
     private registry: ItemRegistry,
+    /** 持ち物。棚は数量を持たないので、表示する数はここから引く */
+    private inventory: { getQuantity: (itemId: string) => number },
   ) {}
 
   // Call this AFTER background is drawn so depth ordering is correct
@@ -75,17 +77,18 @@ export class FloorRenderer {
     this.clearSlot(slot.id)
 
     const item = this.registry.getItem(slot.itemId)
+    const quantity = this.inventory.getQuantity(slot.itemId)
     const cells = this.getSlotCells(slot)
     const g = this.scene.add.graphics().setDepth(DEPTH_SLOTS)
 
     for (const cell of cells) {
       const px = GRID_ORIGIN_X + cell.x * CELL_SIZE
       const py = GRID_ORIGIN_Y + cell.y * CELL_SIZE
-      g.fillStyle(item.display.color, slot.quantity > 0 ? 1.0 : 0.25)
+      g.fillStyle(item.display.color, quantity > 0 ? 1.0 : 0.25)
       g.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2)
       // 空 → 赤 ／ 残りわずか → 橙 ／ ふつう → 白
-      if (slot.quantity === 0) g.lineStyle(3, 0xff6655, 0.95)
-      else if (slot.quantity < FloorRenderer.LOW_STOCK) g.lineStyle(3, 0xffaa33, 0.9)
+      if (quantity === 0) g.lineStyle(3, 0xff6655, 0.95)
+      else if (quantity < FloorRenderer.LOW_STOCK) g.lineStyle(3, 0xffaa33, 0.9)
       else g.lineStyle(2, 0xffffff, 0.35)
       g.strokeRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2)
     }
@@ -97,11 +100,11 @@ export class FloorRenderer {
       const cy = cells.reduce((s, c) => s + c.y, 0) / cells.length
       const tx = GRID_ORIGIN_X + cx * CELL_SIZE + CELL_SIZE / 2
       const ty = GRID_ORIGIN_Y + cy * CELL_SIZE + CELL_SIZE / 2
-      const label = slot.quantity === 0 ? '売り切れ' : `×${slot.quantity}`
+      const label = quantity === 0 ? '売り切れ' : `×${quantity}`
       const text = this.scene.add.text(tx, ty, `${item.display.name}\n${label}`, {
         fontSize: '10px',
-        color: slot.quantity === 0 ? '#ffbbaa'
-          : slot.quantity < FloorRenderer.LOW_STOCK ? '#ffdd99' : '#ffffff',
+        color: quantity === 0 ? '#ffbbaa'
+          : quantity < FloorRenderer.LOW_STOCK ? '#ffdd99' : '#ffffff',
         stroke: '#000000',
         strokeThickness: 2,
         align: 'center',

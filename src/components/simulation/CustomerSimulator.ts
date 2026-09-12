@@ -38,7 +38,11 @@ function shuffle<T>(items: T[], rng: () => number): T[] {
 }
 
 export class CustomerSimulator {
-  constructor(private registry: ItemRegistry) {}
+  constructor(
+    private registry: ItemRegistry,
+    /** 持ち物。**棚は数量を持たない**ので、売れるかどうかはここで見る */
+    private inventory: { getQuantity: (itemId: string) => number },
+  ) {}
 
   /**
    * 1分ぶんの売買。
@@ -64,7 +68,7 @@ export class CustomerSimulator {
     const results: SaleResult[] = []
     // ⚠ **巡回順をランダムにする。**`getAllSlots()` の順は挿入順＝**置いた順**で、
     //   プレイヤーには見えない。売れ行きを決めるのは**配置の工夫**であって、置いた順ではない。
-    const activeSlots = shuffle(slots.filter(s => s.quantity > 0), rng)
+    const activeSlots = shuffle(slots.filter(s => this.inventory.getQuantity(s.itemId) > 0), rng)
 
     for (const slot of activeSlots) {
       const own = evaluation.perSlot.get(slot.id) ?? NEUTRAL

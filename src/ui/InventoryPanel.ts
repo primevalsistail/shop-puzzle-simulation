@@ -32,13 +32,8 @@ export class InventoryPanel {
   private paging = new ListPaging(VISIBLE_COUNT)
   private storedItems: ItemDef[] = []
   private storedInventory: Record<string, number> = {}
-  /**
-   * 棚に出している数。
-   *
-   * ⚠ **手元の数だけを出すと嘘になる。**品を並べると手元の分は全部棚へ移るので、
-   *   一覧は必ず「0」になり、**持っていないように見える。**
-   */
-  private storedOnShelf: Record<string, number> = {}
+  /** いま売り場に出している品。数量は持ち物と同じなので、出しているかどうかだけを持つ */
+  private storedOnShelf: Set<string> = new Set()
   /** メニューが開いている間は送らない（背後のリストが動いてしまうため） */
   private scrollBlocked: () => boolean = () => false
 
@@ -68,19 +63,17 @@ export class InventoryPanel {
   render(
     items: ItemDef[],
     inventory: Record<string, number>,
-    onShelf: Record<string, number> = {},
+    onShelf: Set<string> = new Set(),
   ): void {
     this.storedItems = items
     this.storedInventory = { ...inventory }
-    this.storedOnShelf = { ...onShelf }
+    this.storedOnShelf = new Set(onShelf)
     this.redraw()
   }
 
-  /** 「手元」と「棚」を並べて出す。片方だけだと持っていないように見える */
   private countLabel(itemId: string): string {
     const held = this.storedInventory[itemId] ?? 0
-    const shelf = this.storedOnShelf[itemId] ?? 0
-    return shelf > 0 ? `手元 ${held} ／ 棚 ${shelf}` : `手元 ${held}`
+    return this.storedOnShelf.has(itemId) ? `${held}個（売り場に出している）` : `${held}個`
   }
 
   private redraw(): void {
@@ -205,7 +198,7 @@ export class InventoryPanel {
         fontSize: '13px', color: '#ffffff',
       })
       const qtyText = this.scene.add.text(PANEL_X + 54, y - 2, this.countLabel(item.id), {
-        fontSize: '11px', color: (this.storedOnShelf[item.id] ?? 0) > 0 ? '#88bbaa' : '#aaaaaa',
+        fontSize: '11px', color: this.storedOnShelf.has(item.id) ? '#88bbaa' : '#aaaaaa',
       })
       // 値段は持ち物ではなく導出値。表示のたびに出す（ItemRegistry の注記を参照）
       const priceLabel =

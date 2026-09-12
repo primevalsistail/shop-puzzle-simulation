@@ -1,5 +1,5 @@
 import type { FloorGrid } from '../components/floor/FloorGrid.js'
-import type { PlacementManager } from '../components/floor/PlacementManager.js'
+import type { Inventory } from '../components/economy/Inventory.js'
 import type { CustomerSimulator } from '../components/simulation/CustomerSimulator.js'
 import type { EconomyManager } from '../components/economy/EconomyManager.js'
 import type { WorldState } from '../components/progress/WorldState.js'
@@ -23,7 +23,7 @@ export class GameService {
 
   constructor(
     private floorGrid: FloorGrid,
-    private placementManager: PlacementManager,
+    private inventory: Inventory,
     private customerSim: CustomerSimulator,
     private economy: EconomyManager,
     private world: WorldState,
@@ -51,7 +51,8 @@ export class GameService {
     })
 
     for (const sale of sales) {
-      this.placementManager.depleteOne(sale.slotId)
+      // 売れたら持ち物が減る。棚は「どこに出しているか」だけなので触らない
+      this.inventory.remove(sale.itemId, sale.qtySold)
       this.economy.addRevenue(sale.revenue)
       // U2（その品を一定数売ると買えるようになる）が読む
       this.world.recordSale(sale.itemId, sale.qtySold)

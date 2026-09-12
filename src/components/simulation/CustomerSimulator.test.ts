@@ -10,9 +10,14 @@ const reg = new ItemRegistry(ALL_ITEMS, ALL_RECIPES)
 
 const NEUTRAL: Modifiers = { 売れやすさ: 1, 値段: 1, 集客: 1 }
 
+/** 棚は数量を持たない。売れるかどうかは持ち物で決まる */
+const stock = new Map<string, number>()
+const inventory = { getQuantity: (id: string) => stock.get(id) ?? 0 }
+
 function makeSlot(id: string, itemId: string, qty: number): DisplaySlot {
   const item = reg.getItem(itemId)
-  return { id, itemId, shape: item.shape, position: { x: 0, y: 0 }, rotation: 0, quantity: qty }
+  stock.set(itemId, qty)
+  return { id, itemId, shape: item.shape, position: { x: 0, y: 0 }, rotation: 0 }
 }
 
 /** 規則をかけた結果を手で組む。規則そのものは taxonomy 側のテストが見る */
@@ -33,7 +38,7 @@ function arriveThenBuy(): () => number {
 }
 
 describe('CustomerSimulator', () => {
-  const sim = new CustomerSimulator(reg)
+  const sim = new CustomerSimulator(reg, inventory)
 
   it('顧客が来ないとき売上ゼロ', () => {
     const slot = makeSlot('s1', 'snap_pea', 5)

@@ -9,13 +9,20 @@ export type Rotation = 0 | 1 | 2 | 3 // 0=0°, 1=90°, 2=180°, 3=270°
 export type GameTime = { day: number; hour: number; minute: number }
 
 // ─── アイテム・陳列 ────────────────────────────────────
+/**
+ * 売り場に出している区画。
+ *
+ * ⚠ **数量を持たない。**世界観のとおり **店＝船倉**で、倉と売り場は同じ場所。
+ *   持ち物は `Inventory` が1つだけ持ち、区画は「**どの品を、どこに、どの向きで出しているか**」
+ *   だけを表す。数量を別に持つと、同じ物が2箇所にある形になり、
+ *   **自分の荷物を自分の荷物に移す「補充」という無意味な操作**が生まれる。
+ */
 export interface DisplaySlot {
   id: string
   itemId: string
   shape: Shape         // 2次元boolean配列（1=占有, 0=空き）
   position: GridCell   // グリッド上の左上基準点
   rotation: Rotation
-  quantity: number     // 0〜999
 }
 
 // 効き目は `src/taxonomy/evaluate.ts` の `Modifiers`（売れやすさ・値段・集客）が表す。

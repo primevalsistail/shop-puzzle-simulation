@@ -4,6 +4,7 @@ import { FloorGrid } from '../components/floor/FloorGrid.js'
 import { PlacementManager } from '../components/floor/PlacementManager.js'
 import { CustomerSimulator } from '../components/simulation/CustomerSimulator.js'
 import { EconomyManager } from '../components/economy/EconomyManager.js'
+import { Inventory } from '../components/economy/Inventory.js'
 import { ItemRegistry } from '../components/items/ItemRegistry.js'
 import { EventBus } from './EventBus.js'
 import { GameEvents } from '../types/index.js'
@@ -16,12 +17,13 @@ function setup() {
   const reg = new ItemRegistry(ALL_ITEMS, ALL_RECIPES)
   const grid = new FloorGrid({ width: 6, height: 5 }, reg)
   const pm = new PlacementManager(grid, reg)
-  const sim = new CustomerSimulator(reg)
+  const inv = new Inventory()
+  const sim = new CustomerSimulator(reg, inv)
   const eco = new EconomyManager(50000)
   const world = new WorldState()
   const upgrades = new Upgrades()
-  const gs = new GameService(grid, pm, sim, eco, world, upgrades)
-  return { reg, grid, pm, sim, eco, world, upgrades, gs }
+  const gs = new GameService(grid, inv, sim, eco, world, upgrades)
+  return { reg, grid, pm, inv, sim, eco, world, upgrades, gs }
 }
 
 describe('GameService', () => {
@@ -36,8 +38,8 @@ describe('GameService', () => {
   })
 
   it('顧客が購入するとき売上が計上される', () => {
-    const { gs, pm, eco } = setup()
-    pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 10)
+    const { gs, pm, eco, inv } = setup()
+    inv.add('snap_pea', 10); pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
 
     let callCount = 0
     const rng = () => {
@@ -49,8 +51,8 @@ describe('GameService', () => {
   })
 
   it('購入でスロット数量が減る', () => {
-    const { gs, pm, grid } = setup()
-    pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 5)
+    const { gs, pm, inv } = setup()
+    inv.add('snap_pea', 5); pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
 
     let callCount = 0
     const rng = () => {
@@ -58,12 +60,12 @@ describe('GameService', () => {
       return callCount === 1 ? 0.1 : 0.01
     }
     gs.onMinutePassed(rng, true)
-    expect(grid.getAllSlots()[0].quantity).toBe(4)
+    expect(inv.getQuantity('snap_pea')).toBe(4)
   })
 
   it('閉店中（isOpen=false）は客が来ない — 売上も在庫も動かない（#25）', () => {
-    const { gs, pm, eco, grid } = setup()
-    pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 10)
+    const { gs, pm, inv, eco } = setup()
+    inv.add('snap_pea', 10); pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
     const sold = vi.fn()
     EventBus.on(GameEvents.FLOOR_SLOT_SOLD, sold)
 
@@ -76,14 +78,14 @@ describe('GameService', () => {
     gs.onMinutePassed(rng, false)
 
     expect(eco.getTotalRevenue()).toBe(0)
-    expect(grid.getAllSlots()[0].quantity).toBe(10)
+    expect(inv.getQuantity('snap_pea')).toBe(10)
     expect(sold).not.toHaveBeenCalled()
     expect(callCount).toBe(0) // 乱数すら引かれない＝客の判定に入っていない
   })
 
   it('同じ乱数でも営業中なら売れる（閉店テストの対照）', () => {
-    const { gs, pm, eco } = setup()
-    pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 10)
+    const { gs, pm, eco, inv } = setup()
+    inv.add('snap_pea', 10); pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
     let callCount = 0
     const rng = () => {
       callCount++
@@ -94,13 +96,13 @@ describe('GameService', () => {
   })
 
   it('累計売上が100万に達したときPROGRESS_GOAL_COMPLETEを発火する', () => {
-    const { gs, eco, pm, reg } = setup()
+    const { gs, eco, pm, reg, inv } = setup()
     const listener = vi.fn()
     EventBus.on(GameEvents.PROGRESS_GOAL_COMPLETE, listener)
 
     // ⚠ 判定は**所持金**（#26）。ちょうど1品売れば届くところまで積む
     eco.addRevenue(gs.getGoalAmount() - reg.salePriceOf('snap_pea'))
-    pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 10)
+    inv.add('snap_pea', 10); pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
 
     let callCount = 0
     const rng = () => {
@@ -112,10 +114,10 @@ describe('GameService', () => {
   })
 
   it('2回目以降はGOAL_COMPLETEを発火しない', () => {
-    const { gs, eco, pm } = setup()
+    const { gs, eco, pm, inv } = setup()
     gs.enterEndlessMode()
     eco.addRevenue(999999)
-    pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 10)
+    inv.add('snap_pea', 10); pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
 
     const listener = vi.fn()
     EventBus.on(GameEvents.PROGRESS_GOAL_COMPLETE, listener)
@@ -130,8 +132,8 @@ describe('GameService', () => {
   })
 
   it('売れた品は累計販売数に積まれる（U2 の解禁条件が読む）', () => {
-    const { gs, pm, world } = setup()
-    pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 5)
+    const { gs, pm, world, inv } = setup()
+    inv.add('snap_pea', 5); pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
     expect(world.getSoldCount('snap_pea')).toBe(0)
 
     let callCount = 0
@@ -152,21 +154,21 @@ describe('GameService', () => {
     }
 
     it('来客の強化を上げると売上が増える', () => {
-      const a = setup(); a.pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 999); runDay(a.gs)
-      const b = setup(); b.pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 999)
+      const a = setup(); a.inv.add('snap_pea', 999); a.pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0); runDay(a.gs)
+      const b = setup(); b.inv.add('snap_pea', 999); b.pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
       for (let i = 0; i < 5; i++) b.upgrades.advance('来客')
       runDay(b.gs)
       expect(b.eco.getTotalRevenue()).toBeGreaterThan(a.eco.getTotalRevenue())
     })
 
     it('利益率の強化を上げると、1個あたりの売値が上がる', () => {
-      const a = setup(); a.pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 999); runDay(a.gs)
-      const soldA = 999 - a.grid.getAllSlots()[0].quantity
+      const a = setup(); a.inv.add('snap_pea', 999); a.pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0); runDay(a.gs)
+      const soldA = 999 - a.inv.getQuantity('snap_pea')
 
-      const b = setup(); b.pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 999)
+      const b = setup(); b.inv.add('snap_pea', 999); b.pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
       for (let i = 0; i < 5; i++) b.upgrades.advance('利益率')
       runDay(b.gs)
-      const soldB = 999 - b.grid.getAllSlots()[0].quantity
+      const soldB = 999 - b.inv.getQuantity('snap_pea')
 
       // 売れた個数は同じ（利益率は売れやすさに効かない）が、単価が上がる
       expect(soldB).toBe(soldA)
@@ -178,13 +180,49 @@ describe('GameService', () => {
       const plain = setup()
       const boosted = setup()
       for (let i = 0; i < 5; i++) boosted.upgrades.advance('利益率')
-      plain.pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 999)
-      boosted.pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0, 999)
+      plain.inv.add('snap_pea', 999); plain.pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
+      boosted.inv.add('snap_pea', 999); boosted.pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
       runDay(plain.gs); runDay(boosted.gs)
       const ratio = boosted.eco.getTotalRevenue() / plain.eco.getTotalRevenue()
       // tier1 は粗利にだけ倍率が乗るので、売値そのものは3倍にはならない
       expect(ratio).toBeGreaterThan(1.5)
       expect(ratio).toBeLessThan(3.0)
+    })
+  })
+
+  describe('在庫は1つ（店＝船倉）', () => {
+    it('売れると持ち物が減る。棚は「どこに出しているか」だけを持つ', () => {
+      const { gs, pm, inv, grid } = setup()
+      inv.add('snap_pea', 5)
+      pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
+
+      let n = 0
+      const rng = () => { n++; return n === 1 ? 0.1 : 0.01 }
+      gs.onMinutePassed(rng, true)
+
+      expect(inv.getQuantity('snap_pea')).toBe(4)
+      // 区画は残る。数量という概念を持たないので「売り切れ」でも場所は保たれる
+      expect(grid.getAllSlots()).toHaveLength(1)
+    })
+
+    it('持ち物が0なら、棚に出していても売れない', () => {
+      const { gs, pm, inv, eco } = setup()
+      pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)   // 持っていないまま場所だけ取る
+      expect(inv.getQuantity('snap_pea')).toBe(0)
+
+      let n = 0
+      const rng = () => { n++; return n === 1 ? 0.1 : 0.01 }
+      gs.onMinutePassed(rng, true)
+      expect(eco.getTotalRevenue()).toBe(0)
+    })
+
+    it('⚠ 加工で材料を使うと、棚に出している分も減る（同じ持ち物だから）', () => {
+      const { pm, inv } = setup()
+      inv.add('snap_pea', 10)
+      pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
+      // 加工が材料を引くのと同じこと
+      inv.remove('snap_pea', 6)
+      expect(inv.getQuantity('snap_pea')).toBe(4)
     })
   })
 

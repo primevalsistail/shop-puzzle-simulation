@@ -12,7 +12,7 @@ function makeGrid(w = 6, h = 5) {
 function makeSlot(itemId: string, x: number, y: number, rotation: 0 | 1 | 2 | 3 = 0): DisplaySlot {
   const reg = new ItemRegistry(ALL_ITEMS)
   const item = reg.getItem(itemId)
-  return { id: `slot_${itemId}_${x}_${y}`, itemId, shape: item.shape, position: { x, y }, rotation, quantity: 5 }
+  return { id: `slot_${itemId}_${x}_${y}`, itemId, shape: item.shape, position: { x, y }, rotation }
 }
 
 describe('FloorGrid', () => {
@@ -76,15 +76,6 @@ describe('FloorGrid', () => {
     expect(grid.getSlotAt({ x: 1, y: 3 })).toBeNull()
   })
 
-  it('getEmptySlotsはquantity=0のスロットのみ返す', () => {
-    const slot1 = makeSlot('snap_pea', 0, 0)
-    const slot2 = { ...makeSlot('snap_pea', 1, 0), id: 'slot_empty', quantity: 0 }
-    grid.place(slot1)
-    grid.place(slot2)
-    const empty = grid.getEmptySlots()
-    expect(empty).toHaveLength(1)
-    expect(empty[0].id).toBe('slot_empty')
-  })
 
   it('expandGridで大きなグリッドに拡張できる', () => {
     const slot = makeSlot('snap_pea', 0, 0)
@@ -97,12 +88,6 @@ describe('FloorGrid', () => {
     expect(grid.canPlace([[1]], { x: 8, y: 6 }, 0)).toBe(true)
   })
 
-  it('updateQuantityで数量を更新できる', () => {
-    const slot = makeSlot('snap_pea', 0, 0)
-    grid.place(slot)
-    grid.updateQuantity(slot.id, 42)
-    expect(grid.getAllSlots()[0].quantity).toBe(42)
-  })
 
   it('getAdjacentSlotIdsは回転後の実際の占有升目で隣接を見る（#30）', () => {
     // 羊の乳 [[1],[1]] を90度回すと横2升になる。回転前のかたちで見ると隣接を取り違える
