@@ -3,10 +3,19 @@ import type { ShelfPresets } from '../components/floor/ShelfPresets.js'
 import { PRESET_COUNT } from '../components/floor/ShelfPresets.js'
 import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
-import { PLACE_CX, CONTENT_L, CONTENT_R, SUBTITLE_Y, ROWS_TOP } from './layout.js'
+import { PLACE_CX, CONTENT_L, CONTENT_R, SUBTITLE_Y, ROWS_TOP, ROWS_BOTTOM } from './layout.js'
 
-const ROW_H = 120
+/**
+ * 1行の高さ。**型の数から出す。決め打ちしない。**
+ *
+ * ⚠ **全部を1画面に出す**のが狙い（型を選ぶのに送らせない）ので、
+ *   数を増やすと行が縮む。縮みすぎたら**ページ送りに切り替えること。**
+ */
+const ROW_H = Math.floor((ROWS_BOTTOM - ROWS_TOP) / PRESET_COUNT)
 const ROW_W = CONTENT_R - CONTENT_L
+const BTN_H = Math.min(30, ROW_H - 12)
+const SAVE_W = 150
+const CALL_W = 120
 
 /**
  * 品出しの型（マイセット。#27）。**ダイアログではなく「行く場所」**（#58）。
@@ -63,7 +72,7 @@ export class PresetMenu {
 
     objs.push(
       this.scene.add.text(CONTENT_L, SUBTITLE_Y,
-        `いま棚に出しているのは ${this.currentCount()}区画。島ごとの並べ替えを覚えておける`, {
+        `いま棚に出しているのは ${this.currentCount()}区画。島ごと・売り方ごとの並べ替えを覚えておける`, {
         fontSize: '13px', color: '#8899aa',
       }).setOrigin(0, 0.5),
     )
@@ -76,33 +85,38 @@ export class PresetMenu {
     this.container.setDepth(CONTENT_DEPTH)
   }
 
+  /**
+   * 1行は**1段**に収める。⚠ 型が10本あるので、2段にすると入らない
+   * （1行 45px ／ 名前も中身もボタンも同じ高さに並べる）。
+   */
   private buildRow(index: number, y: number, objs: Phaser.GameObjects.GameObject[]): void {
     const preset = this.presets.get(index)
 
     objs.push(
-      this.scene.add.rectangle(PLACE_CX, y, ROW_W, ROW_H - 14, preset ? 0x232344 : 0x2a2a3a)
+      this.scene.add.rectangle(PLACE_CX, y, ROW_W, ROW_H - 6, preset ? 0x232344 : 0x2a2a3a)
         .setStrokeStyle(1, 0x445577),
-      this.scene.add.text(CONTENT_L + 28, y - 22, `型 ${index + 1}`, {
-        fontSize: '19px', color: '#ffffff', fontStyle: 'bold',
+      this.scene.add.text(CONTENT_L + 20, y, `型 ${index + 1}`, {
+        fontSize: '15px', color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0, 0.5),
-      this.scene.add.text(CONTENT_L + 28, y + 10, this.describe(index), {
+      this.scene.add.text(CONTENT_L + 92, y, this.describe(index), {
         fontSize: '13px', color: preset ? '#aabbcc' : '#667788',
       }).setOrigin(0, 0.5),
     )
 
+    const callL = CONTENT_R - 12 - CALL_W
+    const saveL = callL - 8 - SAVE_W
     // 覚える —— いつでも押せる（空の盤面も「全部下ろす」型として覚えてよい）
-    this.button(objs, CONTENT_R - 300, y, 150, 34, 'いまの並びを覚える', 0x3a5a8a, true,
+    this.button(objs, saveL, y, SAVE_W, BTN_H, 'いまの並びを覚える', 0x3a5a8a, true,
       () => this.onSave(index))
-
     // 呼び出す —— 覚えていなければ押せない
-    this.button(objs, CONTENT_R - 140, y, 130, 34, '呼び出す', 0x3a6a3a, preset !== null,
+    this.button(objs, callL, y, CALL_W, BTN_H, '呼び出す', 0x3a6a3a, preset !== null,
       () => this.onApply(index))
   }
 
   private describe(index: number): string {
     const preset = this.presets.get(index)
     if (!preset) return '空 —— まだ覚えていない'
-    if (preset.slots.length === 0) return `全部下ろす型　${formatWhen(preset.savedAt)}`
+    if (preset.slots.length === 0) return `全部下ろす　${formatWhen(preset.savedAt)}`
     return `${preset.slots.length}区画　${formatWhen(preset.savedAt)}`
   }
 

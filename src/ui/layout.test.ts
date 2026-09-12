@@ -7,6 +7,7 @@ import {
   TITLE_Y, SUBTITLE_Y, FILTER_Y, ROWS_TOP, PAGER_Y, ROWS_BOTTOM,
   rowsThatFit,
 } from './layout.js'
+import { PRESET_COUNT } from '../components/floor/ShelfPresets.js'
 
 /**
  * **受入条件2（棚を覆わない）を機械で見る。**
@@ -101,5 +102,22 @@ describe('rowsThatFit — 行数は高さから出す', () => {
   it('ダイアログの頃より広い', () => {
     expect(PLACE_W).toBeGreaterThan(560)  // クラフト（いちばん広かった）
     expect(PLACE_H).toBeGreaterThan(560)
+  })
+})
+
+/**
+ * ⚠ **品出しの型（#27）が全部1画面に入るか。**
+ *   型を選ぶのに送らせたくないので、**数を増やしたら行が縮む。**
+ *   縮みすぎて読めなくなったら、ページ送りに切り替える合図。
+ */
+describe('品出しの型が1画面に入る', () => {
+  it('行の高さが 36px を下回らない', () => {
+    const rowH = Math.floor((ROWS_BOTTOM - ROWS_TOP) / PRESET_COUNT)
+    expect(rowH).toBeGreaterThanOrEqual(36)
+  })
+
+  it('全部の行が一覧の範囲に収まる', () => {
+    const rowH = Math.floor((ROWS_BOTTOM - ROWS_TOP) / PRESET_COUNT)
+    expect(ROWS_TOP + PRESET_COUNT * rowH).toBeLessThanOrEqual(ROWS_BOTTOM)
   })
 })

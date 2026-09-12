@@ -28,12 +28,16 @@ export interface ShelfPreset {
 }
 
 /**
- * 覚えられる型の数。
+ * 覚えられる型の数。**PO 判断（2026-09-12）で 3 → 10。**
  *
  * **島は4つ**だが、4つにはしていない。**島ごとに1つと決めつけない**ため
  * （「売る型」「作る型」のような使い方を閉ざさない）。
+ *
+ * ⚠ **増やすと画面の行が縮む。**場所の一覧に使える高さは `ROWS_BOTTOM - ROWS_TOP`（454px）で、
+ *   1行 = 454 / この数。**10 で 45px。**これ以上増やすなら**ページ送りが要る**
+ *   （`PresetMenu` のテストが、入らなくなったら落ちる）。
  */
-export const PRESET_COUNT = 3
+export const PRESET_COUNT = 10
 
 /** いま並べているものを型の形にする。**導出値（かたち）と区画の名前は落とす** */
 export function capture(slots: readonly DisplaySlot[]): PresetSlot[] {
