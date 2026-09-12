@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import type { CraftingSystem } from '../components/items/CraftingSystem.js'
 import type { Inventory } from '../components/economy/Inventory.js'
+import { MAX_QUANTITY } from '../components/economy/Inventory.js'
 import type { ItemRegistry, RecipeDef } from '../components/items/ItemRegistry.js'
 import type { RecipeUnlocks } from '../components/progress/RecipeUnlocks.js'
 import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
@@ -92,6 +93,12 @@ export class CraftMenu {
     private frame: PlaceFrame,
     /** いまいる島（#33）。**ここで手に入らない材料に産地を出す**ため */
     private islandOf: () => IslandName,
+    /**
+     * 値段の強化の倍率（#76）。**持ち物一覧と同じものを通す。**
+     *
+     * ⚠ **渡さないと、強化を買うほど3ルートの数字が一覧とずれていく。**
+     */
+    private marginOf: () => number,
     private onClose: () => void,
   ) {
     this.search = new SearchBox(scene)
@@ -143,7 +150,7 @@ export class CraftMenu {
 
   /**
    * いま並べるレシピ。**主種類は「出来上がる品」で見る**（材料ではない）。
-   * 「作れる」は材料と当日の残り時間の両方を見る（`maxCraftTimes > 0`）。
+   * 「作れる」は材料・在庫の空き・当日の残り時間のすべてを見る（`maxCraftTimes > 0`）。
    *
    * ⚠ **母集合は解禁済みのレシピ**（#48）。全85本を並べない。
    */
@@ -334,6 +341,9 @@ export class CraftMenu {
     )
     this.pushButton(objs, plusAt, cy - 17, 26, INPUT_H, '＋', () => this.step(row, 1))
 
+    // ⚠ **「最大」は `maxCraftTimes` を使う**（#64）。
+    //   これは材料・**在庫の空き**・当日の残り時間のいちばん小さいものなので、
+    //   押した瞬間に在庫から溢れる回数は入らない
     this.pushButton(objs, CONTROLS_L, cy + 17, 38, 24, '最大', () => {
       this.setValue(row, Math.max(row.max, 1))
     })
@@ -424,23 +434,34 @@ export class CraftMenu {
    * 儲け方の3ルートを金額で1行にする（#23）。
    *
    * **設計としては3ルート成立しているのに、遊んでいる側に見えていない**のが #23。
-   * ⚠ **目安であることを忘れないこと。**実際の売上は配置の効き目・島の需要・強化で変わる。
+   * ⚠ **目安であることを忘れないこと。**実際の売上は配置の効き目と島の需要で変わる。
+   *   **強化の利益率は持ち物一覧と同じものを通している**（#76。`marginOf`）。
    * ⚠ **③ は時間も一緒に出す。**取り分だけ見せると「材料も作る」がただ得に見える。
    */
   private routeLabel(recipe: RecipeDef, times: number): string {
-    const v = routeValues(recipe, this.unlocks.unlockedRecipes(), this.islandOf())
+    const v = routeValues(recipe, this.unlocks.unlockedRecipes(), this.islandOf(), this.marginOf())
     const amount = (n: number) => `${n >= 0 ? '+' : '−'}${money(Math.abs(n * times))}`
     const base = `転売${amount(v.resell)} → 作る${amount(v.craft)}`
     if (!v.hasDeeper) return base
     return `${base} → 材料も作る${amount(v.deepCraft)}（計${v.deepMinutes * times}分）`
   }
 
-  /** 作れない理由。作れるなら空文字 */
+  /**
+   * 作れない理由。作れるなら空文字。
+   *
+   * ⚠ **理由を1つにまとめないこと**（#64）。「今日はもう時間がない」と
+   *   「在庫が上限」は**待てば直るかどうかが違う。**
+   *   在庫の側を「時間がない」と言うと、**明日まで待ってまた作れず**に終わる。
+   * ⚠ **在庫を時間より先に見る。**両方だめなときに出したいのは、待っても直らないほう。
+   */
   private reasonFor(row: Row, times: number | null): string {
     if (times === null) {
       return row.input.value.trim() === '' ? '回数を入れて' : '1以上の整数'
     }
     if (!this.craftingSystem.hasIngredients(row.recipe.id, times)) return '材料が足りない'
+    // ⚠ **知らせは出さない。**作り終えて上限に達したときの知らせが `GameScene` にあり、
+    //   そちらと重なる。ここは仕入れ画面と同じく**押せなくして理由を出す**だけ
+    if (!this.craftingSystem.fitsInStock(row.recipe.id, times)) return `在庫が上限 ${MAX_QUANTITY}`
     if (!this.craftingSystem.fitsInToday(row.recipe.id, times)) return '今日はもう時間がない'
     return ''
   }

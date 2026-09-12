@@ -20,8 +20,11 @@ import { craftMinutes, canAttempt } from '../../taxonomy/craft.js'
  * **まとめて作る（`times` 回）**は「レシピを `times` 回繰り返す」ことで、
  * 材料も所要時間も回数分かかる。1回あたりの出来高（`outputQuantity`）は変わらないので、
  * パンなら 3個・6個・9個…と**出力単位でしか増えない**。
- * 着手前に材料と当日の残り時間を**まとめて**検査するので、
+ * 着手前に材料・在庫の空き・当日の残り時間を**まとめて**検査するので、
  * 途中で足りなくなって材料や時間が一部だけ消えることはない。
+ *
+ * ⚠ **在庫の上限（1品 999個）も着手前に見る**（#64）。
+ *   以前は作ってから `Inventory.add` が丸めていたので、**溢れたぶんが黙って消えていた。**
  */
 /** `CRAFTING_STARTED` / `CRAFTING_COMPLETED` のペイロード */
 export interface CraftResult {
@@ -71,7 +74,9 @@ export class CraftingSystem {
   canCraft(recipeId: string, times = 1): boolean {
     if (!Number.isInteger(times) || times < 1) return false
     if (!this.canAttemptRecipe(recipeId)) return false
-    return this.hasIngredients(recipeId, times) && this.fitsInToday(recipeId, times)
+    return this.hasIngredients(recipeId, times)
+      && this.fitsInStock(recipeId, times)
+      && this.fitsInToday(recipeId, times)
   }
 
   /** `times` 回ぶんの材料が揃っているか */
@@ -80,14 +85,32 @@ export class CraftingSystem {
     return recipe.ingredients.every(ing => this.inventory.hasEnough(ing.itemId, ing.quantity * times))
   }
 
+  /**
+   * 出来上がったぶんが**在庫に入りきるか**（#64）。
+   *
+   * ⚠ **作る前に見る。**以前は作ってから `Inventory.add` が上限で丸めていたので、
+   *   **材料と時間だけ払って、溢れたぶんは消えていた**（仕入れ側では
+   *   `PurchaseMenu` が `spaceFor` で先に止めているのと同じ「黙って消える」）。
+   * ⚠ **`fitsInToday` と混ぜないこと。**「時間が足りない」と「在庫がいっぱい」は
+   *   別の理由で、**待てば直るかどうかが違う**（在庫は明日になっても空かない）。
+   */
+  fitsInStock(recipeId: string, times = 1): boolean {
+    const recipe = this.registry.getRecipe(recipeId)
+    return recipe.outputQuantity * times <= this.inventory.spaceFor(recipe.outputItemId)
+  }
+
   /** その日のうちに終わるか（#25 Q3 = B）。24:00 をまたぐ加工は着手できない */
   fitsInToday(recipeId: string, times = 1): boolean {
     return this.minutesFor(recipeId) * times <= this.timeManager.minutesUntilEndOfDay()
   }
 
   /**
-   * いま何回まで繰り返せるか。**材料と当日の残り時間の小さいほう。**
-   * 0 なら着手できない（材料不足か、今日はもう時間が足りない）。
+   * いま何回まで繰り返せるか。**材料・在庫の空き・当日の残り時間のいちばん小さいもの。**
+   * 0 なら着手できない（材料不足か、在庫がいっぱいか、今日はもう時間が足りない）。
+   *
+   * ⚠ **在庫の空きを必ず数に入れること**（#64）。時間と材料だけで割ると、
+   *   工房の「最大」ボタンが**押した瞬間に溢れる回数**を入れる。
+   *   出来上がりは `outputQuantity` 個ずつなので、**空きも出来高で割る。**
    */
   maxCraftTimes(recipeId: string): number {
     const recipe = this.registry.getRecipe(recipeId)
@@ -98,12 +121,19 @@ export class CraftingSystem {
     )
     if (!this.canAttemptRecipe(recipeId)) return 0
     const byTime = Math.floor(this.timeManager.minutesUntilEndOfDay() / this.minutesFor(recipeId))
-    return Math.max(0, Math.min(byIngredients, byTime))
+    const byRoom = Math.floor(
+      this.inventory.spaceFor(recipe.outputItemId) / recipe.outputQuantity,
+    )
+    return Math.max(0, Math.min(byIngredients, byTime, byRoom))
   }
 
   /**
    * `times` 回ぶんまとめて加工する。**全部できるか、何もしないかのどちらか。**
-   * 材料・時間の検査を消費より先に済ませるので、途中で失敗して一部だけ消えることはない。
+   * 材料・在庫の空き・時間の検査を消費より先に済ませるので、
+   * 途中で失敗して一部だけ消えることはない。
+   *
+   * ⚠ **`canCraft` が在庫の空きも見ている**（#64）ので、
+   *   ここから先で `Inventory.add` が上限に丸めることはない。
    */
   startCraft(recipeId: string, times = 1): boolean {
     if (this.activeJob) return false

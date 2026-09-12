@@ -37,6 +37,7 @@ import {
 import { MessageLog } from '../ui/MessageLog.js'
 import { OrderBar } from '../ui/OrderBar.js'
 import { money } from '../ui/money.js'
+import { goalReachedLine } from '../ui/goal.js'
 import { installDebugTools } from '../debug/DebugTools.js'
 import { EventBus } from '../services/EventBus.js'
 import { GameEvents } from '../types/index.js'
@@ -156,7 +157,10 @@ export class GameScene extends Phaser.Scene {
     this.floorRenderer.init()
     this.floorRenderer.drawGrid(INITIAL_GRID)
 
-    this.inventoryPanel = new InventoryPanel(this, this.registry_)
+    // ⚠ **強化の利益率を渡す**（#76）。渡さないと**一覧の売値と実際に売れる額がずれる**
+    this.inventoryPanel = new InventoryPanel(
+      this, this.registry_, () => this.upgrades.marginMultiplier(),
+    )
     this.placeFrame = new PlaceFrame(this, visible => this.setShopVisible(visible))
     this.hud = new HUD(this)
     this.tutorial = new Tutorial(this)
@@ -175,6 +179,7 @@ export class GameScene extends Phaser.Scene {
       this.recipeUnlocks,
       this.placeFrame,
       () => this.world.getIsland(),
+      () => this.upgrades.marginMultiplier(),
       () => this.onCraftMenuClosed(),
     )
     this.purchaseMenu = new PurchaseMenu(
@@ -198,6 +203,9 @@ export class GameScene extends Phaser.Scene {
       this.placeFrame,
       () => this.updateStatus(),
       () => this.applyShelfSize(),
+      // ⚠ **1段買ったら持ち物一覧を作り直す**（#76）。利益率を買うと**一覧に出る売値が変わる**。
+      //   左パネルは改装の画面を開いている間も見えているので、閉じるまで待たない
+      () => this.refreshInventoryPanel(),
     )
 
     this.presetMenu = new PresetMenu(
@@ -265,7 +273,7 @@ export class GameScene extends Phaser.Scene {
 
         // HUD・パネルを更新
         this.hud.updateMoney(data.money)
-        this.hud.updateRevenue(data.totalRevenue, this.gameService.isInEndlessMode())
+        this.hud.updateGoal(data.money, this.gameService.isInEndlessMode())
         this.hud.updateTime(data.currentTime.day, data.currentTime.hour, data.currentTime.minute)
         this.hud.updateLocation(this.world.getLocation())
         // ⚠ **注文が無かった頃のセーブは空で来る。**寄港中は必ず1件ある状態なので、
@@ -289,7 +297,7 @@ export class GameScene extends Phaser.Scene {
     this.hud.updateTime(t0.day, t0.hour, t0.minute)
     this.hud.updateLocation(this.world.getLocation())
     this.hud.updateMoney(this.economy.getMoney())
-    this.hud.updateRevenue(this.economy.getTotalRevenue(), false)
+    this.hud.updateGoal(this.economy.getMoney(), false)
     // 初日ぶんの注文。**寄港したら必ず1件ある**（#28）
     this.issueOrder()
     // 初日ぶんの行商人。**来訪は1日1回**（#9）
@@ -697,7 +705,6 @@ export class GameScene extends Phaser.Scene {
       const t = time as GameTime
       this.hud.updateTime(t.day, t.hour, t.minute)
       this.gameService.onMinutePassed(Math.random, this.timeManager.isOpen())
-      this.hud.updateRevenue(this.economy.getTotalRevenue(), this.gameService.isInEndlessMode())
     })
 
     // 日が変わると現在地が動く（#2）
@@ -727,8 +734,12 @@ export class GameScene extends Phaser.Scene {
       
     })
 
+    // ⚠ **進捗バーもここで動かす**（#73）。バーが測るのは**所持金**なので、
+    //   売れたときだけでなく**払ったときにも動く**（改装を買えば縮む）。
+    //   所持金が変わる経路はすべて `EconomyManager` がこの出来事を出すので、ここ1箇所で足りる
     EventBus.on(GameEvents.ECONOMY_MONEY_CHANGED, (money: unknown) => {
       this.hud.updateMoney(money as number)
+      this.hud.updateGoal(money as number, this.gameService.isInEndlessMode())
     })
 
     EventBus.on(GameEvents.FLOOR_SLOT_PLACED, (slot: unknown) => {
@@ -1224,7 +1235,8 @@ export class GameScene extends Phaser.Scene {
     this.add.text(width / 2, height / 2 - 80, '🎉 目標達成！', {
       fontSize: '52px', color: '#ffdd44', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(201)
-    this.add.text(width / 2, height / 2, `累計売上 ${money(this.economy.getTotalRevenue())}`, {
+    // ⚠ **クリア条件と同じものを出す**（#73）。届いたのは所持金なので、出すのも所持金
+    this.add.text(width / 2, height / 2, goalReachedLine(this.economy.getMoney()), {
       fontSize: '26px', color: '#ffffff',
     }).setOrigin(0.5).setDepth(201)
 
@@ -1235,6 +1247,9 @@ export class GameScene extends Phaser.Scene {
       overlay.destroy(); endlessBtn.destroy()
       this.gameService.enterEndlessMode()
       this.progress.setEndlessMode(true)
+      // ⚠ **その場でバーを ∞ に切り替える**（#73）。所持金が動くまで待つと、
+      //   目標を越えたあとも「目標 100%」がしばらく残る
+      this.hud.updateGoal(this.economy.getMoney(), true)
       this.updateStatus('エンドレスモード開始！')
     })
   }

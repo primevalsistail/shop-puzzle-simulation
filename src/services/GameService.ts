@@ -15,8 +15,13 @@ import { evaluate } from '../taxonomy/evaluate.js'
  *
  * ⚠ **累計売上ではなく所持金で見る。**強化に払った金は目標から遠ざかるので、
  *   「いま強化を買うか、目標まで我慢するか」という判断がここから生まれる。
+ *
+ * ⚠ **目標額を書いてよいのはここだけ**（#73）。画面（進捗バー・チュートリアル・
+ *   目標達成の幕）は `src/ui/goal.ts` を通して**この定数を引く。**
+ *   以前は3箇所に別書きがあり、**画面は累計売上/100万・判定は所持金/1000万**という
+ *   「軸も桁も違う」状態だった。**別書きが増えていないかは `goal.test.ts` が見ている。**
  */
-const GOAL_AMOUNT = 10_000_000
+export const GOAL_AMOUNT = 10_000_000
 
 export class GameService {
   private isEndlessMode = false

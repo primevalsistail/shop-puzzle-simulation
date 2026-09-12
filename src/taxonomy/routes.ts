@@ -1,6 +1,6 @@
 import type { ItemId, RecipeDef } from './axes.js'
 import type { IslandName } from './islands.js'
-import { salePrice, purchasePrice } from './derive.js'
+import { purchasePrice, finalPrice } from './derive.js'
 import { expandToMaterials, craftMinutes } from './materials.js'
 
 /**
@@ -16,8 +16,10 @@ import { expandToMaterials, craftMinutes } from './materials.js'
  * ```
  *
  * ⚠ **新しい仕組みを足していない。**いまあるデータから出しているだけ。
- * ⚠ **これは目安。**実際の売上は配置の効き目・島の需要・強化の倍率で変わる。
- *   ここで使うのは素の売値（持ち物一覧が出しているのと同じ値）。
+ * ⚠ **これは目安。**実際の売上は配置の効き目と島の需要で変わる。
+ * ⚠ **強化の利益率は `margin` で通す**（#76。持ち物一覧と同じ `finalPrice` を経由する）。
+ *   **渡さないと、強化を買うほど一覧とずれていく。**
+ *   **3ルートとも同じ倍率を通るので「作る > 転売」の順序は変わらない。**
  */
 export interface RouteValues {
   /** ① 材料を買って、そのまま売る */
@@ -44,8 +46,17 @@ export function routeValues(
   recipe: RecipeDef,
   craftable: readonly RecipeDef[],
   at?: IslandName,
+  /**
+   * 値段の強化の倍率（#76）。**既定は 1 ＝ 強化なし。**
+   *
+   * ⚠ **持ち物一覧と揃えるために要る。**一覧は `finalPrice(id, margin)` を出しているので、
+   *   ここだけ素の売値のままだと**強化を買うほど3ルートの数字がずれていく。**
+   * ⚠ **倍率は粗利にだけ乗る**（`finalPrice` の中の話）。売値全体に乗せると生売りが不当に強くなる。
+   *   3ルートとも同じ倍率を通るので、**「作る > 転売」の順序は変わらない。**
+   */
+  margin = 1,
 ): RouteValues {
-  const revenue = salePrice(recipe.outputItemId) * recipe.outputQuantity
+  const revenue = finalPrice(recipe.outputItemId, margin) * recipe.outputQuantity
 
   let directCost = 0
   let resell = 0
@@ -57,7 +68,7 @@ export function routeValues(
     const buy = purchasePrice(ing.itemId, at)
     directCost += buy * ing.quantity
     // ① 買った材料をそのまま売る
-    resell += (salePrice(ing.itemId) - buy) * ing.quantity
+    resell += (finalPrice(ing.itemId, margin) - buy) * ing.quantity
 
     // ③ その材料も自分で作るなら、素材まで潜って買値を積む
     // ⚠ **材料側を展開する**こと。このレシピ自身が `craftable` に無くても成り立つ

@@ -173,6 +173,90 @@ describe('CraftingSystem', () => {
     })
   })
 
+  /**
+   * #64 —— **作ってから溢れる。**
+   *
+   * 在庫の上限は1品 999個（`Inventory.MAX_QUANTITY`）。仕入れ側は `spaceFor` で
+   * **買う前に**止めているが、加工側は作れてしまい、`Inventory.add` が丸めた
+   * **溢れたぶんが黙って消えていた**（材料と時間だけ払って）。
+   */
+  describe('在庫の上限を超えて作れない（#64）', () => {
+    /** 蕎麦粉: buckwheat×3 → buckwheat_flour×3、90分 */
+    const RECIPE = 'recipe_buckwheat_flour'
+
+    it('在庫が上限に達していたら、材料も時間もあっても作れない', () => {
+      inventory.add('buckwheat', 100)      // 材料では33回
+      inventory.add('buckwheat_flour', 999) // 空きゼロ
+      expect(cs.fitsInStock(RECIPE, 1)).toBe(false)
+      expect(cs.maxCraftTimes(RECIPE)).toBe(0)
+      expect(cs.canCraft(RECIPE, 1)).toBe(false)
+      expect(cs.startCraft(RECIPE, 1)).toBe(false)
+      // ⚠ **材料も時間も払っていない**（払ってから溢れる、が起きない）
+      expect(inventory.getQuantity('buckwheat')).toBe(100)
+      expect(timeManager.skipMinutes).not.toHaveBeenCalled()
+    })
+
+    /**
+     * ⚠ **空きは出来高で割る。**1回で3個できるので、空き7個なら **2回**（6個）まで。
+     *   割らないと「空き7個だから7回」と読んで、押した瞬間に溢れる。
+     */
+    it('maxCraftTimes は在庫の空きを出来高で割る', () => {
+      inventory.add('buckwheat', 100)          // 材料では33回、時間では10回
+      inventory.add('buckwheat_flour', 999 - 7) // 空き7個 → 3個ずつなので2回
+      expect(cs.maxCraftTimes(RECIPE)).toBe(2)
+    })
+
+    /** ⚠ **「最大」で入れた回数は、押した瞬間に溢れてはいけない**（工房の最大ボタン） */
+    it('maxCraftTimes ちょうどなら作れて、1回でも多いと作れない', () => {
+      inventory.add('buckwheat', 100)
+      inventory.add('buckwheat_flour', 999 - 7)
+      const max = cs.maxCraftTimes(RECIPE)
+      expect(cs.canCraft(RECIPE, max + 1)).toBe(false)
+      expect(cs.startCraft(RECIPE, max)).toBe(true)
+      // 992 + 3×2 = 998。**丸められて消えたぶんは無い**
+      expect(inventory.getQuantity('buckwheat_flour')).toBe(998)
+    })
+
+    it('上限ちょうどまでは作れる（999 で止まり、超えない）', () => {
+      inventory.add('buckwheat', 100)
+      inventory.add('buckwheat_flour', 999 - 9) // 空き9個 → ちょうど3回
+      expect(cs.maxCraftTimes(RECIPE)).toBe(3)
+      expect(cs.startCraft(RECIPE, 3)).toBe(true)
+      expect(inventory.getQuantity('buckwheat_flour')).toBe(999)
+    })
+
+    /**
+     * ⚠ **「時間が足りない」と「在庫がいっぱい」は別物。**
+     *   待てば直るかどうかが違うので、`CraftMenu` が理由を書き分けられるよう検査も分けてある。
+     */
+    it('時間の検査と在庫の検査は別々に答える', () => {
+      inventory.add('buckwheat', 100)
+      inventory.add('buckwheat_flour', 999)
+      // 在庫だけがだめ（時間は960分あるので10回ぶん足りている）
+      expect(cs.fitsInToday(RECIPE, 1)).toBe(true)
+      expect(cs.fitsInStock(RECIPE, 1)).toBe(false)
+
+      // 時間だけがだめ
+      const inv2 = new Inventory()
+      const tm2 = makeTimeManagerMock()
+      vi.mocked(tm2.minutesUntilEndOfDay).mockReturnValue(60)
+      const cs2 = new CraftingSystem(registry, inv2, tm2)
+      inv2.add('buckwheat', 100)
+      expect(cs2.fitsInStock(RECIPE, 1)).toBe(true)
+      expect(cs2.fitsInToday(RECIPE, 1)).toBe(false)
+    })
+
+    /** 複数素材でも同じ。塩鮭は1回3個できる */
+    it('複数素材のレシピでも在庫の空きが上限を決める', () => {
+      inventory.add('salmon', 100)
+      inventory.add('salt', 100)
+      inventory.add('salted_salmon', 999 - 4) // 空き4個 → 3個ずつなので1回
+      expect(cs.maxCraftTimes('recipe_salted_salmon')).toBe(1)
+      expect(cs.startCraft('recipe_salted_salmon', 2)).toBe(false)
+      expect(inventory.getQuantity('salt')).toBe(100) // 材料は減らない
+    })
+  })
+
   it('複数素材レシピが動作する', () => {
     inventory.add('salmon', 2)
     inventory.add('salt', 1)

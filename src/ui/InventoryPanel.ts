@@ -60,6 +60,14 @@ export class InventoryPanel {
   constructor(
     private scene: Phaser.Scene,
     private registry: ItemRegistry,
+    /**
+     * いまの**強化の利益率**（`Upgrades.marginMultiplier()`）。
+     *
+     * ⚠ **渡さないと、一覧の売値と実際に売れる額がずれる**（#76）。
+     *   売れたときの額は `CustomerSimulator` が `finalPriceOf(id, 配置の効き目 × 利益率)` で出す。
+     *   ⚠ **強化を買うほどずれが広がる**ので、既定の 1 に頼らないこと。
+     */
+    private marginOf: () => number = () => 1,
   ) {
     this.search = new SearchBox(scene)
     // ホイールでもページを送れる（ボタンを押さずに流し見できるように）
@@ -236,8 +244,17 @@ export class InventoryPanel {
       // ⚠ **売値だけ。**仕入れ値と産地は「買う判断」で、棚に出す判断には効かない（束M）。
       //   ⚠ **産地は色にも残さない。**残すと、同じ行に意味の違う緑が2つ並ぶ
       //   （数量の緑＝棚に出している）。色で見分けさせるものは1行に1つ
+      //
+      // ⚠ **強化の利益率を乗せる**（#76）。素の `salePriceOf` は**手に入る額ではない**ので、
+      //   `売120レン` と出ている品が `+156レン` で売れていた。売れたときの額を出すのと
+      //   **同じ経路**（`finalPriceOf`）を通す。残る差は配置の効き目と島の需要だけで、
+      //   これは**どこへ置くかで変わる**ので、置く前のこの一覧では確定しない。
+      //
+      // ⚠ **`derive.ts` に引数を足して解決していない。**強化の段は**品の性質ではない**ので、
+      //   導出（`salePrice`）は品だけを見るまま置き、**倍率は表示側で渡す。**
+      //   `finalPrice` はもとから倍率を受け取る形なので、掛ける関数は1本も増やしていない
       const priceText = this.scene.add.text(PANEL_X + 54, y + 16,
-        `売${money(this.registry.salePriceOf(item.id))}`, {
+        `売${money(this.registry.finalPriceOf(item.id, this.marginOf()))}`, {
         fontSize: '11px', color: '#778899',
       })
       this.allObjects.push(nameText, qtyText, priceText)

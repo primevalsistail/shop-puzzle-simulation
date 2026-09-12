@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { GOAL_TUTORIAL_LINE } from './goal.js'
 
 const TUTORIAL_KEY = 'shop_puzzle_tutorial_done'
 
@@ -6,7 +7,6 @@ const STEPS = [
   {
     title: 'ようこそ！',
     // ⚠ **「運ぶ操作だ」と書く**（#70）。押して離すだけでは置けない。
-    //   ⚠ **目標額の行（下のページ）は #73 の担当。ここでは直さない**
     body: '左の持ち物から品を選んで\n売り場に置きましょう。\n品は押したまま運んで離します。\n\n右クリックで回転できます。',
   },
   {
@@ -19,7 +19,9 @@ const STEPS = [
   },
   {
     title: '商人のところ',
-    body: '「商人のところ」ボタンから材料を買えます。\n\n目標: 累計売上 1,000,000レン を達成しよう！',
+    // ⚠ **目標額をここに書かない**（#73）。`goal.ts` が `GameService.GOAL_AMOUNT` から出す。
+    //   **初日に必ず見る画面**なので、ここが実際の条件と違うと遊び始めから嘘になる
+    body: `「商人のところ」ボタンから材料を買えます。\n\n${GOAL_TUTORIAL_LINE}`,
   },
 ]
 

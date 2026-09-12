@@ -173,7 +173,9 @@ export class DeliveryOrders {
     if (delivered) {
       this.inventory.remove(order.itemId, order.quantity)
       // ⚠ **客に売れた経路ではないので `addRevenue` を通さない。**
-      //   通すと進捗バーと目標達成の幕が読む「累計売上」が納品ぶん膨らむ。
+      //   通すと「累計売上」が納品ぶん膨らみ、**どれだけ売ったかが嘘になる**（#28）。
+      //   ⚠ **#73 以降、進捗バーと目標達成の幕は所持金を読む**ので、
+      //   どちらを通しても**目標への進みは同じだけ進む。**ここで分けているのは売上の意味である
       this.economy.addIncome(order.reward)
     }
     this.orders = []

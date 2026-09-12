@@ -109,4 +109,22 @@ describe('isIngredient', () => {
   it('どこにも使われていなければ false', () => {
     expect(isIngredient('__not_an_item__', ALL_RECIPES)).toBe(false)
   })
+
+  it('値段の強化の倍率が3ルートすべてに乗る（#76。持ち物一覧とずれない）', () => {
+    const recipe = ALL_RECIPES.find(r => r.ingredients.length > 0)!
+    const plain = routeValues(recipe, ALL_RECIPES)
+    const boosted = routeValues(recipe, ALL_RECIPES, undefined, 2)
+
+    // 倍率は粗利にだけ乗るので、額は増えるが time は変わらない
+    expect(boosted.craft).toBeGreaterThan(plain.craft)
+    expect(boosted.resell).toBeGreaterThan(plain.resell)
+    expect(boosted.minutes).toBe(plain.minutes)
+    // ⚠ **順序は変わらない。**3ルートとも同じ倍率を通る
+    expect(boosted.craft).toBeGreaterThan(boosted.resell)
+  })
+
+  it('倍率を渡さないと従来どおり（既定は 1）', () => {
+    const recipe = ALL_RECIPES.find(r => r.ingredients.length > 0)!
+    expect(routeValues(recipe, ALL_RECIPES, undefined, 1)).toEqual(routeValues(recipe, ALL_RECIPES))
+  })
 })

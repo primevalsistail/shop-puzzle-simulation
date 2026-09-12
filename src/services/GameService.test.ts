@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { GameService } from './GameService.js'
+import { GameService, GOAL_AMOUNT } from './GameService.js'
 import { FloorGrid } from '../components/floor/FloorGrid.js'
 import { PlacementManager } from '../components/floor/PlacementManager.js'
 import { CustomerSimulator } from '../components/simulation/CustomerSimulator.js'
@@ -95,7 +95,7 @@ describe('GameService', () => {
     expect(eco.getTotalRevenue()).toBeGreaterThan(0)
   })
 
-  it('累計売上が100万に達したときPROGRESS_GOAL_COMPLETEを発火する', () => {
+  it('所持金が目標額に達したときPROGRESS_GOAL_COMPLETEを発火する', () => {
     const { gs, eco, pm, reg, inv } = setup()
     const listener = vi.fn()
     EventBus.on(GameEvents.PROGRESS_GOAL_COMPLETE, listener)
@@ -226,8 +226,13 @@ describe('GameService', () => {
     })
   })
 
-  it('getGoalAmountは1000万を返す', () => {
+  /**
+   * ⚠ **目標額の出どころは1つ**（#73）。`getGoalAmount()` は `GOAL_AMOUNT` を返すだけで、
+   *   自分の数を持たない。**画面側に別書きが増えていないか**は `src/ui/goal.test.ts` が見ている。
+   */
+  it('getGoalAmountは1000万（GOAL_AMOUNT）を返す', () => {
     const { gs } = setup()
-    expect(gs.getGoalAmount()).toBe(10_000_000)
+    expect(gs.getGoalAmount()).toBe(GOAL_AMOUNT)
+    expect(GOAL_AMOUNT).toBe(10_000_000)
   })
 })

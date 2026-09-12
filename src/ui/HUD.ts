@@ -2,9 +2,9 @@ import Phaser from 'phaser'
 import { phaseOf } from '../components/core/TimeManager.js'
 import type { Location } from '../components/progress/WorldState.js'
 import { money } from './money.js'
+import { goalRatio, goalBarLabel } from './goal.js'
 import { HUD_PANEL_W, HUD_MONEY_FONT_PX } from './layout.js'
 
-const GOAL_AMOUNT = 1_000_000
 /** panel width（右パネル 190px - 余白 16px）。⚠ **値は `layout.ts` にある**（テストが見ている） */
 const PW = HUD_PANEL_W
 const PH = 126  // panel height（#44 の場所表示ぶん 108 から広げた）
@@ -23,7 +23,7 @@ export class HUD {
   constructor(private scene: Phaser.Scene) {}
 
   /**
-   * ⚠ **作ったあとに `updateMoney` / `updateTime` / `updateLocation` を必ず呼ぶこと。**
+   * ⚠ **作ったあとに `updateMoney` / `updateGoal` / `updateTime` / `updateLocation` を必ず呼ぶこと。**
    *   ここは器を置くだけで、値は持っていない。呼ばないと所持金が 0レン のまま出る。
    */
   create(): void {
@@ -66,7 +66,7 @@ export class HUD {
       fontSize: `${HUD_MONEY_FONT_PX}px`, color: '#ffdd44', fontStyle: 'bold',
     }).setOrigin(0.5, 0.5).setDepth(5)
 
-    // Row 4 — Goal progress bar
+    // Row 4 — 目標までの進み（#73。**所持金 ÷ 目標額**。累計売上ではない）
     const barW = PW - 24
     const barH = 8
     const barY = py + 40
@@ -74,7 +74,7 @@ export class HUD {
       .setDepth(5)
     this.barFill = this.scene.add.rectangle(px - barW / 2, barY, 0, barH, 0x44cc77)
       .setOrigin(0, 0.5).setDepth(5)
-    this.barLabel = this.scene.add.text(px + PW / 2 - 8, barY + 12, '目標 0%', {
+    this.barLabel = this.scene.add.text(px + PW / 2 - 8, barY + 12, goalBarLabel(0), {
       fontSize: '11px', color: '#556677',
     }).setOrigin(1, 0.5).setDepth(5)
   }
@@ -83,20 +83,29 @@ export class HUD {
     this.moneyText.setText(money(amount))
   }
 
-  updateRevenue(totalRevenue: number, isEndless: boolean): void {
+  /**
+   * 目標までの進み（#73）。**測るのは所持金で、累計売上ではない。**
+   *
+   * ⚠ **バーは縮む。**所持金は改装や仕入れで減るので、進みも戻る。
+   *   幅は毎回 `0〜barW` で置き直すので、縮んだぶんが残ることはない
+   *   （`goalRatio` が 0 で下げ止めるので、負の幅にもならない）。
+   * ⚠ **割合も文字もここで計算しない。**`goal.ts` が出したものを置くだけ。
+   *   ここに数字を書くと、また画面ごとに別の目標額を持つことになる（それが #73）。
+   */
+  updateGoal(currentMoney: number, isEndless: boolean): void {
     if (isEndless) {
       this.barFill.setFillStyle(0xffaa44)
       this.barFill.width = (this.barBg.width)
       this.barLabel.setText('∞ endless').setStyle({ color: '#ffaa44' })
       return
     }
-    const pct = Math.min(1, totalRevenue / GOAL_AMOUNT)
+    const pct = goalRatio(currentMoney)
     const barW = this.barBg.width
     this.barFill.width = Math.round(barW * pct)
     const color = pct > 0.8 ? 0x44ff88 : pct > 0.5 ? 0xffaa44 : 0x44cc77
     this.barFill.setFillStyle(color)
     const labelColor = pct > 0.8 ? '#44ff88' : pct > 0.5 ? '#ffaa44' : '#556677'
-    this.barLabel.setText(`目標 ${Math.floor(pct * 100)}%`).setStyle({ color: labelColor })
+    this.barLabel.setText(goalBarLabel(currentMoney)).setStyle({ color: labelColor })
   }
 
   /**
