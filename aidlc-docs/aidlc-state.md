@@ -10,8 +10,12 @@
 
 ## Current Status
 
-**方針6項目の骨格はひととおり揃った。次は残りの issue（未実装の機能）。**
+**方針6項目の骨格はひととおり揃った。次は残りの issue。**
+**束の割り当てと順序 → [issue-grouping.md](inception/plans/issue-grouping.md)（2026-09-12 最新化）**
 **数値調整は最後**（ラベル `数値調整` ／ #61）。
+
+⚠ **先頭は束C（島の個性）。**理由は、**方針5「いろいろな配置を試す」がいま成立していない**から
+（#62。盤面はいちばん深い品で埋めるのが最適解になっている）。**数値ではなく構造の理由で効いていない。**
 → [policy-rework-plan.md](construction/plans/policy-rework-plan.md)
 
 ### まず読むもの（一次情報）
@@ -23,7 +27,7 @@
 ### リポジトリの状態（2026-09-12）
 
 **241テスト全件パス** ／ `tsc --noEmit` ／ `npm run build` 成功。
-OPEN issue **46件**（束の割り当ては [issue-grouping.md](inception/plans/issue-grouping.md)）。
+OPEN issue **39件**（束の割り当ては [issue-grouping.md](inception/plans/issue-grouping.md)）。
 
 ### 進捗
 
