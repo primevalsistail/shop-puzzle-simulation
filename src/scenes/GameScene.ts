@@ -22,6 +22,8 @@ import { UpgradeMenu } from '../ui/UpgradeMenu.js'
 import { Tutorial } from '../ui/Tutorial.js'
 import { SaveLoadMenu } from '../ui/SaveLoadMenu.js'
 import { CharacterStrip } from '../ui/CharacterStrip.js'
+import { PlaceFrame } from '../ui/PlaceFrame.js'
+import { LEFT_PANEL_R, RIGHT_PANEL_L, LOG_T, SCREEN_W, SCREEN_H } from '../ui/layout.js'
 import { MessageLog } from '../ui/MessageLog.js'
 import { installDebugTools } from '../debug/DebugTools.js'
 import { EventBus } from '../services/EventBus.js'
@@ -75,6 +77,8 @@ export class GameScene extends Phaser.Scene {
   private tutorial!: Tutorial
   private characterStrip!: CharacterStrip
   private messageLog!: MessageLog
+  /** 「行く場所」の枠（#58）。**いまどこに居るかはこれが持つ** */
+  private placeFrame!: PlaceFrame
 
   private speedLabel!: Phaser.GameObjects.Text
   /** グリッドの下地。棚を広げたら一緒に広げる */
@@ -127,11 +131,7 @@ export class GameScene extends Phaser.Scene {
     this.floorRenderer.drawGrid(INITIAL_GRID)
 
     this.inventoryPanel = new InventoryPanel(this, this.registry_)
-    // メニューが開いている間は、背後の在庫リストがホイールで動かないようにする
-    this.inventoryPanel.setScrollBlocked(() =>
-      this.craftMenu?.isVisible() || this.purchaseMenu?.isVisible()
-      || this.saveLoadMenu?.isVisible() || this.upgradeMenu?.isVisible(),
-    )
+    this.placeFrame = new PlaceFrame(this, visible => this.setShopVisible(visible))
     this.hud = new HUD(this)
     this.tutorial = new Tutorial(this)
     this.characterStrip = new CharacterStrip(this)
@@ -145,6 +145,7 @@ export class GameScene extends Phaser.Scene {
       this.inventory,
       this.registry_,
       this.recipeUnlocks,
+      this.placeFrame,
       () => this.onCraftMenuClosed(),
     )
     this.purchaseMenu = new PurchaseMenu(
@@ -152,6 +153,7 @@ export class GameScene extends Phaser.Scene {
       this.registry_,
       this.economy,
       this.inventory,
+      this.placeFrame,
       () => this.onPurchaseMenuClosed(),
     )
 
@@ -159,6 +161,7 @@ export class GameScene extends Phaser.Scene {
       this,
       this.economy,
       this.upgrades,
+      this.placeFrame,
       () => this.updateStatus(),
       () => this.applyShelfSize(),
     )
@@ -237,6 +240,9 @@ export class GameScene extends Phaser.Scene {
     })
     this.refreshInventoryPanel()
 
+    // 店を離れている間は、背後の在庫リストがホイールで動かないようにする
+    this.inventoryPanel.setScrollBlocked(() => this.isShelfBlocked())
+
     this.setupUI()
     this.setupInput()
     this.setupEvents()
@@ -263,8 +269,7 @@ export class GameScene extends Phaser.Scene {
         this.updateStatus(message)
       },
       applyShelfSize: () => this.applyShelfSize(),
-      isMenuOpen: () => this.craftMenu.isVisible() || this.purchaseMenu.isVisible()
-        || this.saveLoadMenu.isVisible() || this.upgradeMenu.isVisible(),
+      isMenuOpen: () => this.isShelfBlocked(),
     })
 
     if (this.tutorial.shouldShow()) {
@@ -279,15 +284,15 @@ export class GameScene extends Phaser.Scene {
 
   private setupBackground(): void {
     // 全体背景
-    this.add.rectangle(640, 360, 1280, 720, 0x1a1a2e)
-    // 左パネル (x=0〜220, 全高)
-    this.add.rectangle(110, 360, 220, 720, 0x16213e)
+    this.add.rectangle(SCREEN_W / 2, SCREEN_H / 2, SCREEN_W, SCREEN_H, 0x1a1a2e)
+    // 左パネル（船倉の中身）
+    this.add.rectangle(LEFT_PANEL_R / 2, SCREEN_H / 2, LEFT_PANEL_R, SCREEN_H, 0x16213e)
     // グリッドエリア下地。⚠ **棚を広げたら `applyShelfSize` で一緒に広げること。**
     //   ここを固定にすると、広げた部分だけ地の色が違って見える
     this.gridBackdrop = this.add.rectangle(0, 0, 1, 1, 0x0d2340)
     this.resizeGridBackdrop(INITIAL_GRID)
-    // 右パネル (x=1090〜1280)
-    this.add.rectangle(1185, 305, 190, 610, 0x13122a)
+    // 右パネル
+    this.add.rectangle((RIGHT_PANEL_L + SCREEN_W) / 2, LOG_T / 2, SCREEN_W - RIGHT_PANEL_L, LOG_T, 0x13122a)
       .setStrokeStyle(1, 0x2a2a4a)
     // キャラ絵プレースホルダー（HUD下〜ボタン上: y=135〜335）
     // ⚠ **ボタン列の上端（346）にかからない高さにすること**
@@ -299,7 +304,7 @@ export class GameScene extends Phaser.Scene {
     // メッセージウィンドウ区切り（グリッド+キャラ+右パネルのみ。左パネルはアイテムリストが続く）
     const divGfx = this.add.graphics()
     divGfx.lineStyle(1, 0x334455, 0.6)
-    divGfx.lineBetween(220, 609, 1280, 609)
+    divGfx.lineBetween(LEFT_PANEL_R, LOG_T - 1, SCREEN_W, LOG_T - 1)
   }
 
   /** グリッドの下地を盤面の大きさに合わせる */
@@ -386,7 +391,7 @@ export class GameScene extends Phaser.Scene {
       return bg
     }
 
-    makeAction(yUpg, '強化', '⬆', 0x3a5a8a, 0x4a7ab0, () => this.openUpgradeMenu())
+    makeAction(yUpg, '改装', '⬆', 0x3a5a8a, 0x4a7ab0, () => this.openUpgradeMenu())
     makeAction(yPurch, '仕入れ', '🛒', 0x6a5a2a, 0x8a7a3a, () => this.openPurchaseMenu())
     makeAction(yCraft, 'クラフト', '🔨', 0x4a6a3a, 0x5a8a4a, () => this.openCraftMenu())
 
@@ -426,7 +431,7 @@ export class GameScene extends Phaser.Scene {
           this.startMovingSlot(slot)
         }
       }
-      if (!this.selectedItemId || this.craftMenu.isVisible() || this.purchaseMenu.isVisible() || this.saveLoadMenu.isVisible() || this.upgradeMenu.isVisible()) {
+      if (!this.selectedItemId || this.isShelfBlocked()) {
         this.floorRenderer.clearDragGhost()
         this.floorRenderer.clearPreview()
         return
@@ -471,7 +476,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       // 左クリック かつ アイテム未保持 → スロット操作
-      if (!this.selectedItemId && !this.craftMenu.isVisible() && !this.purchaseMenu.isVisible() && !this.saveLoadMenu.isVisible()) {
+      if (!this.selectedItemId && !this.isShelfBlocked()) {
         if (this.floorRenderer.isOverGrid(pointer.x, pointer.y, this.floorGrid.getGridSize())) {
           const cell = this.floorRenderer.worldToGrid(pointer.x, pointer.y)
           if (cell) {
@@ -500,7 +505,7 @@ export class GameScene extends Phaser.Scene {
       }
       if (!this.selectedItemId) return
       if (!pointer.leftButtonReleased()) return
-      if (this.craftMenu.isVisible() || this.purchaseMenu.isVisible() || this.saveLoadMenu.isVisible() || this.upgradeMenu.isVisible()) return
+      if (this.isShelfBlocked()) return
 
       // 外周破棄ゾーン: 床アイテムをリストへ返す
       if (this.pendingMoveSlot && this.isOverDiscardZone(pointer.x, pointer.y)) {
@@ -523,9 +528,8 @@ export class GameScene extends Phaser.Scene {
     const escKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC)
     escKey.on('down', () => {
       if (this.saveLoadMenu.isVisible()) { this.saveLoadMenu.close(); return }
-      if (this.upgradeMenu.isVisible()) { this.upgradeMenu.close(); return }
-      if (this.craftMenu.isVisible()) { this.craftMenu.close(); return }
-      if (this.purchaseMenu.isVisible()) { this.purchaseMenu.close(); return }
+      // 場所ごとの出口は持たせない。「← 店に戻る」と同じ1つを通す（#58）
+      if (this.placeFrame.isShown()) { this.placeFrame.requestBack(); return }
       this.cancelDrag()
     })
   }
@@ -776,7 +780,34 @@ export class GameScene extends Phaser.Scene {
     this.updateStatus(`${item.display.name}は${this.world.getIsland()}島では手に入りません`)
   }
 
-  /** 時間が進んでいたら止める。メニューへ移る前に必ず呼ぶ */
+  /**
+   * 棚に手が出せない状態か。
+   *
+   * **場所へ行っている間**（商人のところ・工房・改装。#58）と、
+   * **セーブ／ロードが開いている間**（ここだけダイアログのまま。PO 判断 Q2）。
+   *
+   * ⚠ **判定はここ1つだけにする。**以前は同じ `||` の連鎖が**7箇所に散らばって**いて、
+   *   **うち1箇所だけ強化メニューが抜けていた**（強化を開いたまま棚を掴めた）。
+   *   条件を足すときもここだけを直す。
+   */
+  private isShelfBlocked(): boolean {
+    return this.placeFrame.isShown() || this.saveLoadMenu.isVisible()
+  }
+
+  /**
+   * 売り場の見え方を切り替える。**`PlaceFrame` から呼ばれる。**
+   *
+   * ⚠ **覆うのではなく消す。**盤面は最大 x982 まで伸びて場所の領域（〜976）を
+   *   6px はみ出すので、覆う方式だとその帯だけ残る。
+   */
+  private setShopVisible(visible: boolean): void {
+    // 掴んだまま店を離れると、帰ってきたときその区画が宙に浮く（盤面から外してある）
+    if (!visible) this.cancelDrag()
+    this.floorRenderer.setVisible(visible)
+    this.gridBackdrop.setVisible(visible)
+  }
+
+  /** 時間が進んでいたら止める。場所へ移る前に必ず呼ぶ */
   private stopAdvancing(): void {
     if (!this.timeManager.isAdvancing()) return
     this.timeManager.stopAdvancing()
@@ -931,10 +962,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onAdvancePressed(): void {
-    // ⚠ **仕入れ・強化・クラフトの最中は時間を進められない。**
-    //   店を離れている間に店が回ってしまうのを避ける。
+    // ⚠ **店を離れている間は時間を進められない**（商人のところ・工房・改装。#58）。
+    //   離れている間に店が回ってしまうのを避ける。
     //   加工そのものは時間を消費するが、それは `CraftingSystem` が別に行う
-    if (this.craftMenu.isVisible() || this.purchaseMenu.isVisible() || this.saveLoadMenu.isVisible() || this.upgradeMenu.isVisible()) return
+    if (this.isShelfBlocked()) return
     if (this.timeManager.isAdvancing()) {
       this.timeManager.stopAdvancing()
     } else {

@@ -2741,3 +2741,72 @@ tier が深いほど升は大きく、品数は先細り。最大の品でも最
 **Context**: セッションの引き継ぎ。次は束F（#58）
 
 ---
+## 束F・#58 の実装計画（Code Generation Part 1）
+**Timestamp**: 2026-09-12T09:00:00Z
+**User Input（原文）**: "AIDLC"
+**AI Response**: "**新セッション。前セッションが置いた引き継ぎから束F（#58）を再開した。**
+
+コードを実測して中央の領域を確定した — **x 220〜980 ／ y 0〜609**
+（左パネル 0〜220 ／ キャラ帯 980〜1090 ／ 右パネル 1090〜1280 ／ メッセージ欄 y610〜720）。
+場所の画面は **x224〜976 ／ y6〜604（752×598）**。いまのダイアログ最大が 560×560 なので広くなる。
+
+**実測で分かった歪みが1つ**: 『メニューが開いているか』の `||` 連鎖が `GameScene` に**7箇所**あり、
+**うち1箇所（474行）だけ `upgradeMenu` が抜けている**（強化を開いたまま棚を掴める）。
+場所が1つになれば `isShown()` に畳めて消える。
+
+**計画**: [bundle-f-58-code-generation-plan.md](construction/plans/bundle-f-58-code-generation-plan.md)
+新規3（`PlaceLayout` / `PlaceFrame` / その単体テスト）・変更8。
+**受入条件2（棚を覆わない）を単体テストにした** — 領域が左パネル・キャラ帯・メッセージ欄の
+**実物の定数**を越えないことを機械で見る。
+
+**PO へ回した2件**: [questions-58-places.md](sessions/questions-58-places.md)
+（強化の場所の名前／セーブも場所にするか）。**どちらも既定を入れて進める。**"
+**Context**: CONSTRUCTION / Code Generation Part 1。承認待ち
+
+---
+## #58 質問票への回答（PO）
+**Timestamp**: 2026-09-12T09:20:00Z
+**User Input（原文）**: "BBでいいと思います。"
+**AI Response**: "**Q1 → B（改装）／ Q2 → B（セーブはダイアログのまま）** として記録した。
+
+⚠ **Q1 は main の推奨（A＝強化）が採られなかった。**
+『改装は4系統のうち棚しか指さない』という懸念は質問票に書いたうえで B が選ばれたので、
+**PO の決定として「改装」で進める。**見出しも右パネルのボタンも「改装」にする。
+
+⚠ **Q2 で作業が1つ減った。**`SaveLoadMenu` は触らない。**場所は3つ**（商人のところ／工房／改装）。
+そのぶん `GameScene` の判定は `placeFrame.isShown() || saveLoadMenu.isVisible()` の2項が残る
+（4項の連鎖が7箇所あった状態からは畳める。**474行の upgradeMenu 抜けも直る**）。"
+**Context**: CONSTRUCTION / Code Generation Part 1 承認 → Part 2 へ
+
+---
+## #58 実装完了（Code Generation Part 2）
+**Timestamp**: 2026-09-12T10:30:00Z
+**User Input（原文）**: "再開"
+**AI Response**: "**#58 を実装した。**254テスト（241＋新規13）／`tsc --noEmit`／`npm run build` 通過。
+
+**新規3**: `src/ui/layout.ts`（画面の区画と場所の寸法。**Phaser を読まない**）／
+`src/ui/PlaceFrame.ts`（枠・「← 店に戻る」・棚の出し入れ）／`src/ui/layout.test.ts`（13件）。
+**変更7**: `FloorRenderer`（`setVisible`）／仕入れ・工房・改装の3画面／`GameScene`／
+`CharacterStrip`・`MessageLog`・`GameEngine`（定数を `layout.ts` へ）／`SaveLoadMenu`（depth のみ）。
+
+**計画から変えた点**:
+① モジュール名を `PlaceLayout.ts` → **`layout.ts`**。⚠ 当初は `CharacterStrip` 等から定数を
+`export` してテストに実物を見せるつもりだったが、**それらは Phaser を読むので vitest（node 環境）で
+落ちる。**値の側を Phaser 非依存のモジュールへ移した。
+② `SaveLoadMenu` は『触らない』はずが **depth 50 → 150 だけ変えた。**
+⚠ **場所の枠（90）より下だと、行った先から開いたセーブ画面が裏に隠れて見えない。**
+③ `DebugTools.ts` は**変更不要だった。**
+
+**ついでに直った歪み4件**: `||` 連鎖7箇所 →`isShelfBlocked()` 1つ（**474行の強化メニュー抜けが消えた**）／
+仕入れとクラフトの同時オープン／掴んだまま場所へ行くと区画が宙に浮く／
+画面の区画の値が5ファイルに散っていた。
+
+**行数**: 仕入れ 6 → **8行**。領域は 560×560（最大だったクラフト）→ **752×598**。
+
+**#47 に確認項目を11行追記した**（棚の消え方・改装で棚を買ったとき・`<input>` の残り・
+場所間の移動・掴んだ状態の見え方・セーブの重なり順・戻り方・「改装」という名前）。
+
+**未実施**: 実機での目視確認（#47）／`main` への反映と #58 の close（**ユーザーの指示待ち**）。"
+**Context**: CONSTRUCTION / Code Generation Part 2 完了
+
+---

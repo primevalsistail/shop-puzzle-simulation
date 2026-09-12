@@ -2,7 +2,13 @@ import Phaser from 'phaser'
 import type { SlotMeta } from '../types/index.js'
 
 const SLOT_COUNT = 3
-const DEPTH = 50
+/**
+ * ⚠ **場所の枠（`PlaceFrame` の 90）と中身（100）より上に出すこと。**
+ *   セーブは場所ではなくダイアログのまま残してある（PO 判断 2026-09-12 Q2）ので、
+ *   **行った先からでも開ける。**低いと場所の画面の裏に隠れて、開いたことが分からない。
+ *   目標達成・ゲームオーバーの幕（200）よりは下。
+ */
+const DEPTH = 150
 const MW = 480  // menu width
 const MH = 310  // menu height
 

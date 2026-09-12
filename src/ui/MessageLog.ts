@@ -1,11 +1,12 @@
 import Phaser from 'phaser'
+import { LEFT_PANEL_R, LOG_T, SCREEN_W, SCREEN_H } from './layout.js'
 
 export type MessageType = 'sale' | 'event' | 'info'
 
-const LOG_X = 220        // 左パネル(0〜220)は侵食しない
-const LOG_Y = 610
-const LOG_WIDTH = 1060   // 1280 - 220
-const LOG_HEIGHT = 110
+const LOG_X = LEFT_PANEL_R   // 左パネル(0〜220)は侵食しない
+const LOG_Y = LOG_T
+const LOG_WIDTH = SCREEN_W - LOG_X
+const LOG_HEIGHT = SCREEN_H - LOG_Y
 const MAX_MESSAGES = 5
 const LINE_HEIGHT = 18
 const PADDING_X = 12

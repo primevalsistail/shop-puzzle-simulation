@@ -1,9 +1,10 @@
 import Phaser from 'phaser'
 import { BootScene } from '../../scenes/BootScene.js'
 import { GameScene } from '../../scenes/GameScene.js'
+import { SCREEN_W, SCREEN_H } from '../../ui/layout.js'
 
-const GAME_WIDTH = 1280
-const GAME_HEIGHT = 720
+const GAME_WIDTH = SCREEN_W
+const GAME_HEIGHT = SCREEN_H
 
 export class GameEngine {
   readonly game: Phaser.Game

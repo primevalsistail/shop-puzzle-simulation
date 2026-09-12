@@ -1,8 +1,9 @@
 import Phaser from 'phaser'
+import { STRIP_L, STRIP_W, STRIP_H } from './layout.js'
 
-const STRIP_X = 980
-const STRIP_WIDTH = 110
-const STRIP_HEIGHT = 610
+const STRIP_X = STRIP_L
+const STRIP_WIDTH = STRIP_W
+const STRIP_HEIGHT = STRIP_H
 const MID_Y = STRIP_HEIGHT / 2  // 305
 
 export class CharacterStrip {

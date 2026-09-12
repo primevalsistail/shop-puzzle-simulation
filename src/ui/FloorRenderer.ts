@@ -1,11 +1,12 @@
 import Phaser from 'phaser'
 import type { DisplaySlot, GridCell, GridSize, Rotation } from '../types/index.js'
 import type { ItemRegistry } from '../components/items/ItemRegistry.js'
+import { LEFT_PANEL_R } from './layout.js'
 
 // 13×10 最終グリッドから逆算: min(floor(760/13), floor(610/10)) = 58
 export const CELL_SIZE = 58
 // グリッドを左上に寄せる（拡張時に右・下に伸びる余地を確保）
-export const GRID_ORIGIN_X = 228  // 左パネル右端(220) + 8px
+export const GRID_ORIGIN_X = LEFT_PANEL_R + 8  // 左パネルの右端から 8px
 export const GRID_ORIGIN_Y = 8    // 上端から 8px
 export const DISCARD_MARGIN = 56  // px from screen edge that counts as the discard zone
 
@@ -24,6 +25,8 @@ export class FloorRenderer {
   private discardGraphics!: Phaser.GameObjects.Graphics
   private slotGraphics: Map<string, Phaser.GameObjects.Graphics> = new Map()
   private slotTexts: Map<string, Phaser.GameObjects.Text> = new Map()
+  /** 売り場が見えているか。**場所へ行っている間は false**（#58） */
+  private shown = true
 
   constructor(
     private scene: Phaser.Scene,
@@ -39,6 +42,27 @@ export class FloorRenderer {
     this.previewGraphics = this.scene.add.graphics().setDepth(DEPTH_PREVIEW)
     this.dragGhostGraphics = this.scene.add.graphics().setDepth(DEPTH_GHOST)
     this.discardGraphics = this.scene.add.graphics().setDepth(DEPTH_DISCARD)
+  }
+
+  /**
+   * 売り場の表示を丸ごと消す／戻す。**行った先の画面は棚を覆うのではなく、棚を消す**（#58）。
+   *
+   * ⚠ **覆う方式にしないこと。**盤面は最大 13×10 ＝ x228〜982 まで伸び、
+   *   場所の領域の右端（`PLACE_R` ＝ 976）を6px はみ出す。覆うとその帯だけ残る。
+   *
+   * ⚠ **状態を覚えること。**隠している間にも区画は作り直される
+   *   （改装で棚を買うと `applyShelfSize` が全区画を `drawSlot` し直す）。
+   *   覚えていないと、**隠したはずの棚が場所の画面の上に出てくる。**
+   */
+  setVisible(visible: boolean): void {
+    this.shown = visible
+    this.gridGraphics.setVisible(visible)
+    this.borderGraphics.setVisible(visible)
+    this.previewGraphics.setVisible(visible)
+    this.dragGhostGraphics.setVisible(visible)
+    this.discardGraphics.setVisible(visible)
+    for (const g of this.slotGraphics.values()) g.setVisible(visible)
+    for (const t of this.slotTexts.values()) t.setVisible(visible)
   }
 
   drawGrid(size: GridSize): void {
@@ -79,7 +103,7 @@ export class FloorRenderer {
     const item = this.registry.getItem(slot.itemId)
     const quantity = this.inventory.getQuantity(slot.itemId)
     const cells = this.getSlotCells(slot)
-    const g = this.scene.add.graphics().setDepth(DEPTH_SLOTS)
+    const g = this.scene.add.graphics().setDepth(DEPTH_SLOTS).setVisible(this.shown)
 
     for (const cell of cells) {
       const px = GRID_ORIGIN_X + cell.x * CELL_SIZE
@@ -108,7 +132,7 @@ export class FloorRenderer {
         stroke: '#000000',
         strokeThickness: 2,
         align: 'center',
-      }).setOrigin(0.5).setDepth(DEPTH_SLOTS + 1)
+      }).setOrigin(0.5).setDepth(DEPTH_SLOTS + 1).setVisible(this.shown)
       this.slotTexts.set(slot.id, text)
     }
   }

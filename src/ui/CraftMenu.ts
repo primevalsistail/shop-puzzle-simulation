@@ -4,35 +4,29 @@ import type { Inventory } from '../components/economy/Inventory.js'
 import type { ItemRegistry, RecipeDef } from '../components/items/ItemRegistry.js'
 import type { RecipeUnlocks } from '../components/progress/RecipeUnlocks.js'
 import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
-
-const PANEL_W = 560
-const PANEL_H = 560   // 絞り込みとページ送りを入れたぶん 520 から広げた
-const PANEL_X = 640
-const PANEL_Y = 360
-
-/** 枠の内側。すべての要素はこの範囲に収める */
-const CONTENT_L = PANEL_X - PANEL_W / 2 + 30
-const CONTENT_R = PANEL_X + PANEL_W / 2 - 30
+import type { PlaceFrame } from './PlaceFrame.js'
+import { CONTENT_DEPTH } from './PlaceFrame.js'
+import {
+  PLACE_CX, CONTENT_L, CONTENT_R,
+  SUBTITLE_Y, FILTER_Y, ROWS_TOP, PAGER_Y, rowsThatFit,
+} from './layout.js'
 
 const ROW_H = 84
-/** 絞り込みの行 */
-const FILTER_Y = PANEL_Y - PANEL_H / 2 + 62
-const ROWS_TOP = PANEL_Y - PANEL_H / 2 + 84
-/** ページ送りの行 */
-const PAGER_Y = PANEL_Y + PANEL_H / 2 - 22
 
 /**
  * 一度に映る行数。**レシピは72本ある**（#30。ただし並ぶのは解禁済みのぶんだけ。#48）ので、
  * 全部は収まらない。
- * 5行目の下端は `84 + 42 + 4*84 + 42 = 504`（パネル上端からの相対）で、ページ送りの行に届かない。
+ *
+ * ⚠ **決め打ちしない。**領域の高さから出す（`layout.ts` の `rowsThatFit`）。
+ *   手で書くと、領域を動かしたとき最後の行がページ送りへ食い込んでいても気づけない。
  */
-const VISIBLE_ROWS = 5
+const VISIBLE_ROWS = rowsThatFit(ROW_H)
 
 /**
  * 右側の操作列の左端。ここから右は数量入力とボタンの領域で、文字は入れない
  * （**名前が長くてもボタンに被らない**ようにするため）。
  */
-const CONTROLS_L = PANEL_X + 60
+const CONTROLS_L = CONTENT_R - 260
 /** 左の文字列に使える幅 */
 const TEXT_MAX_W = CONTROLS_L - CONTENT_L - 22
 
@@ -80,6 +74,7 @@ export class CraftMenu {
     private registry: ItemRegistry,
     /** 解禁済みのレシピ（#48）。**`registry.getAllRecipes()` を直に並べないこと** */
     private unlocks: RecipeUnlocks,
+    private frame: PlaceFrame,
     private onClose: () => void,
   ) {
     // シーンが終わるとき DOM が残らないようにする
@@ -103,6 +98,7 @@ export class CraftMenu {
       const shown = this.shown()
       this.paging.jumpTo(shown.findIndex(r => r.id === focusRecipeId), shown.length)
     }
+    this.frame.show('工房', () => this.close())
     this.build()
   }
 
@@ -110,6 +106,7 @@ export class CraftMenu {
     if (!this.isOpen) return
     this.isOpen = false
     this.teardown()
+    this.frame.hide()
     this.onClose()
   }
 
@@ -163,31 +160,17 @@ export class CraftMenu {
 
   private build(): void {
     const objs: Phaser.GameObjects.GameObject[] = []
+    const shown = this.shown()
 
-    const backdrop = this.scene.add
-      .rectangle(0, 0, 1280, 720, 0x000000, 0.6)
-      .setOrigin(0, 0)
-      .setInteractive()
-    objs.push(backdrop)
-
-    const panel = this.scene.add.rectangle(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, 0x1e1e3a)
-      .setStrokeStyle(2, 0x4a4a8a)
-    objs.push(panel)
-
-    const titleY = PANEL_Y - PANEL_H / 2 + 26
     objs.push(
-      this.scene.add.text(PANEL_X, titleY, `クラフトメニュー  ${this.paging.rangeLabel(this.shown().length)}`, {
-        fontSize: '20px', color: '#ffffff', fontStyle: 'bold',
-      }).setOrigin(0.5),
+      this.scene.add.text(CONTENT_L, SUBTITLE_Y, '材料を組み合わせて、深く作るほど取り分が増える', {
+        fontSize: '13px', color: '#8899aa',
+      }).setOrigin(0, 0.5),
+      this.scene.add.text(CONTENT_R, SUBTITLE_Y, this.paging.rangeLabel(shown.length), {
+        fontSize: '13px', color: '#8899aa',
+      }).setOrigin(1, 0.5),
     )
 
-    const closeBtn = this.scene.add.text(CONTENT_R, titleY, '[×]', {
-      fontSize: '18px', color: '#ff6666',
-    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true })
-    closeBtn.on('pointerdown', () => this.close())
-    objs.push(closeBtn)
-
-    const shown = this.shown()
     this.buildFilterBar(objs)
     this.paging.slice(shown).forEach((recipe, i) => {
       this.buildRecipeRow(recipe, ROWS_TOP + ROW_H / 2 + i * ROW_H, objs)
@@ -198,20 +181,20 @@ export class CraftMenu {
       const message = this.unlocks.unlockedRecipes().length === 0
         ? '材料を手に入れると、作れるものが増えていく'
         : '当てはまるレシピがありません'
-      objs.push(this.scene.add.text(PANEL_X, ROWS_TOP + 60, message, {
+      objs.push(this.scene.add.text(PLACE_CX, ROWS_TOP + 60, message, {
         fontSize: '14px', color: '#889999',
       }).setOrigin(0.5))
     }
     this.buildPager(shown.length, objs)
 
     this.container = this.scene.add.container(0, 0, objs)
-    this.container.setDepth(100)
+    this.container.setDepth(CONTENT_DEPTH)
     for (const row of this.rows) this.refreshRow(row)
   }
 
   /** 絞り込み — 主種類4つ ＋「作れる」 */
   private buildFilterBar(objs: Phaser.GameObjects.GameObject[]): void {
-    const btnW = 58, btnH = 20, gap = 6
+    const btnW = 64, btnH = 22, gap = 8
     const buttons = [
       ...KIND_BUTTONS.map(k => ({
         label: k.label,
@@ -230,12 +213,12 @@ export class CraftMenu {
     ]
     const groupW = buttons.length * btnW + (buttons.length - 1) * gap
     buttons.forEach((b, i) => {
-      const bx = PANEL_X - groupW / 2 + btnW / 2 + i * (btnW + gap)
+      const bx = PLACE_CX - groupW / 2 + btnW / 2 + i * (btnW + gap)
       const bg = this.scene.add.rectangle(bx, FILTER_Y, btnW, btnH, b.on ? 0x4a6a3a : 0x232338)
         .setStrokeStyle(1, b.on ? 0x7abb5a : 0x444455)
         .setInteractive({ useHandCursor: true })
       const label = this.scene.add.text(bx, FILTER_Y, b.label, {
-        fontSize: '11px', color: b.on ? '#ccffaa' : '#778899',
+        fontSize: '12px', color: b.on ? '#ccffaa' : '#778899',
       }).setOrigin(0.5)
       bg.on('pointerdown', b.press)
       objs.push(bg, label)
@@ -255,11 +238,11 @@ export class CraftMenu {
       }
       objs.push(t)
     }
-    arrow(PANEL_X - 60, '◀', -1, cur > 0)
-    objs.push(this.scene.add.text(PANEL_X, PAGER_Y, this.paging.pageLabel(total), {
+    arrow(PLACE_CX - 60, '◀', -1, cur > 0)
+    objs.push(this.scene.add.text(PLACE_CX, PAGER_Y, this.paging.pageLabel(total), {
       fontSize: '13px', color: '#8899aa',
     }).setOrigin(0.5))
-    arrow(PANEL_X + 60, '▶', 1, cur < pages - 1)
+    arrow(PLACE_CX + 60, '▶', 1, cur < pages - 1)
   }
 
   private buildRecipeRow(recipe: RecipeDef, cy: number, objs: Phaser.GameObjects.GameObject[]): void {
@@ -268,7 +251,7 @@ export class CraftMenu {
     const focused = recipe.id === this.focusId
     objs.push(
       this.scene.add
-        .rectangle(PANEL_X, cy, PANEL_W - 40, ROW_H - 8, max > 0 ? 0x2a3a2a : 0x3a2a2a)
+        .rectangle(PLACE_CX, cy, CONTENT_R - CONTENT_L, ROW_H - 8, max > 0 ? 0x2a3a2a : 0x3a2a2a)
         .setStrokeStyle(focused ? 2 : 1, focused ? 0xffdd88 : 0x555555),
     )
 
