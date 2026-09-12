@@ -481,11 +481,11 @@ export class GameScene extends Phaser.Scene {
 
     // ── pointerup: 左ボタンを離したとき → 配置 / 破棄 / キャンセル ──
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      // 動かさずに離した ＝ 売り場から下ろす（材料に取っておきたいとき）
+      // ⚠ **動かさずに離したときは何もしない。**
+      //   クリックに「消す」を割り当てると、触っただけで棚から消える。
+      //   下ろすのは**画面の外へドラッグして離す**（`isOverDiscardZone`）ほうに任せる
       if (this.pressedSlot) {
-        const slot = this.pressedSlot.slot
         this.pressedSlot = null
-        this.takeDownSlot(slot)
         return
       }
       if (!this.selectedItemId) return
@@ -726,22 +726,6 @@ export class GameScene extends Phaser.Scene {
     this.floorRenderer.clearDragGhost()
     this.floorRenderer.clearDiscardZone()
     this.updateStatus()
-  }
-
-  /**
-   * 売り場から下ろす。**持ち物は減らない。**
-   *
-   * ⚠ 下ろすと客に売れなくなるので、**加工の材料に取っておきたいとき**に使う。
-   *   「売るか、材料にするか」の判断はここで表す。
-   */
-  private takeDownSlot(slot: DisplaySlot): void {
-    const item = this.registry_.getItem(slot.itemId)
-    this.placementManager.removeSlot(slot.id)
-    this.floorRenderer.clearSlot(slot.id)
-    this.refreshInventoryPanel()
-    this.updateStatus(
-      `${item.display.name}を売り場から下ろした（手元に${this.inventory.getQuantity(slot.itemId)}個）`,
-    )
   }
 
   private openCraftMenu(): void {
