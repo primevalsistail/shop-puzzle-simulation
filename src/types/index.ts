@@ -18,9 +18,8 @@ export interface DisplaySlot {
   quantity: number     // 0〜999
 }
 
-// ⚠ 旧 `AdjacencyBonus`（`bonusType` 3種 ＋ 品ID直書きの隣接規則）は #30 で削除した。
-//    置き換えは `src/taxonomy/evaluate.ts` の `Modifiers`（売れやすさ・値段・集客）で、
-//    こちらは**店全体にかかる効き目**も表せる。
+// 効き目は `src/taxonomy/evaluate.ts` の `Modifiers`（売れやすさ・値段・集客）が表す。
+// ⚠ **隣接ボーナスを品IDで直書きしない**（INV-4）。効き目は規則側（`rules.ts`）に置く。
 
 // ─── 販売 ─────────────────────────────────────────────
 export interface SaleResult {

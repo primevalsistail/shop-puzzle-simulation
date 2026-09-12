@@ -56,7 +56,7 @@ export interface Effect {
 
 /**
  * 効き目の合成は**加算**（Q5）。`1 + Σ(mᵢ − 1)`。例: 1.1 と 1.1 → 1.2。
- * **上限は設けない**（上限値はバランス調整の数値であり Q3 = A と衝突する）。
+ * **上限は設けない**（上限値はバランス調整の数値になる）。
  */
 export function combine(multipliers: readonly number[]): number {
   return 1 + multipliers.reduce((sum, m) => sum + (m - 1), 0)
@@ -118,7 +118,7 @@ export interface CustomerPreferenceRule {
 const item = <P extends ItemPredicate>(p: P): P => p
 const かつ = (...of: Condition[]): Condition => ({ kind: 'かつ', of })
 
-/** 取り合わせ 層1（R1〜R6）。倍率は Phase 3 で一度置いたもので、調整していない（Q3 = A） */
+/** 取り合わせ 層1（R1〜R6）。⚠ 倍率は一度置いたもので、調整していない */
 export const PAIR_RULES: readonly PairRule[] = [
   {
     id: 'R1', description: '食べものと飲みものは隣り合うと売れやすい',
@@ -206,11 +206,9 @@ export const FOREIGN_ORIGIN_RULE: ConditionRule = {
  *   場所の条件は**軸どうしの比較**（`産地 == 現在地`）を要求するが、
  *   条件言語にそれが無いため書けない（→ issue #31）。
  *
- *   **2026-09-07 まで、書けないはずの U4「産地を持たない品はどの島でも並ぶ」が
- *   ここにデータとして置かれていた。**評価器は同じことを `isSeaborne` として再実装しており、
- *   `U4.condition` も `U4.stockedBy` も**一度も読まれていなかった**（Phase 3 の評価が指摘）。
- *   **規則データが嘘をつくよりは持たないほうがよい**ので削除した。
- *   U3「島の商人はその島を産地とする品を並べる」も同じ理由でここには無い。
+ *   ⚠ **書けない条件をここに置かないこと。**置いても評価器は読まず、
+ *   **規則データが嘘をつくことになる。**U3「島の商人はその島を産地とする品を並べる」と
+ *   U4「産地を持たない品はどの島でも並ぶ」がここに無いのはそのため。
  *
  * ⚠ 評価器は `r.id === 'U1'` と**IDで名指し**して拾う。**U3 を足しても無視される。**
  *   データ駆動にするには条件言語の拡張（#31）が要るため、いまは名指しのままにしてある。

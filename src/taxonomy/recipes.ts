@@ -1,6 +1,5 @@
 /**
- * Cycle 4 / Phase 3 — レシピ 72本（Phase 3 で60本。2026-09-07 の宿題B で道具10本、
- * `生鮮` の決着で2本を追加）
+ * レシピ **72本**
  *
  * 出どころ: aidlc-docs/inception/worldbuilding/crafted-goods.md
  *
@@ -12,10 +11,8 @@
  *   **INV-6（作った品は材料より高い）は、加工利益が常に正であることから定義的に成立する。**
  *   根拠は derive.ts:122 の `craftProfit`。
  *
- *   ⚠ **`craftMultiplier` は 2026-09-07（`80e203c` 3層価格構造）で廃止した。**
- *   旧式は `Σ材料の売値 × 加工倍率` で**利益が材料費に比例**しており、
- *   利益の開きが 186倍に達して「短時間の飲みもの一択」を生んでいた。
- *   このファイルに倍率の手書き数値は1つも残っていない。
+ *   ⚠ **このファイルに価格の手書き数値を置かないこと。**利益を材料費に比例させると
+ *   「高価な材料に短い仕上げを足す」が常に最強になる。
  *
  * ⚠ `durationMinutes` は **ゲーム内時間**であり、実時間の待ちではない（#25）。
  *   **上限は 480分**（実データの最大値も480）。起きている時間は 1080分/日 しかなく、
@@ -400,9 +397,7 @@ export const ALL_RECIPES: readonly RecipeDef[] = [
     ingredients: [{ itemId: 'bamboo', quantity: 2 }, { itemId: 'rope', quantity: 1 }, { itemId: 'gull_feather', quantity: 1 }],
     durationMinutes: 240,
   },
-  // ══════ 2026-09-07 追加 — 宿題B の10品ぶん ══════
-  // 追加時は craftMultiplier を機械的な式で置いていたが、同日の3層価格構造（80e203c）で
-  // その欄ごと廃止した。いまは所要時間と出力数だけを書き、売値は derive.ts が出す。
+  // ══════ 道具の10品 ══════
   {
     id: 'recipe_straw_mat', display: { name: '稲わらのむしろをつくる' },
     outputItemId: 'straw_mat', outputQuantity: 2,
@@ -463,7 +458,7 @@ export const ALL_RECIPES: readonly RecipeDef[] = [
     ingredients: [{ itemId: 'basket', quantity: 1 }, { itemId: 'rope', quantity: 1 }, { itemId: 'cotton_yarn', quantity: 1 }],
     durationMinutes: 120,
   },
-  // ── 2026-09-07 追加 — `実りの土地` の母数を埋める2本 ──
+  // ── `実りの土地` の母数を埋める2本 ──
   {
     id: 'recipe_straw_bale', display: { name: '稲わらの俵をつくる' },
     outputItemId: 'straw_bale', outputQuantity: 2,

@@ -31,12 +31,7 @@ export function phaseOf(hour: number): DayPhase {
 }
 
 export class TimeManager {
-  /**
-   * 開始は **6:00**（#41）。`WAKE_HOUR` と同じで、一日の最初の `作業` から始まる。
-   *
-   * ⚠ 以前は 8:00 だった。`WAKE_HOUR = 6` は**睡眠明けの時刻**で開始時刻とは別物だったため、
-   *   #25 で時間モデルを入れた後も初期値だけ 8:00 のまま残っていた。
-   */
+  /** 開始は **6:00**（#41）。`WAKE_HOUR` と同じで、一日の最初の `作業` から始まる */
   private time: GameTime = { day: 1, hour: WAKE_HOUR, minute: 0 }
   private advancing = false
   private accumulated = 0

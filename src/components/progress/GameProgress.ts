@@ -11,10 +11,9 @@ const slotKey = (slot: number) => `${SAVE_KEY}_${slot}`
 export class GameProgress {
   private unlockedFeatures: Set<string> = new Set()
   /**
-   * ⚠ **空で始まる。**以前は旧13品時代のレシピID5本を直書きしていたが、そのIDは #30 で消えた。
-   *   この仕掛けは**どこからも読まれていない**（クラフトメニューは全レシピを並べる）。
-   *   **PO判断（2026-09-11）: 効かせる。条件は「そのレシピの材料を過去に取得したことがあるか」。**
-   *   ただし「取得したことがある」の記録がまだ無い（`Inventory` は現在の所持数しか持たない）→ issue #48。
+   * ⚠ **まだ効いていない。**クラフトメニューは全レシピを並べる。
+   *   解禁の条件は「**そのレシピの材料を過去に取得したことがあるか**」と決まっているが、
+   *   「取得したことがある」の記録が無い（`Inventory` は現在の所持数しか持たない）→ issue #48。
    */
   private unlockedRecipes: Set<string> = new Set()
   private isEndlessMode = false

@@ -16,7 +16,7 @@ export class PlacementManager {
   /**
    * その品がすでに棚に出ているか。
    *
-   * **1つの品は棚に1区画まで**（2026-09-11）。同じ品を2箇所に分けて並べられない。
+   * **1つの品は棚に1区画まで。**同じ品を2箇所に分けて並べられない。
    * 増やすときは**その区画に補充する**（`ShopService.restockSlot`）。
    */
   isDisplayed(itemId: string): boolean {

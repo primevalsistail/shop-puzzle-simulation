@@ -4,16 +4,12 @@ import { ROUTE, DAYS_PER_PORT } from '../../taxonomy/islands.js'
 import type { ItemId } from '../../taxonomy/axes.js'
 
 /**
- * 航海に使う日数。**0 ＝ 航海日は無い**（2026-09-12）。
+ * 航海に使う日数。**0 ＝ 航海日は無い。**
  *
- * ⚠ 以前は1日置いていた（#4）。**廃止した理由は2つ**:
- *   - **長いレシピの居場所にならなかった。**実測で、手際を2段上げると
- *     「航海日にしか入らないレシピ」は0本になり、その間も作られるのは tier2 だけだった
- *   - **判断の無い日だった。**このゲームは「毎日どこに投じるか決める」のが骨格で、
- *     航海日は進めるボタンを押すだけの日になっていた
- *
- * これで周期は10日・4島一周は40日になり、`world.md` の「10日ごとに移る」と素直に一致する。
- * **200日 ＝ 20回の寄港・5周。**
+ * ⚠ **航海日を作らない。**このゲームは「毎日どこに投じるか決める」のが骨格で、
+ *   営業も仕入れもできない日は**判断の無い日**になる。
+ *   周期10日・4島一周40日で、`world.md` の「10日ごとに移る」と一致する。
+ *   **200日 ＝ 20回の寄港・5周。**
  */
 export const DAYS_AT_SEA = 0
 
@@ -22,7 +18,7 @@ export const DAYS_PER_CYCLE = DAYS_PER_PORT + DAYS_AT_SEA
 
 export interface Location {
   readonly island: IslandName
-  /** 航海日は廃止したので常に false。呼び出し側を壊さないために残している */
+  /** `DAYS_AT_SEA` が 0 の間は常に false */
   readonly atSea: boolean
   /** 次の寄港地 */
   readonly next: IslandName

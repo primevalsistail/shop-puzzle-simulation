@@ -8,10 +8,9 @@ export type { ItemDef, ItemId, RecipeDef, Shape }
  * 品とレシピの引き当て。
  *
  * ⚠ **型は `src/taxonomy/axes.ts` のものをそのまま使う。**本体側に別の `ItemDef` を持たない。
- *   以前は本体が `price` / `purchasePrice` / `baseSaleProb` / `adjacencyBonuses` を
- *   **フィールドとして持っていた**が、これらは全て導出値か規則側の持ち物である。
- *   フィールドに持つと `salePrice()` の結果を焼き付けることになり、
- *   「導出結果を一次情報扱いする」型に戻る（#30 / 実行計画の技術判断）。
+ *   値段・売れやすさ・隣接ボーナスを**フィールドとして持たせない。**
+ *   これらは導出値か規則側の持ち物で、フィールドに持つと `salePrice()` の結果を焼き付けることになり、
+ *   **導出結果を一次情報扱いする**ことになる。
  *
  * 値段は `salePriceOf` / `purchasePriceOf` / `finalPriceOf` が **その都度導出する**。
  */
@@ -38,12 +37,12 @@ export class ItemRegistry {
     return Array.from(this.items.values())
   }
 
-  /** tier2以上 ＝ レシピを持つ品（旧 `itemType === 'product'`） */
+  /** tier2以上 ＝ レシピを持つ品 */
   getProducts(): ItemDef[] {
     return this.getAllItems().filter(i => this.tierOf(i.id) >= 2)
   }
 
-  /** tier1 ＝ レシピを持たない品（旧 `itemType === 'material'`） */
+  /** tier1 ＝ レシピを持たない品 */
   getMaterials(): ItemDef[] {
     return this.getAllItems().filter(i => this.tierOf(i.id) === 1)
   }

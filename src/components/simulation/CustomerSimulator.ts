@@ -10,9 +10,8 @@ const CUSTOMER_ARRIVAL_RATE = 0.3
 /**
  * 足を止めた客が買う素の確率。**贅沢さの回転率がこれに掛かる。**
  *
- * ⚠ 旧 `ItemDef.baseSaleProb`（品ごとに手書きした 0.2〜0.65）を置き換えたもの（#30）。
- *   手書きの値は軸と無関係に置かれていて、なぜその品が速く捌けるのかが読めなかった。
- *   新体系では**回転率は `贅沢さ` が担う唯一の軸**で、日用1.0 ／ 上等0.7 ／ 贅沢0.45。
+ * ⚠ **品ごとに手書きの確率を持たせない。**回転率は `贅沢さ` が担う唯一の軸で、
+ *   日用1.0 ／ 上等0.7 ／ 贅沢0.45。品側に数値を置くと、なぜ速く捌けるのかが読めなくなる。
  */
 const BASE_PURCHASE_PROB = 0.4
 
@@ -48,9 +47,8 @@ export class CustomerSimulator {
     if (rng() > CUSTOMER_ARRIVAL_RATE * evaluation.shopWide.集客) return []
 
     const results: SaleResult[] = []
-    // ⚠ **巡回順をランダムにする。**`getAllSlots()` の順は `Map` の挿入順＝**置いた順**で、
-    //   プレイヤーには見えない。1人が買う数に上限を入れると、この見えない順序が
-    //   売れ行きを決めてしまう。売れ行きを決めるのは**配置の工夫**であるべき。
+    // ⚠ **巡回順をランダムにする。**`getAllSlots()` の順は挿入順＝**置いた順**で、
+    //   プレイヤーには見えない。売れ行きを決めるのは**配置の工夫**であって、置いた順ではない。
     const activeSlots = shuffle(slots.filter(s => s.quantity > 0), rng)
 
     for (const slot of activeSlots) {
