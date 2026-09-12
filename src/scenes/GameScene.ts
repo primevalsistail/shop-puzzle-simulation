@@ -579,9 +579,18 @@ export class GameScene extends Phaser.Scene {
       this.hud.updateRevenue(this.economy.getTotalRevenue(), this.gameService.isInEndlessMode())
     })
 
-    // 日が変わると現在地が動く（#2）。10日寄港して1日航海する
+    // 日が変わると現在地が動く（#2）
     EventBus.on(GameEvents.TIME_DAY_CHANGED, (time: unknown) => {
-      this.onDayChanged((time as GameTime).day)
+      const day = (time as GameTime).day
+      this.onDayChanged(day)
+      this.pauseAt(`Day ${day} が始まった`)
+    })
+
+    // ⚠ **節目で必ず止める。**速さを上げると判断すべき瞬間を通り過ぎてしまう。
+    //   止まるのは「作業→営業」「営業→作業」の2回と、上の日付の切り替わり。
+    EventBus.on(GameEvents.TIME_PHASE_CHANGED, (phase: unknown) => {
+      if (phase === '営業') this.pauseAt('店を開けた')
+      else if (phase === '作業') this.pauseAt('店を閉めた')
     })
 
     // 加工で時計が飛んだとき（TimeManager.skipMinutes）。
@@ -858,6 +867,20 @@ export class GameScene extends Phaser.Scene {
     this.add.text(width / 2, height / 2 + 30, '資金が尽きました', {
       fontSize: '22px', color: '#cccccc',
     }).setOrigin(0.5).setDepth(201)
+  }
+
+  /**
+   * 節目で時間を止める。
+   *
+   * ⚠ **止めるだけで、プレイヤーの操作を奪わない。**もう一度「進める」を押せば続く。
+   *   速さの設定は変えない（次の区間も同じ速さで流したいことが多いため）。
+   */
+  private pauseAt(reason: string): void {
+    if (!this.timeManager.isAdvancing()) return
+    this.timeManager.stopAdvancing()
+    this.advanceBtnLabel.setText('▶  進める')
+    this.advanceBtnBg.setFillStyle(0x4a4a8a)
+    this.updateStatus(reason)
   }
 
   private onAdvancePressed(): void {

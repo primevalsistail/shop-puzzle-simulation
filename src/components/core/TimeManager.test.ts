@@ -152,3 +152,29 @@ describe('速度切り替え', () => {
     expect(count).toBe(30)     // まとめて飛ばさず、30回イベントが出る
   })
 })
+
+describe('節目の合図（速さを上げても判断の瞬間を通り過ぎないため）', () => {
+  it('作業→営業 と 営業→作業 で区分の合図が出る', () => {
+    const phases: string[] = []
+    EventBus.on(GameEvents.TIME_PHASE_CHANGED, (p: unknown) => phases.push(p as string))
+    const tm = new TimeManager()
+    tm.setTime({ day: 1, hour: 9, minute: 59 })
+    tm.startAdvancing()
+    tm.update(100)                       // 10:00 へ
+    expect(phases).toEqual(['営業'])
+
+    tm.setTime({ day: 1, hour: 19, minute: 59 })
+    tm.update(100)                       // 20:00 へ
+    expect(phases).toEqual(['営業', '作業'])
+  })
+
+  it('日が変わる合図が出る', () => {
+    let day = 0
+    EventBus.on(GameEvents.TIME_DAY_CHANGED, (t: unknown) => { day = (t as { day: number }).day })
+    const tm = new TimeManager()
+    tm.setTime({ day: 1, hour: 23, minute: 59 })
+    tm.startAdvancing()
+    tm.update(100)
+    expect(day).toBe(2)
+  })
+})
