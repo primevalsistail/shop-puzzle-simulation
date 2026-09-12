@@ -69,6 +69,12 @@ export class ListPaging {
     this.page = Math.min(Math.max(0, page), this.pageCount(total) - 1)
   }
 
+  /** その位置が映るページへ飛ぶ。棚から「この品を補充したい」と来たとき用 */
+  jumpTo(index: number, total: number): void {
+    if (index < 0) return
+    this.setPage(Math.floor(index / this.pageSize), total)
+  }
+
   movePage(delta: number, total: number): boolean {
     const before = this.currentPage(total)
     this.setPage(before + delta, total)

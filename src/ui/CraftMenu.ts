@@ -68,6 +68,8 @@ export class CraftMenu {
   private paging = new ListPaging(VISIBLE_ROWS)
   /** 「作れる」だけに絞るか。いま材料と当日の残り時間が足りるものだけ出す */
   private onlyCraftable = false
+  /** 棚から「これを作りたい」と来たレシピ */
+  private focusId: string | null = null
 
   constructor(
     private scene: Phaser.Scene,
@@ -89,9 +91,14 @@ export class CraftMenu {
     })
   }
 
-  open(): void {
+  open(focusRecipeId?: string): void {
     if (this.isOpen) return
     this.isOpen = true
+    this.focusId = focusRecipeId ?? null
+    if (focusRecipeId) {
+      const shown = this.shown()
+      this.paging.jumpTo(shown.findIndex(r => r.id === focusRecipeId), shown.length)
+    }
     this.build()
   }
 
@@ -247,10 +254,11 @@ export class CraftMenu {
   private buildRecipeRow(recipe: RecipeDef, cy: number, objs: Phaser.GameObjects.GameObject[]): void {
     const max = this.craftingSystem.maxCraftTimes(recipe.id)
 
+    const focused = recipe.id === this.focusId
     objs.push(
       this.scene.add
         .rectangle(PANEL_X, cy, PANEL_W - 40, ROW_H - 8, max > 0 ? 0x2a3a2a : 0x3a2a2a)
-        .setStrokeStyle(1, 0x555555),
+        .setStrokeStyle(focused ? 2 : 1, focused ? 0xffdd88 : 0x555555),
     )
 
     // 左は3段 — 完成品／材料／合計時間。数は括弧が在庫

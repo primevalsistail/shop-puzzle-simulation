@@ -28,6 +28,8 @@ export class PurchaseMenu {
   private materials: ItemDef[] = []
   private islandName = ''
   private paging = new ListPaging(VISIBLE_COUNT)
+  /** 棚から「これを補充したい」と来た品。1行だけ目立たせる */
+  private focusId: string | null = null
 
   constructor(
     private scene: Phaser.Scene,
@@ -45,12 +47,14 @@ export class PurchaseMenu {
     })
   }
 
-  open(materials: ItemDef[], islandName: string): void {
+  open(materials: ItemDef[], islandName: string, focusId?: string): void {
     if (this.isOpen) return
     this.isOpen = true
     this.materials = materials
     this.islandName = islandName
+    this.focusId = focusId ?? null
     this.paging.clearKinds()
+    if (focusId) this.paging.jumpTo(this.shown().findIndex(m => m.id === focusId), this.shown().length)
     this.rebuild()
   }
 
@@ -157,8 +161,9 @@ export class PurchaseMenu {
       const totalCost = unitCost * BUY_QTY
       const canAfford = this.economy.canAfford(totalCost)
 
+      const focused = mat.id === this.focusId
       const bg = this.scene.add.rectangle(PANEL_X, y, PANEL_W - 40, ROW_H - 6, canAfford ? 0x2a3a2a : 0x3a2a2a)
-        .setStrokeStyle(1, 0x555555)
+        .setStrokeStyle(focused ? 2 : 1, focused ? 0xffdd88 : 0x555555)
       objs.push(bg)
 
       objs.push(

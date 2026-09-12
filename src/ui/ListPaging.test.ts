@@ -95,3 +95,25 @@ describe('ListPaging — ページ', () => {
     expect(p.rangeLabel(0)).toBe('0件')
   })
 })
+
+describe('ListPaging — 指定した位置へ飛ぶ（棚から「これを補充したい」と来たとき）', () => {
+  it('その位置が映るページへ移る', () => {
+    const p = new ListPaging(3)
+    p.jumpTo(0, 7); expect(p.currentPage(7)).toBe(0)
+    p.jumpTo(4, 7); expect(p.currentPage(7)).toBe(1)
+    p.jumpTo(6, 7); expect(p.currentPage(7)).toBe(2)
+  })
+
+  it('見つからなかった（-1）ときは動かない', () => {
+    const p = new ListPaging(3)
+    p.setPage(2, 7)
+    p.jumpTo(-1, 7)
+    expect(p.currentPage(7)).toBe(2)
+  })
+
+  it('範囲を超えても最後のページに収まる', () => {
+    const p = new ListPaging(3)
+    p.jumpTo(99, 7)
+    expect(p.currentPage(7)).toBe(2)
+  })
+})

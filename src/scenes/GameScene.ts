@@ -481,11 +481,13 @@ export class GameScene extends Phaser.Scene {
 
     // ── pointerup: 左ボタンを離したとき → 配置 / 破棄 / キャンセル ──
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      // ⚠ **動かさずに離したときは何もしない。**
-      //   クリックに「消す」を割り当てると、触っただけで棚から消える。
+      // 動かさずに離した ＝ その品を補充しに行く
+      // ⚠ **クリックに「消す」を割り当てない。**触っただけで棚から消えてしまう。
       //   下ろすのは**画面の外へドラッグして離す**（`isOverDiscardZone`）ほうに任せる
       if (this.pressedSlot) {
+        const slot = this.pressedSlot.slot
         this.pressedSlot = null
+        this.restock(slot.itemId)
         return
       }
       if (!this.selectedItemId) return
@@ -728,12 +730,42 @@ export class GameScene extends Phaser.Scene {
     this.updateStatus()
   }
 
-  private openCraftMenu(): void {
-    if (this.timeManager.isAdvancing()) {
-      this.timeManager.stopAdvancing()
-      this.advanceBtnLabel.setText('▶  進める'); this.advanceBtnBg.setFillStyle(0x4a4a8a)
-      
+  /**
+   * 棚の品を補充しに行く。
+   *
+   * ⚠ 在庫は1つなので「棚へ移す」という補充は無い。**もっと手に入れる**のが補充にあたる。
+   *   この島の商人が扱っていれば仕入れへ、作れるならクラフトへ、その品を映した状態で移る。
+   */
+  private restock(itemId: string): void {
+    const item = this.registry_.getItem(itemId)
+    const stocked = stockedByIslandMerchant(this.registry_.getAllItems(), this.world.getState())
+
+    if (stocked.some(i => i.id === itemId)) {
+      this.stopAdvancing()
+      this.purchaseMenu.open(stocked.slice(), this.world.getIsland(), itemId)
+      return
     }
+
+    const recipe = this.registry_.getAllRecipes().find(r => r.outputItemId === itemId)
+    if (recipe) {
+      this.stopAdvancing()
+      this.craftMenu.open(recipe.id)
+      return
+    }
+
+    this.updateStatus(`${item.display.name}は${this.world.getIsland()}島では手に入りません`)
+  }
+
+  /** 時間が進んでいたら止める。メニューへ移る前に必ず呼ぶ */
+  private stopAdvancing(): void {
+    if (!this.timeManager.isAdvancing()) return
+    this.timeManager.stopAdvancing()
+    this.advanceBtnLabel.setText('▶  進める')
+    this.advanceBtnBg.setFillStyle(0x4a4a8a)
+  }
+
+  private openCraftMenu(): void {
+    this.stopAdvancing()
     this.craftMenu.open()
   }
 
@@ -743,19 +775,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   private openUpgradeMenu(): void {
-    if (this.timeManager.isAdvancing()) {
-      this.timeManager.stopAdvancing()
-      this.advanceBtnLabel.setText('▶  進める'); this.advanceBtnBg.setFillStyle(0x4a4a8a)
-    }
+    this.stopAdvancing()
     this.upgradeMenu.open()
   }
 
   private openPurchaseMenu(): void {
-    if (this.timeManager.isAdvancing()) {
-      this.timeManager.stopAdvancing()
-      this.advanceBtnLabel.setText('▶  進める'); this.advanceBtnBg.setFillStyle(0x4a4a8a)
-      
-    }
+    this.stopAdvancing()
     // 航海中は島の商人がいない（#4）
     if (this.world.isAtSea()) {
       this.updateStatus(`航海中です。${this.world.getLocation().next}島に着くまで仕入れられません`)
