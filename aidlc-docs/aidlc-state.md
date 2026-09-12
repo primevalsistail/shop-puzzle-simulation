@@ -6,11 +6,11 @@
 - **Tech Stack**: TypeScript + Phaser.js 3 + Vite
 - **Platform**: Webブラウザ
 - **Started**: 2026-07-05T02:00:00Z
-- **Last Updated**: 2026-09-12（段3 完了。次は段4 ＝ 島ごとの需要）
+- **Last Updated**: 2026-09-12（段4 の途中。残りは仕入れ割引と在庫上限）
 
 ## Current Status
 
-**次にやるのは「段4 — 島ごとの需要」。**
+**次にやるのは「段4 の残り — 産地の島での仕入れ割引・在庫上限999」。**
 → [policy-rework-plan.md](construction/plans/policy-rework-plan.md)
 
 ### まず読むもの（一次情報）
@@ -21,8 +21,8 @@
 
 ### リポジトリの状態（2026-09-12）
 
-**218テスト全件パス** ／ `tsc --noEmit` ／ `npm run build` 成功。
-OPEN issue **40件**（束の割り当ては [issue-grouping.md](inception/plans/issue-grouping.md)）。
+**229テスト全件パス** ／ `tsc --noEmit` ／ `npm run build` 成功。
+OPEN issue **42件**（束の割り当ては [issue-grouping.md](inception/plans/issue-grouping.md)）。
 
 ### 進捗
 
@@ -31,7 +31,7 @@ OPEN issue **40件**（束の割り当ては [issue-grouping.md](inception/plans
 | 段1 | 買値の統一・航海日なし・クリア判定・集客上限・巡回順・目標1000万 | **完了** |
 | 段2 | 強化4系統×5段・手際の配線・速度切り替え・節目で止まる | **完了** |
 | 段3 | **ボーナス構造**（tier で「薄い全体／濃い個別」を割り当てる） | **完了** |
-| **段4** | 需要表を島ごとに効かせる（#39）＋ 滞在中の解禁 | **次** |
+| **段4** | 島ごとの需要 ＋ 滞在中の解禁 | **途中**（4-3・4-4・4-5 完了 ／ 残り 4-6 仕入れ割引・4-7 在庫上限） |
 | 段5 | tier7 まで拡張（品・レシピ追加。高tierほど大きい升） | |
 | 段6 | 全体を測り直し、200日・5〜10時間に収める（**#61**） | |
 
