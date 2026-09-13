@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { ALL_ITEMS } from './items.js'
-import { tier, salePrice, purchasePrice } from './derive.js'
+import { tier, salePrice, purchasePrice, originReach } from './derive.js'
 import { ALL_RECIPES } from './recipes.js'
 import {
   adjacentPairs, evaluate, finalModifiers, stockedByIslandMerchant,
@@ -111,6 +111,35 @@ describe('店全体に効く効き目', () => {
     expect(evaluate(p, at('ハルヴェラ')).shopWide.集客).toBe(1)
   })
 
+  it('R5 — 材料を遡って1島に定まる加工品にも効く（#37）', () => {
+    const p: Placement[] = [
+      { slotId: 'a', itemId: 'buckwheat_flour', x: 0, y: 0 },  // 蕎麦の実だけ → ノアキータ
+      { slotId: 'b', itemId: 'rice',            x: 2, y: 0 },  // ノアキータ（素材）
+    ]
+    const r = evaluate(p, at('ハルヴェラ'))
+    expect(r.firedRules).toContain('R5')
+    expect(r.shopWide.集客).toBeGreaterThan(1)
+  })
+
+  it('材料に産地なしが混ざっても島は定まる（加工品どうしでも島の棚になる。#37）', () => {
+    // バターもチーズも 羊の乳（ハルヴェラ）＋ 塩（産地なし）。`なし` は島を足さないだけで消さない
+    const p: Placement[] = [
+      { slotId: 'a', itemId: 'butter', x: 0, y: 0 },  // [[1]]
+      { slotId: 'b', itemId: 'cheese', x: 1, y: 0 },  // [[1,1]]
+    ]
+    expect(evaluate(p, at('ノアキータ')).firedRules).toContain('R5')
+  })
+
+  it('2島以上の材料が混ざる品は、いままでどおり島の棚にならない（#37）', () => {
+    // いちごのジャム = いちご（ハルヴェラ）＋ 蜂蜜（リナツィア）→ 行き着く島が2つ
+    const p: Placement[] = [
+      { slotId: 'a', itemId: 'strawberry_jam', x: 0, y: 0 },
+      { slotId: 'b', itemId: 'strawberry',     x: 1, y: 0 },  // ハルヴェラ（素材）
+    ]
+    expect(evaluate(p, at('ノアキータ')).firedRules).not.toContain('R5')
+    expect(evaluate(p, at('ノアキータ')).shopWide.集客).toBe(1)
+  })
+
   it('島の棚を2つ作っても、店全体は濃くならない（平均で積むため）', () => {
     const one: Placement[] = [
       { slotId: 'a', itemId: 'rice',  x: 0, y: 0 },
@@ -199,6 +228,20 @@ describe('島の需要（D1）— 需要表4行', () => {
   it('海のもの（産地なし）は D2 で得をしない', () => {
     const p: Placement[] = [{ slotId: 's', itemId: 'salt', x: 0, y: 0 }]
     expect(evaluate(p, at('ハルヴェラ')).firedRules).not.toContain('D2')
+  })
+
+  it('D2 — 材料を遡って1島に定まる加工品も、よその島では目に留まる（#37）', () => {
+    const p: Placement[] = [{ slotId: 's', itemId: 'buckwheat_flour', x: 0, y: 0 }]  // → ノアキータ
+    expect(evaluate(p, at('ミフユリア')).firedRules).toContain('D2')
+    // 行き着く島が現在地なら「よその島の産」ではない
+    expect(evaluate(p, at('ノアキータ')).firedRules).not.toContain('D2')
+  })
+
+  it('2島以上の材料が混ざる品は、どの島でも D2 で得をしない（#37）', () => {
+    const p: Placement[] = [{ slotId: 's', itemId: 'strawberry_jam', x: 0, y: 0 }]
+    for (const island of ROUTE) {
+      expect(evaluate(p, at(island)).firedRules, island).not.toContain('D2')
+    }
   })
 })
 
@@ -325,6 +368,68 @@ describe('tier2以上の産地', () => {
   it('すべて「なし」（どの島でも並ぶ）', () => {
     const withIsland = ALL_ITEMS.filter(i => tier(i.id) >= 2 && i.origin !== 'なし')
     expect(withIsland.map(i => i.display.name)).toEqual([])
+  })
+
+  /**
+   * ⚠ **材料を遡った産地（#37）はここへ波及させない。**
+   *   波及させると「作った品がその島の外では並ばない」ことになり、知らせが島に依存する。
+   */
+  it('材料を遡って島が付いた加工品も、どの島でも並ぶ（場所の条件は品の産地を見る）', () => {
+    const flour = ALL_ITEMS.find(i => i.id === 'buckwheat_flour')!
+    expect(originReach(flour)).toBe('ノアキータ')   // R5・D2 にはノアキータとして当たる
+    const sold = new Map([[flour.id, 1000]])        // U2 を通しておく
+    for (const island of ROUTE) {
+      const ids = stockedByIslandMerchant(ALL_ITEMS, at(island, sold)).map(i => i.id)
+      expect(ids, island).toContain(flour.id)
+    }
+  })
+})
+
+/**
+ * **材料を遡った産地**（#37）。R5・D2 が自分で作った品にも当たるようにするための導出。
+ * → derive.ts `originReach`
+ */
+describe('材料を遡った産地（#37）', () => {
+  const reach = (id: string): string => originReach(ALL_ITEMS.find(i => i.id === id)!)
+
+  it('素材は自分の産地そのもの（素材の当たり方は変わっていない）', () => {
+    for (const item of ALL_ITEMS.filter(i => tier(i.id) === 1)) {
+      expect(originReach(item), item.id).toBe(item.origin)
+    }
+  })
+
+  it('行き着く島が1つに定まればその島。産地なしの材料は島を足さない', () => {
+    expect(reach('buckwheat_flour')).toBe('ノアキータ')   // 蕎麦の実だけ
+    expect(reach('butter')).toBe('ハルヴェラ')            // 羊の乳（ハルヴェラ）＋ 塩（なし）
+  })
+
+  it('2島以上が混ざれば「なし」（当たらない側に落ちる）', () => {
+    expect(reach('strawberry_jam')).toBe('なし')          // いちご ＋ 蜂蜜
+  })
+
+  it('1段上の材料ではなく、素材まで遡る', () => {
+    // 包丁 = 鉄 ＋ 白樺。**1段上だけ見ると**島を持つ材料は白樺（ミフユリア）だけに見えるが、
+    // 鉄が2島（鉄鉱石・松の薪）に行き着くので**包丁は「なし」**
+    expect(reach('birch')).toBe('ミフユリア')
+    expect(reach('iron')).toBe('なし')
+    expect(reach('kitchen_knife')).toBe('なし')
+  })
+
+  it('当たる品の数は、素材だけだったころより増えている（加工品にも当たる）', () => {
+    const 当たる = ALL_ITEMS.filter(i => originReach(i) !== 'なし')
+    const 素材だけ = ALL_ITEMS.filter(i => i.origin !== 'なし')
+    expect(当たる.length).toBeGreaterThan(素材だけ.length)
+    // 素材は1品も落ちない（増える方向にしか動かない）
+    for (const item of 素材だけ) expect(当たる, item.id).toContain(item)
+  })
+
+  /** ⚠ **売値に効かせない。**産地割引は品に書いてある産地のまま（→ derive.ts `ORIGIN_DISCOUNT`） */
+  it('売値・仕入れ値には効かない', () => {
+    const id = 'buckwheat_flour'            // 材料を遡るとノアキータ
+    const 素の買値 = purchasePrice(id)
+    for (const island of ROUTE) {
+      expect(purchasePrice(id, island), island).toBe(素の買値)   // どの島でも割引が乗らない
+    }
   })
 })
 

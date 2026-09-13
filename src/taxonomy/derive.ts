@@ -5,11 +5,12 @@
  *   - tier          … ALL_RECIPES から
  *   - 売値           … tier1 は基準値から、tier2以上は材料から積み上げ
  *   - 何から作れるか / 何に使えるか
+ *   - 材料を遡った産地 … ALL_RECIPES ＋ 素材の産地から（#37）
  *
  * 判定（INV-3）: ItemDef の型に tier / price のフィールドが存在しないこと。→ axes.ts
  */
 
-import type { ItemDef, ItemId, Luxury, RecipeDef } from './axes.js'
+import type { ItemDef, ItemId, Luxury, Origin, RecipeDef } from './axes.js'
 import type { IslandName } from './islands.js'
 import { ALL_ITEMS, getItem } from './items.js'
 import { ALL_RECIPES, RECIPES_BY_OUTPUT } from './recipes.js'
@@ -252,6 +253,8 @@ export const PURCHASE_RATE = 0.7
  * 実測: 割引 0.8 のもとで **4島 × 全レシピすべてで「作る > 転売」**
  * （→ aidlc-docs/construction/plans/stage4-price-gradient-result.md）。
  *
+ * ⚠ **材料を遡った産地（`originReach`・#37）はここに効かせない。**効かせると加工品にも割引が乗り、
+ *   上の「転売側の買値は割引を受けない」が崩れて**作る > 転売**の符号が保証できなくなる。
  * ⚠ **仮置き。#61 で測り直す。**「産地では2割引き」以上の根拠は無い。
  * ⚠ 島ごとに別の値を持たせないこと。持たせた瞬間に「どの島が得か」が需要表と二重になる。
  */
@@ -285,6 +288,74 @@ export function isAtOrigin(
 ): boolean {
   if (at === undefined) return false
   return lookup(itemId).origin === at
+}
+
+// ─── 材料を遡った産地（#37） ───────────────────────────
+/**
+ * **材料をすべて遡って、行き着く島が1つに定まる品は、その島の産。**
+ * 2島以上が混ざる品と、島に行き着かない品（材料がすべて `なし`）は `なし`。
+ *
+ * これが無いと **R5・D2 だけが自分で作った品に当たらない。**隣接ボーナス6本のうち
+ * R1〜R4・R6 は主種類・贅沢さ・tier を見るので作った品にも効くが、R5・D2 は産地を見ており、
+ * **加工品は全品 `産地なし`**（旬を持たないため。#22）。**作り込むほどこの2本だけが消えていた。**
+ *
+ * ⚠ **「行き着く島の集合が交わるか」では見ない。**集合で見るとほとんどの加工品が当たり、
+ *   ボーナスではなく**常にかかる下駄**になる。R5 の設計目標「並べ方で客足が動く幅は最大2倍」
+ *   が壊れる（→ `rules.ts` の `SAME_ORIGIN_RULE`）。**1つに定まるときだけ**にすると
+ *   結果が集合ではなく**1つの産地の値**になるので、**条件言語に「含む」を足す必要も無い。**
+ *   評価器は今までどおり産地どうしを突き合わせるだけでよい。
+ *
+ * ⚠ **1段上の材料だけを見ない。必ず素材まで遡る。**
+ *   例: 包丁 ＝ 鉄（2島が混ざる）＋ 白樺（ミフユリア）。1段上だけ見ると
+ *   「島を持つ材料はミフユリアだけ」に見えるが、鉄が2島に行き着くので**包丁は `なし`**。
+ *
+ * ⚠ **`なし` の材料は島を足さないだけで、島を消さない。**
+ *   例: バター ＝ 羊の乳（ハルヴェラ）＋ 塩（`なし`）→ **ハルヴェラ**。
+ *
+ * ⚠ **売値・仕入れ値には効かせない。**`salePrice` ／ `purchasePrice` ／ `isAtOrigin` は
+ *   品に書いてある産地のままにする。効かせると INV-1「既存の品の属性が動かない」に触れ、
+ *   さらに産地割引（`ORIGIN_DISCOUNT`）が加工品に乗って**作るより転売が得**になりうる。
+ *   **効くのは R5・D2 の評価だけ**（evaluate.ts）。
+ *
+ * ⚠ **ItemDef に書き足さない**（INV-3。主材料を選んで書く形は #21・#22 で却下済み）。
+ *
+ * 実測（161品）: 素材48品はそのまま ＋ 加工品106品のうち**26品**が1島に定まり、
+ * **当たるのは 74品**（ノアキータ12 ／ ハルヴェラ5 ／ リナツィア5 ／ ミフユリア4）。
+ */
+export function originReach(
+  item: ItemDef,
+  recipesByOutput: ReadonlyMap<string, RecipeDef> = RECIPES_BY_OUTPUT,
+  lookup: (id: ItemId) => ItemDef = getItem,
+): Origin {
+  const reached = reachedIslands(item, recipesByOutput, lookup, new Set())
+  return reached.size === 1 ? [...reached][0] : 'なし'
+}
+
+/**
+ * その品が行き着く島の集合。**素材の産地だけを数え、`なし` は数えない。**
+ *
+ * ⚠ 循環したレシピは `tier` と同じく**その場で落とす**（黙って `なし` を返さない）。
+ */
+function reachedIslands(
+  item: ItemDef,
+  recipesByOutput: ReadonlyMap<string, RecipeDef>,
+  lookup: (id: ItemId) => ItemDef,
+  seen: ReadonlySet<ItemId>,
+): Set<Origin> {
+  if (seen.has(item.id)) {
+    throw new Error(`Recipe cycle detected at: ${item.id}`)
+  }
+  const recipe = recipesByOutput.get(item.id)
+  if (!recipe) return item.origin === 'なし' ? new Set() : new Set([item.origin])
+
+  const next = new Set(seen).add(item.id)
+  const reached = new Set<Origin>()
+  for (const ing of recipe.ingredients) {
+    for (const o of reachedIslands(lookup(ing.itemId), recipesByOutput, lookup, next)) {
+      reached.add(o)
+    }
+  }
+  return reached
 }
 
 // ─── レシピ由来の導出（INV-3: 型に持たない） ─────────────
@@ -321,6 +392,7 @@ export function dumpAll(
       suitedLand: item.suitedLand,
       cells: cellCount(item),
       tier: tier(item.id, recipesByOutput),
+      originReach: originReach(item, recipesByOutput, lookup),
       salePrice: salePrice(item.id, recipesByOutput, lookup),
       purchasePrice: purchasePrice(item.id, undefined, recipesByOutput, lookup),
     }

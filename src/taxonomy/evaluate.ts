@@ -10,7 +10,7 @@ import type { ItemDef, ItemId } from './axes.js'
 import { luxuryRank } from './axes.js'
 import type { IslandName } from './islands.js'
 import { getItem } from './items.js'
-import { tier } from './derive.js'
+import { originReach, tier } from './derive.js'
 import type {
   Condition, Effect, EffectKind, PairRule, Predicate, UnlockRule,
 } from './rules.js'
@@ -54,7 +54,11 @@ function evalPredicate(p: Predicate, ctx: EvalContext): boolean {
   if ('axis' in p) {
     switch (p.axis) {
       case '主種類':   return compareValue(p.op, ctx.item.mainKind, p.value)
-      case '産地':     return compareValue(p.op, ctx.item.origin, p.value)
+      // ⚠ **`産地` は「材料を遡った産地」を見る**（#37。素材は自分の産地そのもの）。
+      //   これを品に書いてある産地のままにすると、R5・D2 が加工品に当たらない
+      //   （加工品は全品 `産地なし`）。→ derive.ts `originReach`
+      //   ⚠ **場所の条件（U3・U4）と産地割引はここを通らない。**あちらは品に書いてある産地のまま。
+      case '産地':     return compareValue(p.op, originReach(ctx.item), p.value)
       case '向く土地': return compareValue(p.op, ctx.item.suitedLand, p.value)
       case '贅沢さ':   return compare(p.op, luxuryRank(ctx.item.luxury), luxuryRank(p.value))
       case 'tier':     return compare(p.op, tier(ctx.item.id), p.value)
@@ -234,7 +238,8 @@ export function evaluate(
       if (evalCondition(rule.condition, ctx)) put(rule.effect, p.slotId, rule.id, p.itemId)
     }
     // D2 は「産地 != 現在地」。軸どうしの比較なので条件言語では書けず、ここで持つ（→ rules.ts の申し送り）
-    if (evalCondition(FOREIGN_ORIGIN_RULE.condition, ctx) && ctx.item.origin !== state.現在地) {
+    // ⚠ 突き合わせるのは**材料を遡った産地**（#37）。条件（産地 != なし）の側と同じ値を見ること
+    if (evalCondition(FOREIGN_ORIGIN_RULE.condition, ctx) && originReach(ctx.item) !== state.現在地) {
       put(FOREIGN_ORIGIN_RULE.effect, p.slotId, FOREIGN_ORIGIN_RULE.id, p.itemId)
     }
   }
@@ -246,12 +251,14 @@ export function evaluate(
         put(rule.effect, target.slotId, rule.id, target.itemId)
       }
     }
-    // R5「同じ島の産」。値の一致を見るので、条件（産地 != なし）に加えて評価器が突き合わせる
+    // R5「同じ島の産」。値の一致を見るので、条件（産地 != なし）に加えて評価器が突き合わせる。
+    // ⚠ 突き合わせるのは**材料を遡った産地**（#37）。1島に定まる加工品はここで島の棚に加わり、
+    //   2島以上が混ざる品は `なし` になるので、条件（産地 != なし）の側で落ちる
     const ia = lookup(a.itemId)
     const ib = lookup(b.itemId)
     const okA = evalCondition(SAME_ORIGIN_RULE.甲, { item: ia, state })
     const okB = evalCondition(SAME_ORIGIN_RULE.乙, { item: ib, state })
-    if (okA && okB && ia.origin === ib.origin) {
+    if (okA && okB && originReach(ia) === originReach(ib)) {
       put(SAME_ORIGIN_RULE.effect, a.slotId, SAME_ORIGIN_RULE.id, a.itemId)
     }
   }

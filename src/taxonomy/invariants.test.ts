@@ -12,7 +12,7 @@ import { describe, it, expect } from 'vitest'
 import type { ItemDef, RecipeDef } from './axes.js'
 import { ALL_ITEMS, getItem } from './items.js'
 import { ALL_RECIPES, RECIPES_BY_OUTPUT } from './recipes.js'
-import { craftProfit, dumpAll, ingredientCost, salePrice, tier } from './derive.js'
+import { craftProfit, dumpAll, ingredientCost, originReach, salePrice, tier } from './derive.js'
 import { SIGNATURE_PAIRS, PAIR_RULES, DEMAND_RULES, UNLOCK_RULES, combine } from './rules.js'
 import { evalCondition, evaluate, type GameState, type Placement } from './evaluate.js'
 
@@ -67,6 +67,18 @@ describe('INV-1 追加しても、既存は変わらない', () => {
 
 // ══ INV-3 導出できる属性は持たない ═══════════════════════
 describe('INV-3 導出できる属性は持たない', () => {
+  /** 蕎麦の実 ← 蕎麦粉 という逆向きのレシピを足すと、蕎麦粉 ← 蕎麦の実 と循環する */
+  const cyclicRecipes = (): Map<string, RecipeDef> => {
+    const cyclic = new Map(RECIPES_BY_OUTPUT)
+    cyclic.set('buckwheat', {
+      id: 'cyclic', display: { name: '循環' },
+      outputItemId: 'buckwheat', outputQuantity: 1,
+      ingredients: [{ itemId: 'buckwheat_flour', quantity: 1 }],
+      durationMinutes: 1,
+    })
+    return cyclic
+  }
+
   it('ItemDef に tier / price のフィールドが存在しない', () => {
     for (const item of ALL_ITEMS) {
       expect(item).not.toHaveProperty('tier')
@@ -94,15 +106,12 @@ describe('INV-3 導出できる属性は持たない', () => {
   })
 
   it('循環したレシピは検出して落ちる', () => {
-    const cyclic = new Map(RECIPES_BY_OUTPUT)
-    // 蕎麦の実 ← 蕎麦粉 という逆向きのレシピを足すと、蕎麦粉 ← 蕎麦の実 と循環する
-    cyclic.set('buckwheat', {
-      id: 'cyclic', display: { name: '循環' },
-      outputItemId: 'buckwheat', outputQuantity: 1,
-      ingredients: [{ itemId: 'buckwheat_flour', quantity: 1 }],
-      durationMinutes: 1,
-    })
-    expect(() => tier('buckwheat_flour', cyclic)).toThrow(/cycle/i)
+    expect(() => tier('buckwheat_flour', cyclicRecipes())).toThrow(/cycle/i)
+  })
+
+  /** 材料を遡った産地（#37）も tier と同じ扱い。**黙って「なし」を返さない** */
+  it('循環したレシピは、材料を遡った産地でも検出して落ちる（#37）', () => {
+    expect(() => originReach(getItem('buckwheat_flour'), cyclicRecipes())).toThrow(/cycle/i)
   })
 })
 
