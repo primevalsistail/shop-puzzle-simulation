@@ -51,7 +51,7 @@ export interface ShelfPreset {
  *
  * ⚠ **升の文字欄は 308px**（`layout.ts` の `PRESET_TEXT_W`）。
  *   **全角ばかり 20文字で 240px** なので、いちばん長い既定値
- *   `ミフユリア島 全部下ろす`（136.1px）の倍近くまで打てる。
+ *   `ミフユリア島`（72px。区画数を落とした 2026-09-13 以降）の3倍以上打てる。
  *   収まるかは `src/ui/layout.test.ts` が `estTextWidth` で見ている。
  */
 export const PRESET_NAME_MAX = 20
@@ -184,7 +184,8 @@ function isIslandName(v: unknown): v is IslandName {
  * ⚠ **現実の時刻は出さない。**「どの型を呼ぶか」の判断に一切効かない（束M・ペルソナ3人）。
  * ⚠ **島を持たない古い型は、従来どおり区画数だけ。**「島なし」と書かない
  *   （書くと、古いセーブの10本ぜんぶに意味のない字が並ぶ）。
- * ⚠ **島を持つ型に区画数は出さない**（PO 指示 2026-09-13）→ `defaultPresetLabel`。
+ * ⚠ **島を持つ型は島名だけ**（PO 指示 2026-09-13。区画数も「全部下ろす」も出さない）
+ *   → `defaultPresetLabel`。
  */
 export function describePreset(preset: ShelfPreset | null): string {
   return preset?.name ?? defaultPresetLabel(preset)
@@ -195,18 +196,16 @@ export function describePreset(preset: ShelfPreset | null): string {
  *
  * ⚠ **入力欄の `placeholder` もこれ。**打つ前から島名が見えているので、
  *   **名前を付けなければ従来どおりに見える**（ペルソナ2人の反対への答え）。
- * ⚠ **区画数は出さない**（PO 指示 2026-09-13）。**数は縮小図に出ている**ので、
- *   字にすると同じことを2度言うことになる。
- * ⚠ **「全部下ろす」だけは残す。**あれは数ではなく**何をする型か**で、
- *   縮小図では空の升と見分けが付かない（どちらも何も描かれない）。
+ * ⚠ **区画数も「全部下ろす」も出さない**（PO 指示 2026-09-13）。**出すのは島名だけ。**
+ *   **中身は縮小図に出ている**ので、字にすると同じことを2度言うことになる
+ *   （何も出していない型は、縮小図が**升だけの空の盤面**になる）。
  * ⚠ **島を持たない古い型だけ、これまでどおり区画数。**島も数も消すと
  *   **古いセーブの型がすべて同じ字になる**（手がかりが縮小図だけに戻る）。
+ *   ⚠ **その型は `0区画` にもなりうる**（島を持たない、何も出していない型）。
  */
 export function defaultPresetLabel(preset: ShelfPreset | null): string {
   if (!preset) return '空'
-  const empty = preset.slots.length === 0
-  if (preset.island) return empty ? `${preset.island}島 全部下ろす` : `${preset.island}島`
-  return empty ? '全部下ろす' : `${preset.slots.length}区画`
+  return preset.island ? `${preset.island}島` : `${preset.slots.length}区画`
 }
 
 function isPresetSlot(s: unknown): s is PresetSlot {

@@ -188,9 +188,11 @@ describe('マイセットが1画面に入る（2列 × 5行）', () => {
     expect(estTextWidth(line, PRESET_TEXT_FONT_PX)).toBeLessThanOrEqual(presetTextW)
   })
 
-  it('文字欄に「島名 ＋ 全部下ろす」が収まる', () => {
+  /** ⚠ **何も出していない型も島名だけ**（`全部下ろす` は 2026-09-13 に落とした） */
+  it('何も出していない型も、文字欄に収まる（島名だけ）', () => {
     for (const island of ROUTE) {
       const line = describePreset({ savedAt: 0, island, slots: [] })
+      expect(line).toBe(`${island}島`)
       expect(estTextWidth(line, PRESET_TEXT_FONT_PX)).toBeLessThanOrEqual(presetTextW)
     }
   })
@@ -540,8 +542,8 @@ describe('右パネルのボタン列とキャラ絵の枠（#9 で行を1つ足
   })
 
   it('名前を付けても、2行目の島名が升に収まる（#83）', () => {
-    // いちばん長い既定値
-    const sub = estTextWidth('ミフユリア島 全部下ろす', PRESET_SUB_FONT_PX)
+    // いちばん長い既定値（⚠ **島を持たない古い型の `130区画` のほうが短い**）
+    const sub = estTextWidth('ミフユリア島', PRESET_SUB_FONT_PX)
     expect(sub).toBeLessThanOrEqual(PRESET_TEXT_W)
     // 1行目（入力欄）と重ならない高さに置いてある
     expect(PRESET_SUB_FONT_PX).toBeLessThan(PRESET_TEXT_FONT_PX)
