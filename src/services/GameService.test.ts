@@ -107,7 +107,15 @@ describe('GameService', () => {
     expect(eco.getTotalRevenue()).toBeGreaterThan(0)
   })
 
-  it('所持金が目標額に達したときPROGRESS_GOAL_COMPLETEを発火する', () => {
+  /**
+   * **#97 受入条件2 —— 所持金が 1,000万に届いても、幕は出ない。**
+   *
+   * ⚠ **エンディングの入口は「商船を買う」に移った**（決定 2026-09-15）。
+   *   届いた瞬間に幕を出していたのをやめたので、**ここで何も起きないのが正しい。**
+   * ⚠ **`PROGRESS_GOAL_COMPLETE` は名前だけ残してある。**
+   *   **また出すようになったら、このテストが落ちる。**
+   */
+  it('所持金が目標額に届いても、目標の幕は出ない（#97 受入条件2）', () => {
     const { gs, eco, pm, inv } = setup()
     const listener = vi.fn()
     EventBus.on(GameEvents.PROGRESS_GOAL_COMPLETE, listener)
@@ -115,7 +123,6 @@ describe('GameService', () => {
     // ⚠ 判定は**所持金**（#26）。**あと1レンで届く**ところまで積み、1品売れて越える形にする
     eco.restore(gs.getGoalAmount() - 1, 0)
     inv.add('snap_pea', 10); pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
-    expect(listener).not.toHaveBeenCalled()
 
     let callCount = 0
     const rng = () => {
@@ -123,18 +130,18 @@ describe('GameService', () => {
       return callCount === 1 ? 0.1 : 0.01
     }
     tickMinute(gs, rng, true)
-    expect(listener).toHaveBeenCalledOnce()
+    expect(eco.getMoney()).toBeGreaterThanOrEqual(gs.getGoalAmount())
+    expect(listener).not.toHaveBeenCalled()
   })
 
-  it('エンドレスの旗が立っているあいだはGOAL_COMPLETEを発火しない', () => {
+  /** ⚠ **何分刻んでも出ない。**「1回だけ出る」に退行していないことも見る（#97 受入条件2） */
+  it('目標額を越えたまま何分刻んでも、幕は1回も出ない（#97 受入条件2）', () => {
     const { gs, eco } = setup()
-    gs.enterEndlessMode()
-
     const listener = vi.fn()
     EventBus.on(GameEvents.PROGRESS_GOAL_COMPLETE, listener)
 
     eco.addIncome(gs.getGoalAmount())
-    tickMinute(gs, () => 0.99, true)
+    for (let i = 0; i < 10; i++) tickMinute(gs, () => 0.99, true)
     expect(listener).not.toHaveBeenCalled()
   })
 
@@ -196,9 +203,7 @@ describe('GameService', () => {
     it('`onMinutePassed()` は幕を出さない（判定はその外）', () => {
       const { gs, eco, pm, inv } = setup()
       const over = vi.fn()
-      const goal = vi.fn()
       EventBus.on(GameEvents.PROGRESS_GAME_OVER, over)
-      EventBus.on(GameEvents.PROGRESS_GOAL_COMPLETE, goal)
 
       inv.add('snap_pea', 10); pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
       eco.spend(50000)
@@ -206,24 +211,9 @@ describe('GameService', () => {
       expect(eco.getMoney()).toBe(0)
       expect(over).not.toHaveBeenCalled()
 
-      eco.addIncome(gs.getGoalAmount())
-      gs.onMinutePassed(() => 0.99, true)
-      expect(goal).not.toHaveBeenCalled()
-
       // **消したのではなく、外へ出しただけ。**呼べば出る
       gs.checkGoalAndGameOver()
-      expect(goal).toHaveBeenCalledOnce()
-    })
-
-    /** ⚠ **届いたあとは毎分通る。**幕は1回だけ */
-    it('分が何度刻まれても、目標達成の幕は1回だけ（受入条件2）', () => {
-      const { gs, eco } = setup()
-      const goal = vi.fn()
-      EventBus.on(GameEvents.PROGRESS_GOAL_COMPLETE, goal)
-
-      eco.addIncome(gs.getGoalAmount())
-      for (let i = 0; i < 10; i++) tickMinute(gs, () => 0.99, true)
-      expect(goal).toHaveBeenCalledOnce()
+      expect(over).toHaveBeenCalledOnce()
     })
 
     it('GAME OVER の幕も1回だけ（受入条件2）', () => {
@@ -244,10 +234,10 @@ describe('GameService', () => {
    *   現在地を消して日付からの導出へ戻す（`WorldState.test.ts`
    *   「航路の無いセーブを読むと、自由航行そのものが解ける」）。**足す口は無かった。**
    */
-  describe('エンドレスの旗は両方向（#94）', () => {
-    it('クリア済みの旗を、クリア前のセーブで降ろせる（受入条件3）', () => {
+  describe('商船を買った印は両方向（#94 ／ #97）', () => {
+    it('クリア済みの印を、クリア前のセーブで降ろせる（#97 受入条件5）', () => {
       const { gs } = setup()
-      gs.enterEndlessMode()
+      gs.setEndlessMode(true)                // プレイヤーが商船を買った
       expect(gs.isInEndlessMode()).toBe(true)
 
       // ロードは `data.isEndlessMode` を**そのまま**渡す
@@ -255,25 +245,73 @@ describe('GameService', () => {
       expect(gs.isInEndlessMode()).toBe(false)
     })
 
-    it('旗を降ろしたあと、また目標へ届けば幕が出る（受入条件4）', () => {
+    /**
+     * **#97 受入条件5** —— **商船を買ったセーブを読み、そのあとクリア前のセーブを読むと、
+     * 状態が戻る。**
+     *
+     * ⚠ **印が降りることだけでなく、判定が戻ることまで見る。**
+     *   印を降ろしても `gameOverShown` が真のままなら、**もう一度詰んでも GAME OVER が出ない。**
+     */
+    it('印を降ろしたあと、また詰めば GAME OVER が出る（#97 受入条件5）', () => {
       const { gs, eco } = setup()
-      const goal = vi.fn()
-      EventBus.on(GameEvents.PROGRESS_GOAL_COMPLETE, goal)
+      const over = vi.fn()
+      EventBus.on(GameEvents.PROGRESS_GAME_OVER, over)
 
-      eco.addIncome(gs.getGoalAmount())
+      eco.spend(50000)
       tickMinute(gs, () => 0.99, true)
-      expect(goal).toHaveBeenCalledTimes(1)
-      gs.enterEndlessMode()                  // プレイヤーが「エンドレスモードへ」を押した
+      expect(over).toHaveBeenCalledTimes(1)
 
-      // ── クリア前のセーブを読む（旗も所持金も戻る）
+      // ── 商船を買ったセーブを読む（印が立ち、所持金も戻る）
+      gs.setEndlessMode(true)
+      eco.restore(0, 0)
+      tickMinute(gs, () => 0.99, true)
+      expect(over).toHaveBeenCalledTimes(1)  // ⚠ **買ったあとは出ない**
+
+      // ── クリア前のセーブを読む（印も所持金も戻る）
       gs.setEndlessMode(false)
       eco.restore(5000, 0)
       tickMinute(gs, () => 0.99, true)
-      expect(goal).toHaveBeenCalledTimes(1)  // 5000 では出ない
+      expect(over).toHaveBeenCalledTimes(1)  // 5000 では出ない
 
-      eco.addIncome(gs.getGoalAmount())
+      eco.spend(5000)
       tickMinute(gs, () => 0.99, true)
-      expect(goal).toHaveBeenCalledTimes(2)  // ⚠ **旗が降りている証拠**
+      expect(over).toHaveBeenCalledTimes(2)  // ⚠ **印が降りている証拠**
+    })
+
+    /**
+     * **#97 受入条件6** —— **GAME OVER は今までどおり出る。**
+     *
+     * ⚠ **消したのは目標側の半分だけ**（計画「やること 2」）。
+     */
+    it('商船を買っていなければ、GAME OVER は今までどおり出る（#97 受入条件6）', () => {
+      const { gs, eco } = setup()
+      const over = vi.fn()
+      EventBus.on(GameEvents.PROGRESS_GAME_OVER, over)
+
+      expect(gs.isInEndlessMode()).toBe(false)
+      eco.spend(50000)
+      expect(eco.getMoney()).toBe(0)
+      tickMinute(gs, () => 0.99, true)
+      expect(over).toHaveBeenCalledOnce()
+    })
+
+    /**
+     * ⚠ **商船を買った直後に GAME OVER を出さない**（#97）。
+     *   **商船の値段は目標額と同じ**なので、**ぴったりで買うと所持金が 0 になる。**
+     *   印を先に立てないと、**エンディングの次の分でそのまま GAME OVER** になる。
+     */
+    it('⚠ 目標額ぴったりで商船を買っても、GAME OVER にならない（#97）', () => {
+      const { gs, eco } = setup()
+      const over = vi.fn()
+      EventBus.on(GameEvents.PROGRESS_GAME_OVER, over)
+
+      eco.restore(gs.getGoalAmount(), 0)
+      expect(eco.spend(gs.getGoalAmount())).toBe(true)   // 商船を買う
+      gs.setEndlessMode(true)                            // `GameScene.buyShip()` と同じ順序
+      expect(eco.getMoney()).toBe(0)
+
+      for (let i = 0; i < 10; i++) tickMinute(gs, () => 0.99, true)
+      expect(over).not.toHaveBeenCalled()
     })
   })
 

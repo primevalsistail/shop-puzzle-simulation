@@ -491,7 +491,18 @@ export const ROW_INFO_L = ROW_INFO_R - INFO_MAX_W
  *   **2つの部品が隣り合うと、重なりは目視では数px単位でしか出ない。**
  *   `layout.test.ts` が見られるように、寸法をここへ集めてある。
  */
-export const UPGRADE_ROW_H = 150
+/**
+ * 1行の高さ。⚠ **5行入ること**（#97。4系統 ＋ **商船**）。
+ *
+ * ⚠ **PO 赤入れ 2026-09-15「改装ですが、余白が多すぎます。5行入れることは可能だと思います」。**
+ *   **一覧の上端（`UPGRADE_ROWS_TOP` 210）は動かせない**（3タブが同じ枠を使うので、
+ *   改装だけ上げると**タブを行き来するたび一覧が跳ねる**）。**下端は `ROWS_BOTTOM` 846。**
+ *   **636 ÷ 5 = 127.2 以下**が要るので **126** にした（5行 = 630、下端 840 ≤ 846）。
+ * ⚠ **行の面は `UPGRADE_ROW_H - 18`。**中身は約 66px（見出し `-30` ／ 一言 `+15` ／
+ *   ボタン `UPGRADE_BTN_H` 45）なので、126 でも上下に 21px ずつ残る。
+ *   **これ以上詰めるときは `layout.test.ts` の「5行が収まる」を必ず通すこと。**
+ */
+export const UPGRADE_ROW_H = 126
 export const UPGRADE_ROW_W = CONTENT_R - CONTENT_L
 /** 系統名（`棚`）と、その下の説明の左端 */
 export const UPGRADE_NAME_X = CONTENT_L + 42
@@ -606,6 +617,41 @@ export const UPGRADE_WHAT_IT_DOES: Record<UpgradeKind, string> = {
   利益率: '1個あたりの取り分が増える',
   手際:   '加工が速くなる',
 }
+
+/**
+ * **一覧の5行目 ——「商船」**（#97）。**買うとエンディングになり、そのまま遊べる。**
+ *
+ * ⚠ **`UpgradeKind` ではない。**商船は**段を買うものではない**ので、
+ *   `Upgrades` の段・費用・効果の仕組みには乗らない（`Upgrades.ts` は触らない）。
+ *   **一覧の5行目として `UpgradeMenu` が別に描く。**
+ * ⚠ **値段は `ui/goal.ts` の `SHIP_COST`**（＝ `GameService.GOAL_AMOUNT`。決定 2026-09-15）。
+ *   **ここに額を書かないこと**（`goal.test.ts` が「目標額の別書き」として落とす）。
+ */
+export const UPGRADE_SHIP_NAME = '商船'
+/** ⚠ **文言は PO の領分**（#79）。ここは置き場所。**いまのは仮** */
+export const UPGRADE_SHIP_WHAT_IT_DOES = '次の寄港地を選べるようになる'
+/** 買えるときのボタンの字。⚠ **買えないときは `UPGRADE_REASON_FUNDS` に差し替わる**（他の行と同じ） */
+export const UPGRADE_SHIP_LABEL = '買う'
+/** 買ったあとに出す字。**`UPGRADE_MAXED` と同じ置き方**（ボタンも費用も出さない） */
+export const UPGRADE_SHIP_BOUGHT = '購入済み'
+/**
+ * 商船の行の**費用に使える幅**。
+ *
+ * ⚠ **ほかの行の `UPGRADE_COST_W`（138）では足りない** —— `10,000,000レン` は
+ *   **見積もり 163.8px**（`estTextWidth`）で、いちばん高い段（`400,000レン` = 129.8px）より広い。
+ * ⚠ **商船の行は `現在値` `→` `強化後` も `●○` も出さない**ので、
+ *   **`現在値` の列の左端から費用の右端まで丸ごと使える。**ここを狭めるときは
+ *   `layout.test.ts` の「商船の費用が収まる」を通すこと。
+ */
+export const UPGRADE_SHIP_COST_W = UPGRADE_COST_R - UPGRADE_NOW_L
+
+/**
+ * 一覧の行数。**4系統 ＋ 商船の1行**（#97）。
+ *
+ * ⚠ **`layout.ts` は実行時に何も import しない**ので、`UPGRADE_KINDS.length` を読みに行かない。
+ *   **写しなので食い違えば `layout.test.ts` が落ちる**（`UPGRADE_STAGE_W` と同じ作り）。
+ */
+export const UPGRADE_ROW_COUNT = 5
 
 
 // ─── 納品タブの表 ──────────────────────────────────────────────
@@ -1309,8 +1355,16 @@ export const SAVELOAD_CONFIRM_FONT_PX = 24
  */
 export const GOAL_TITLE_FONT_PX = 78
 export const GOAL_LINE_FONT_PX = 39
-/** `エンドレスモードへ` のボタン */
+/** 幕を閉じるボタン */
 export const GOAL_BTN_FONT_PX = 33
+/**
+ * 幕を閉じるボタンの字（#97）。**閉じればそのまま遊べる。**
+ *
+ * ⚠ **`エンドレスモードへ` は消した**（決定 2026-09-15）。**買わないことがそのままエンドレス**なので、
+ *   幕の上で選ばせるものが無くなった。
+ * ⚠ **文言は PO が指示するもの。いまのは仮。**
+ */
+export const GOAL_CLOSE_LABEL = '続ける'
 export const GAMEOVER_TITLE_FONT_PX = 78
 export const GAMEOVER_LINE_FONT_PX = 33
 

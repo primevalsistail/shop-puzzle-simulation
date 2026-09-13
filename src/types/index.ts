@@ -103,6 +103,16 @@ export interface SaveData {
   voyage?: VoyageRecord | null
   unlockedRecipes: string[]
   currentTime: GameTime
+  /**
+   * **商船を買ったか＝エンディングを見たか**（#97）。
+   *
+   * ⚠ **意味が変わった**（2026-09-15）。**以前は「目標の幕を出さない旗」**で、
+   *   目標額に届いた幕の上で「エンドレスモードへ」を押すと立つものだった。
+   *   **いまは「商船を買った」印**で、**目標額に届いただけでは立たない。**
+   * ⚠ **名前は変えない。**変えると**今あるセーブが読めなくなる**
+   *   （`true` だったものが `undefined` になり、自由航行が解けて `∞ endless` も消える）。
+   *   **意味だけが変わっている。**`GameService.isEndlessMode` にも同じ注記がある。
+   */
   isEndlessMode: boolean
   savedAt?: number  // Unix timestamp ms
 }
@@ -142,6 +152,14 @@ export const GameEvents = {
   CRAFTING_STARTED: 'crafting:started',
   CRAFTING_COMPLETED: 'crafting:completed',
   // 進行
+  /**
+   * ⚠ **もう誰も出さない**（#97。2026-09-15）。**目標額に届いても幕は出さない**ことにしたので、
+   *   `GameService` の `emit` も `GameScene` の購読も消えた。
+   *   **エンディングの入口は「商船を買う」**（`UpgradeMenu` の5行目 → `GameScene.buyShip()`）で、
+   *   **同じ場面なので `EventBus` を挟まずその場で呼んでいる。**
+   * ⚠ **名前だけ残してある。**`GameService.test.ts`（受入条件2）が
+   *   **「目標額に届いても、これが出ないこと」**をこの名で見張っている。
+   */
   PROGRESS_GOAL_COMPLETE: 'progress:goal-complete',
   PROGRESS_GAME_OVER: 'progress:game-over',
 } as const

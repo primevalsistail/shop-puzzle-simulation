@@ -44,6 +44,8 @@ import {
   UPGRADE_BTN_W, UPGRADE_BTN_L, UPGRADE_BTN_R, UPGRADE_COST_W, UPGRADE_COST_L,
   UPGRADE_COST_R, UPGRADE_COST_FONT_PX,
   UPGRADE_LABEL, UPGRADE_REASON_FUNDS, UPGRADE_MAXED, UPGRADE_WHAT_IT_DOES,
+  UPGRADE_SHIP_NAME, UPGRADE_SHIP_WHAT_IT_DOES, UPGRADE_SHIP_LABEL, UPGRADE_SHIP_BOUGHT,
+  UPGRADE_SHIP_COST_W, UPGRADE_ROW_COUNT, UPGRADE_SUB_DY, UPGRADE_TITLE_DY, UPGRADE_BTN_H,
   DELIVERY_TAB_EMPTY, DELIVERY_HEAD_Y, DELIVERY_HEAD_FONT_PX,
   DELIVERY_ROWS_TOP, DELIVERY_ROW_H,
   DELIVERY_NAME_L, DELIVERY_NAME_W, DELIVERY_CLIENT_L, DELIVERY_CLIENT_W,
@@ -67,6 +69,7 @@ import { MAX_QUANTITY } from '../components/economy/Inventory.js'
 import { ALL_ITEMS } from '../taxonomy/items.js'
 import { PEDDLER_MAX_PER_KIND, peddlerPrice } from '../components/progress/PeddlerStock.js'
 import { money } from './money.js'
+import { SHIP_COST } from './goal.js'
 import {
   DELIVERY_COLS, DELIVERY_BTN_LABEL, DISCARD_BTN_LABEL, deliveryShortLabel,
   discardConfirmLines,
@@ -1194,16 +1197,84 @@ describe('改装タブの行（PO 赤入れ 2026-09-13）', () => {
   })
 
   /**
-   * ⚠ **4系統がこの枠に入りきること。**
+   * **#97 受入条件1 —— 改装の一覧に5行が収まっている**（4系統 ＋ 商船）。
    *
-   * ⚠ **5行目（#97 の `商船の購入`）は、いまの行の高さでは入らない** ——
-   *   `140 + 5×100 = 640` で、枠の下端 `564` を越える（見出しの行を足した 2026-09-14 の実測。
-   *   それ以前は `110 + 5×100 = 610` だった）。
-   *   **#97 は行の高さを下げるか、商船を行の外へ置くことになる。**残っている余白は 24px。
+   * **PO 赤入れ 2026-09-15**「改装ですが、余白が多すぎます。5行入れることは可能だと思います」。
+   * ⚠ **一覧の上端（`UPGRADE_ROWS_TOP`）は動かせない。**取引は3タブが同じ枠を使うので、
+   *   改装だけ上げると**タブを行き来するたび一覧が跳ねる。**
+   *   だから**行の高さを下げて**入れた（150 → 126）。
    */
-  it('4系統が、見出しの行の下の枠に収まる', () => {
-    expect(UPGRADE_ROWS_TOP + UPGRADE_KINDS.length * UPGRADE_ROW_H)
+  it('4系統 ＋ 商船の5行が、見出しの行の下の枠に収まる（#97 受入条件1）', () => {
+    // ⚠ `UPGRADE_ROW_COUNT` は行数の写し。商船を数え忘れたらここで落ちる
+    expect(UPGRADE_ROW_COUNT).toBe(UPGRADE_KINDS.length + 1)
+    expect(UPGRADE_ROWS_TOP + UPGRADE_ROW_COUNT * UPGRADE_ROW_H)
       .toBeLessThanOrEqual(ROWS_BOTTOM)
+  })
+
+  /** ⚠ **6行目は入らない。**入るなら行を下げすぎている（余白を測る側の検査） */
+  it('6行は入らない（下げすぎていない）', () => {
+    expect(UPGRADE_ROWS_TOP + (UPGRADE_ROW_COUNT + 1) * UPGRADE_ROW_H)
+      .toBeGreaterThan(ROWS_BOTTOM)
+  })
+
+  /**
+   * ⚠ **行を低くしたぶん、中身がはみ出していないこと。**
+   *   行の面は `UPGRADE_ROW_H - 18`。**いちばん上は見出し（`UPGRADE_TITLE_DY`）、
+   *   いちばん下は一言（`UPGRADE_SUB_DY`）とボタン（`UPGRADE_BTN_H` の半分）。**
+   */
+  it('行の中身が、低くした行の面に収まる（#97 受入条件1）', () => {
+    const half = (UPGRADE_ROW_H - 18) / 2
+    const topMost = Math.abs(UPGRADE_TITLE_DY) + TAB_ROW_TITLE_FONT_PX / 2
+    const bottomMost = Math.max(
+      UPGRADE_SUB_DY + TAB_ROW_SUB_FONT_PX / 2,
+      UPGRADE_BTN_H / 2,
+    )
+    expect(topMost).toBeLessThanOrEqual(half)
+    expect(bottomMost).toBeLessThanOrEqual(half)
+  })
+})
+
+/**
+ * **商船の行（#97 の5行目）。**
+ *
+ * ⚠ **`UpgradeKind` ではない。**段も費用の表も効果も無いので、`Upgrades` には乗らない。
+ *   **`現在値` `→` `強化後` も `●○` も出さない**ぶん、費用に使える幅が広い。
+ */
+describe('改装タブの5行目 —— 商船（#97）', () => {
+  /** ⚠ **系統名の列に並ぶ。**左は4系統と同じ位置 */
+  it('名前と一言が、4系統と同じ列に収まる', () => {
+    expect(estTextWidth(UPGRADE_SHIP_NAME, TAB_ROW_TITLE_FONT_PX, true))
+      .toBeLessThanOrEqual(UPGRADE_SUB_MAX_W)
+    expect(estTextWidth(UPGRADE_SHIP_WHAT_IT_DOES, TAB_ROW_SUB_FONT_PX))
+      .toBeLessThanOrEqual(UPGRADE_SUB_MAX_W)
+  })
+
+  /**
+   * ⚠ **`10,000,000レン` は `UPGRADE_COST_W`（138）に入らない** —— 見積もり 163.8px。
+   *   **商船の行だけは `現在値` の列の左端まで使える**（値も矢印も `●○` も出さないから）。
+   */
+  it('商船の費用が、商船の行の費用の幅に収まる', () => {
+    expect(estTextWidth(money(SHIP_COST), UPGRADE_COST_FONT_PX))
+      .toBeLessThanOrEqual(UPGRADE_SHIP_COST_W)
+    // ⚠ **ほかの行の幅では入らない。**この検査が「別扱いが要る」ことの根拠
+    expect(estTextWidth(money(SHIP_COST), UPGRADE_COST_FONT_PX))
+      .toBeGreaterThan(UPGRADE_COST_W)
+    // 左は説明の右端より右（説明に食い込まない）
+    expect(UPGRADE_COST_R - UPGRADE_SHIP_COST_W)
+      .toBeGreaterThanOrEqual(UPGRADE_NAME_X + UPGRADE_SUB_MAX_W)
+  })
+
+  /** ⚠ **買えないときはほかの行と同じ作り**（ボタンの字が `足りない` に変わる） */
+  it('`買う` も `足りない` もボタンに収まる', () => {
+    for (const label of [UPGRADE_SHIP_LABEL, UPGRADE_REASON_FUNDS]) {
+      expect(estTextWidth(label, BUY_FONT_PX), label).toBeLessThanOrEqual(UPGRADE_BTN_W - 12)
+    }
+  })
+
+  /** ⚠ **買ったあとは `UPGRADE_MAXED` と同じ置き方**（ボタンの幅に収まる字だけ） */
+  it('`購入済み` が、ボタンの幅に収まる', () => {
+    expect(estTextWidth(UPGRADE_SHIP_BOUGHT, TAB_ROW_SUB_FONT_PX))
+      .toBeLessThanOrEqual(UPGRADE_BTN_W)
   })
 })
 

@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import { describe, it, expect } from 'vitest'
-import { GOAL_TUTORIAL_LINE, goalReachedLine } from './goal.js'
+import { GOAL_TUTORIAL_LINE, SHIP_COST, shipBoughtLine } from './goal.js'
 import { GOAL_AMOUNT } from '../services/GameService.js'
 import { money } from './money.js'
 
@@ -31,10 +31,24 @@ describe('目標の見せ方（#73）', () => {
     expect(GOAL_TUTORIAL_LINE).not.toContain('累計売上')
   })
 
-  /** ⚠ **クリアした瞬間に、クリア条件と違う数字を見せない** */
-  it('目標達成の幕も所持金を出す', () => {
-    expect(goalReachedLine(GOAL_AMOUNT)).toBe(`所持金 ${money(GOAL_AMOUNT)}`)
-    expect(goalReachedLine(GOAL_AMOUNT)).not.toContain('累計売上')
+  /**
+   * **#97** —— **エンディングの入口が「商船を買う」に移った。**
+   *
+   * ⚠ **商船の値段は目標額と同じ**（決定 2026-09-15）。**ここも自分の数を持たない。**
+   */
+  it('商船の値段は目標額そのもの（別書きしない）', () => {
+    expect(SHIP_COST).toBe(GOAL_AMOUNT)
+  })
+
+  /**
+   * ⚠ **幕に所持金を出さない**（#97）。**買った直後の所持金は 1,000万ぶん減っている** ——
+   *   出すと**エンディングに `所持金 0レン` が出る。**
+   *   （`goalReachedLine(currentMoney)` を消したのはこれが理由。`goal.ts` の注記）
+   */
+  it('エンディングの幕は、所持金ではなく商船の値段を出す', () => {
+    expect(shipBoughtLine()).toBe(`商船 ${money(SHIP_COST)}`)
+    expect(shipBoughtLine()).not.toContain('所持金')
+    expect(shipBoughtLine()).not.toContain('累計売上')
   })
 })
 
@@ -116,6 +130,9 @@ describe('目標額の出どころは1つ（#73）', () => {
     const screens = {
       'ui/Tutorial.ts': "./goal.js",
       'scenes/GameScene.ts': "../ui/goal.js",
+      // ⚠ **改装タブの5行目（商船）も目標額を出す**（#97）。**値段は目標額と同じ**なので、
+      //   ここも `goal.js` の `SHIP_COST` を引く（`layout.ts` に額を書かない）
+      'ui/UpgradeMenu.ts': "./goal.js",
     }
     for (const [rel, from] of Object.entries(screens)) {
       expect(SOURCES[rel], rel).toContain(`from '${from}'`)

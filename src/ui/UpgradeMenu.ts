@@ -14,8 +14,10 @@ import {
   UPGRADE_BTN_W, UPGRADE_BTN_H, UPGRADE_BTN_L, UPGRADE_BTN_R,
   UPGRADE_COST_R, UPGRADE_COST_FONT_PX,
   UPGRADE_LABEL, UPGRADE_REASON_FUNDS, UPGRADE_MAXED, UPGRADE_WHAT_IT_DOES,
+  UPGRADE_SHIP_NAME, UPGRADE_SHIP_WHAT_IT_DOES, UPGRADE_SHIP_LABEL, UPGRADE_SHIP_BOUGHT,
 } from './layout.js'
 import { money } from './money.js'
+import { SHIP_COST } from './goal.js'
 
 /**
  * 改装。**「取引」の `改装` タブ**（#96。それまでは独立した「行く場所」だった。#58）。
@@ -47,6 +49,20 @@ export class UpgradeMenu {
      *   ⚠ 閉じるときではなく**買った時点**で呼ぶこと。左パネルはこの画面を開いている間も見えている
      */
     private onBought: () => void = () => {},
+    /**
+     * **商船をもう買ったか**（#97）。**買っていれば5行目は `購入済み` になる。**
+     *
+     * ⚠ **旗は `GameService.isInEndlessMode()` が持つ。**ここで覚えないこと ——
+     *   **ロードで戻る値**なので、写しを持つと**クリア前のセーブを読んでも `購入済み` が居座る。**
+     */
+    private shipBought: () => boolean = () => false,
+    /**
+     * **商船を買った直後**に呼ぶ（#97）。**代金はここで引き終わっている。**
+     *
+     * ⚠ **エンディングの幕・エンドレスの旗・自由航行の解禁は `GameScene` の仕事。**
+     *   ここは一覧の行を描き直すだけで、**幕も旗もここには持たない。**
+     */
+    private onShipBought: () => void = () => {},
   ) {}
 
   /**
@@ -101,9 +117,13 @@ export class UpgradeMenu {
     }
 
     this.buildHead(objs)
+    const rowY = (i: number) => UPGRADE_ROWS_TOP + UPGRADE_ROW_H / 2 + i * UPGRADE_ROW_H
     UPGRADE_KINDS.forEach((kind, i) => {
-      this.buildRow(kind, UPGRADE_ROWS_TOP + UPGRADE_ROW_H / 2 + i * UPGRADE_ROW_H, objs)
+      this.buildRow(kind, rowY(i), objs)
     })
+    // ⚠ **商船は5行目**（#97。PO 赤入れ 2026-09-15「5行入れることは可能だと思います」）。
+    //   **`UPGRADE_KINDS` には入らない**ので、行の番号も自分で足す
+    this.buildShipRow(rowY(UPGRADE_KINDS.length), objs)
 
     this.container = this.scene.add.container(0, 0, objs)
     this.container.setDepth(CONTENT_DEPTH)
@@ -189,6 +209,74 @@ export class UpgradeMenu {
       bg.on('pointerdown', () => this.buy(kind, cost))
     }
     objs.push(bg, label)
+  }
+
+  /**
+   * **5行目 —— 商船**（#97）。**買うとエンディングの幕が出て、そのまま遊べる。**
+   *
+   * ⚠ **`UpgradeKind` に足さないこと。**商船は**段を買うものではない**ので、
+   *   `Upgrades` の段（`●○`）・費用の表・効果の掛け算の**どれにも乗らない。**
+   *   足すと `nextCost` も `effectValue` も嘘の値を返すことになる。
+   * ⚠ **`現在値` と `強化後` は空**（決定 2026-09-15）。**段が無いので出す値が無い。**
+   *   `●○` も出さない。**矢印も出さない**（最大まで買った行と同じ理由）。
+   * ⚠ **買えないときの作りは、ほかの4行と同じ** —— **ボタンの字が `足りない` に変わり、
+   *   費用が暗くなる。**ここだけ別の出し方にすると、同じ一覧の中で作りが2つになる。
+   */
+  private buildShipRow(y: number, objs: Phaser.GameObjects.GameObject[]): void {
+    const bought = this.shipBought()
+    const afford = !bought && this.economy.canAfford(SHIP_COST)
+
+    objs.push(
+      this.scene.add.rectangle(PLACE_CX, y, UPGRADE_ROW_W, UPGRADE_ROW_H - 18,
+        bought ? 0x2a2a3a : 0x232344).setStrokeStyle(1.5, 0x445577),
+      this.scene.add.text(UPGRADE_NAME_X, y + UPGRADE_TITLE_DY, UPGRADE_SHIP_NAME, {
+        fontSize: `${TAB_ROW_TITLE_FONT_PX}px`, color: '#ffffff', fontStyle: 'bold',
+      }).setOrigin(0, 0.5),
+      this.scene.add.text(UPGRADE_NAME_X, y + UPGRADE_SUB_DY, UPGRADE_SHIP_WHAT_IT_DOES, {
+        fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: '#8899aa',
+      }).setOrigin(0, 0.5),
+    )
+
+    // 買ったあと。**`UPGRADE_MAXED` と同じ置き方**（費用もボタンも出さない）
+    if (bought) {
+      objs.push(this.scene.add.text(UPGRADE_BTN_R, y, UPGRADE_SHIP_BOUGHT, {
+        fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: '#667788',
+      }).setOrigin(1, 0.5))
+      return
+    }
+
+    // ⚠ **費用はボタンの外・右そろえ**（ほかの4行と同じ）。
+    //   ⚠ **`10,000,000レン` は `UPGRADE_COST_W` に入らない**ので、
+    //     商船の行だけ `UPGRADE_SHIP_COST_W`（`現在値` の列の左端まで）で測ってある
+    objs.push(this.scene.add.text(UPGRADE_COST_R, y, money(SHIP_COST), {
+      fontSize: `${UPGRADE_COST_FONT_PX}px`, color: afford ? '#ffffff' : '#886666',
+    }).setOrigin(1, 0.5))
+
+    const bg = this.scene.add.rectangle(UPGRADE_BTN_L + UPGRADE_BTN_W / 2, y,
+      UPGRADE_BTN_W, UPGRADE_BTN_H, afford ? 0x3a5a8a : 0x3a3a3a)
+      .setStrokeStyle(1.5, afford ? 0x5a7aaa : 0x4a4a4a)
+    const label = this.scene.add.text(UPGRADE_BTN_L + UPGRADE_BTN_W / 2, y,
+      afford ? UPGRADE_SHIP_LABEL : UPGRADE_REASON_FUNDS, {
+      fontSize: `${BUY_FONT_PX}px`, color: afford ? '#ffffff' : '#998877',
+    }).setOrigin(0.5)
+    if (afford) {
+      bg.setInteractive({ useHandCursor: true })
+      bg.on('pointerdown', () => this.buyShip())
+    }
+    objs.push(bg, label)
+  }
+
+  /**
+   * 商船を買う（#97）。**これがエンディングの入口。**
+   *
+   * ⚠ **`upgrades.advance()` を呼ばない。**商船は段ではない。
+   * ⚠ **幕も旗も `GameScene`（`onShipBought`）が持つ。**ここは代金と描き直しだけ。
+   */
+  private buyShip(): void {
+    if (this.shipBought()) return
+    if (!this.economy.spend(SHIP_COST)) return
+    this.onShipBought()
+    this.rebuild()
   }
 
   private buy(kind: UpgradeKind, cost: number): void {

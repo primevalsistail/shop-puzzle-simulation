@@ -43,12 +43,12 @@ import {
   CHAR_ART_CX, CHAR_ART_CY, CHAR_ART_W, CHAR_ART_H, craftTimeLabel, recipeUnlockedText,
   BTN_ACTION_FONT_PX, BTN_ADVANCE_FONT_PX, BTN_ICON_FONT_PX, BTN_TOOLTIP_FONT_PX,
   BTN_SPEED_FONT_PX, SALE_POPUP_FONT_PX,
-  GOAL_TITLE_FONT_PX, GOAL_LINE_FONT_PX, GOAL_BTN_FONT_PX,
+  GOAL_TITLE_FONT_PX, GOAL_LINE_FONT_PX, GOAL_BTN_FONT_PX, GOAL_CLOSE_LABEL,
   GAMEOVER_TITLE_FONT_PX, GAMEOVER_LINE_FONT_PX,
 } from '../ui/layout.js'
 import { MessageLog } from '../ui/MessageLog.js'
 import { money } from '../ui/money.js'
-import { goalReachedLine } from '../ui/goal.js'
+import { shipBoughtLine } from '../ui/goal.js'
 import { installDebugTools } from '../debug/DebugTools.js'
 import { EventBus } from '../services/EventBus.js'
 import { GameEvents } from '../types/index.js'
@@ -108,7 +108,15 @@ export class GameScene extends Phaser.Scene {
   private inventoryPanel!: InventoryPanel
   private craftMenu!: CraftMenu
   private saveLoadMenu!: SaveLoadMenu
-  /** 幕（目標達成・GAME OVER）が出たか。**戻らないので真のまま** */
+  /**
+   * 幕（エンディング・GAME OVER）が出ているか。**`<input>` を隠す判定が読む**（`isOverlayOpen()`）。
+   *
+   * ⚠ **エンディングの幕は閉じられる**（#97）。**閉じるときに `false` へ戻すこと** ——
+   *   戻さないと、**以降ずっと `<input>` が全部隠れたまま**になる
+   *   （仕入れの個数・工房の回数・一覧の検索・マイセットの名前が打てない）。
+   * ⚠ **ロードでも戻す**（#97 受入条件5）。**幕を閉じずにロードすると隠れたままになる。**
+   * ⚠ **GAME OVER の幕だけは戻らない。**閉じる口が無いので真のまま。
+   */
   private curtainShown = false
   /** いま `<input>` を隠しているか。**毎フレーム DOM を触らないための控え** */
   private domInputsHidden = false
@@ -146,13 +154,12 @@ export class GameScene extends Phaser.Scene {
   private pendingMoveSlot: DisplaySlot | null = null
   /** 押された区画。**動かし始めるまで掴まない**（押して離すだけなら補充） */
   private pressedSlot: { slot: DisplaySlot; x: number; y: number } | null = null
-  /**
-   * 目標達成の幕を出したか。**同じ幕を2度出さないための控え。**
-   *
-   * ⚠ **ロードで戻す**（#94）。`data.isEndlessMode` と同じ値にする ——
-   *   真のままにすると、**クリア前のセーブを読んで目標へ届き直しても幕が出ない。**
+  /*
+   * ⚠ **`goalCompleted`（目標達成の幕を出したかの控え）は 2026-09-15 に消した**（#97）。
+   *   **目標額に届いても幕が出なくなった**ので、数える幕が無い。
+   *   **商船を買えるのは1度だけ**（買ったあとの5行目は `購入済み`）なので、
+   *   **エンディングの幕にも控えは要らない。**
    */
-  private goalCompleted = false
 
   constructor() {
     super({ key: 'GameScene' })
@@ -232,6 +239,10 @@ export class GameScene extends Phaser.Scene {
       // ⚠ **1段買ったら持ち物一覧を作り直す**（#76）。利益率を買うと**一覧に出る売値が変わる**。
       //   左パネルは改装の画面を開いている間も見えているので、閉じるまで待たない
       () => this.refreshInventoryPanel(),
+      // ⚠ **商船を買ったかは `GameService` が持つ**（#97）。**写しを渡さない** ——
+      //   ロードで戻る値なので、写すと**クリア前のセーブを読んでも `購入済み` が居座る**
+      () => this.gameService.isInEndlessMode(),
+      () => this.buyShip(),
     )
 
     this.deliveryTab = new DeliveryTab(
@@ -322,8 +333,11 @@ export class GameScene extends Phaser.Scene {
         const endless = data.isEndlessMode === true
         this.gameService.setEndlessMode(endless)
         this.progress.setEndlessMode(endless)
-        // ⚠ **幕を出したかも一緒に戻す。**戻さないと、旗が降りたのに幕が二度と出ない（#94）
-        this.goalCompleted = endless
+        // ⚠ **幕を戻す**（#97 受入条件5）。**エンディングの幕を閉じずにロードすると、
+        //   `<input>` が全部隠れたままになる**（`isOverlayOpen()` が読んでいる）。
+        //   ⚠ **`endless` と同じ値にしないこと。**幕は**いま出ているか**であって、
+        //   **商船を買ったかではない。**読んだ直後は、どちらのセーブでも幕は出ていない
+        this.curtainShown = false
 
         // 経済・インベントリ・時間を復元
         this.economy.restore(data.money, data.totalRevenue)
@@ -920,12 +934,8 @@ export class GameScene extends Phaser.Scene {
       this.refreshInventoryPanel()
     })
 
-    EventBus.on(GameEvents.PROGRESS_GOAL_COMPLETE, () => {
-      if (this.goalCompleted) return
-      this.goalCompleted = true
-      this.timeManager.stopAdvancing()
-      this.showGoalComplete()
-    })
+    // ⚠ **`PROGRESS_GOAL_COMPLETE` の購読は 2026-09-15 に消した**（#97）。
+    //   **目標額に届いても幕は出さない。**エンディングの入口は `buyShip()`（商船を買う）
 
     EventBus.on(GameEvents.PROGRESS_GAME_OVER, () => {
       this.timeManager.stopAdvancing()
@@ -1454,6 +1464,36 @@ export class GameScene extends Phaser.Scene {
     this.refreshNextPort()
   }
 
+  /**
+   * **商船を買った**（#97）。**これがエンディングの入口。**
+   *
+   * ⚠ **代金は `UpgradeMenu` が引き終わっている。**ここで引かないこと（二重に取る）。
+   * ⚠ **ここでやることは、以前「エンドレスモードへ」のボタンがやっていたことと同じ** ——
+   *   **旗を立てる ／ 自由航行を解禁する ／ 次の寄港地を出し直す。**
+   *   **違うのは入口だけ**（目標額に届いた幕の上ではなく、改装タブの5行目）。
+   * ⚠ **買ったあとはそのまま遊べる**（決定 2026-09-15）。**幕は閉じられる。**
+   */
+  private buyShip(): void {
+    // ⚠ **旗を先に立てる。**`checkGoalAndGameOver()` が読むので、
+    //   **所持金が 0 になったまま次の分が刻まれても GAME OVER にしない**
+    //   （商船の値段は目標額と同じ＝ぴったりで買うと 0 になる）
+    this.gameService.setEndlessMode(true)
+    this.progress.setEndlessMode(true)
+    // ⚠ **ここから航路を自分で決められる**（#7）。目標のバーがあった場所が
+    //   「次の寄港地」に変わる（`HUD.updateNextPort`）
+    this.world.beginFreeSailing()
+    this.refreshNextPort()
+    this.timeManager.stopAdvancing()
+    this.showGoalComplete()
+    this.messageLog.addMessage('次の寄港地を選べるようになった', 'event')
+  }
+
+  /**
+   * エンディングの幕（#97。**商船を買ったときだけ出る**）。
+   *
+   * ⚠ **閉じる口がある。**買ったあとはそのまま遊べるので、幕を置きっぱなしにしない。
+   * ⚠ **文言（`GOAL_CLOSE_LABEL`）は PO が指示するもの。いまのは仮。**
+   */
   private showGoalComplete(): void {
     const { width, height } = this.scale
     this.curtainShown = true
@@ -1461,28 +1501,21 @@ export class GameScene extends Phaser.Scene {
     const title = this.add.text(width / 2, height / 2 - 120, '🎉 目標達成！', {
       fontSize: `${GOAL_TITLE_FONT_PX}px`, color: '#ffdd44', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(201)
-    // ⚠ **クリア条件と同じものを出す**（#73）。届いたのは所持金なので、出すのも所持金
-    const line = this.add.text(width / 2, height / 2, goalReachedLine(this.economy.getMoney()), {
+    // ⚠ **所持金は出さない**（#97）。**買った直後なので 1,000万ぶん減っている** ——
+    //   出すと `所持金 0レン` がエンディングに出る。額の出どころは `ui/goal.ts` のまま
+    const line = this.add.text(width / 2, height / 2, shipBoughtLine(), {
       fontSize: `${GOAL_LINE_FONT_PX}px`, color: '#ffffff',
     }).setOrigin(0.5).setDepth(201)
 
-    const endlessBtn = this.add.text(width / 2, height / 2 + 135, 'エンドレスモードへ', {
+    const closeBtn = this.add.text(width / 2, height / 2 + 135, GOAL_CLOSE_LABEL, {
       fontSize: `${GOAL_BTN_FONT_PX}px`, color: '#ffffff', backgroundColor: '#4a4a8a', padding: { x: 36, y: 18 },
     }).setOrigin(0.5).setDepth(201).setInteractive({ useHandCursor: true })
-    endlessBtn.on('pointerdown', () => {
+    closeBtn.on('pointerdown', () => {
       // ⚠ **幕の文字も一緒に消すこと。**下地だけ消すと `🎉 目標達成！` が店の上に残る
       //   （#7 で気づいた。自由航行に入っても幕の文字が居座っていた）
-      overlay.destroy(); endlessBtn.destroy(); title.destroy(); line.destroy()
-      this.gameService.enterEndlessMode()
-      this.progress.setEndlessMode(true)
-      // ⚠ **その場でバーを ∞ に切り替える**（#73）。所持金が動くまで待つと、
-      //   目標を越えたあとも「目標 100%」がしばらく残る
-      // ⚠ **ここから航路を自分で決められる**（#7）。目標のバーがあった場所が
-      //   「次の寄港地」に変わる（`HUD.updateNextPort`）
-      this.world.beginFreeSailing()
-      this.refreshNextPort()
-      this.updateStatus('エンドレスモード開始！')
-      this.messageLog.addMessage('次の寄港地を選べるようになった', 'event')
+      overlay.destroy(); closeBtn.destroy(); title.destroy(); line.destroy()
+      // ⚠ **戻すこと**（#97 受入条件4）。戻さないと**以降ずっと `<input>` が隠れたまま**になる
+      this.curtainShown = false
     })
   }
 

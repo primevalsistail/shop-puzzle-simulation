@@ -20,6 +20,14 @@ export class GameProgress {
    * `RecipeUnlocks` が持つ。ここは**結果の置き場**であって、判定はしない。
    */
   private unlockedRecipes: Set<string> = new Set()
+  /**
+   * **商船を買ったか＝エンディングを見たか**（#97）。**`SaveData.isEndlessMode` に載る。**
+   *
+   * ⚠ **意味が変わった**（2026-09-15）。**以前は「目標の幕を出さない旗」。**
+   *   **いまは「商船を買った」印**で、**目標額に届いただけでは立たない。**
+   * ⚠ **フィールド名は変えない。**保存する鍵がそのまま `SaveData` の名になるので、
+   *   **変えると今あるセーブが読めなくなる**（`src/types/index.ts` の注記）。
+   */
   private isEndlessMode = false
 
   constructor(

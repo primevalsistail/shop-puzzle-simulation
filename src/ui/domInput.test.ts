@@ -78,11 +78,45 @@ describe('上に重ねる画面の間は `<input>` を隠す', () => {
     expect(fn).not.toContain('presetMenu')
   })
 
-  /** ⚠ **幕は戻らない。**出たら真のまま */
   it('幕は出した両方で印を立てる', () => {
     for (const m of ['private showGoalComplete()', 'private showGameOver()']) {
       expect(methodBody(scene, m), `${m}`).toContain('this.curtainShown = true')
     }
+  })
+
+  /**
+   * **#97 受入条件4 —— 幕を閉じたあと、`<input>` が使える。**
+   *
+   * ⚠ **エンディングの幕は閉じられるようになった**（商船を買ったあとはそのまま遊べる）。
+   *   **閉じるときに印を戻さないと、以降ずっと `<input>` が全部隠れたまま**になる ——
+   *   仕入れの個数・工房の回数・一覧の検索・マイセットの名前が、どれも打てない。
+   */
+  it('エンディングの幕を閉じると、印が戻る（#97 受入条件4）', () => {
+    const fn = methodBody(scene, 'private showGoalComplete()')
+    // 閉じる口があること（ボタンの字は `layout.ts` の `GOAL_CLOSE_LABEL`）
+    expect(fn).toContain('GOAL_CLOSE_LABEL')
+    expect(fn).toContain("closeBtn.on('pointerdown'")
+    expect(fn).toContain('this.curtainShown = false')
+  })
+
+  /** ⚠ **GAME OVER の幕には閉じる口が無い。**出たら真のまま */
+  it('GAME OVER の幕は閉じない（印は戻さない）', () => {
+    expect(methodBody(scene, 'private showGameOver()')).not.toContain('this.curtainShown = false')
+  })
+
+  /**
+   * **#97 受入条件5 —— ロードでも印を戻す。**
+   *
+   * ⚠ **幕を閉じずにロードすると、印が立ったままになる。**`goalCompleted` と違い、
+   *   これは**いま幕が出ているか**なので、**`data.isEndlessMode` と同じ値にしないこと。**
+   */
+  it('ロードで印を戻す（#97 受入条件5）', () => {
+    // ⚠ **ロードは `create()` の中の `onLoad` なので、メソッドとして切り出せない。**
+    //   `setEndlessMode` を両方へ渡している箇所の近くで、印を戻していることを見る
+    const at = scene.indexOf('this.progress.setEndlessMode(endless)')
+    expect(at, 'ロードの復元が見つからない').toBeGreaterThan(0)
+    const near = scene.slice(at, at + 400)
+    expect(near).toContain('this.curtainShown = false')
   })
 })
 

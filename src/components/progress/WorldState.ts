@@ -101,7 +101,9 @@ export class WorldState {
   /**
    * 自由航行を始める（#7）。**いま居る島から始める**ので、この時点では何も動かない。
    *
-   * ⚠ **目標に届いたときだけ呼ぶ**（`GameScene.showGoalComplete` ／ ロードの復元）。
+   * ⚠ **商船を買ったときだけ呼ぶ**（`GameScene.buyShip()` ／ ロードの復元）。
+   *   ⚠ **2026-09-15 に入口が変わった**（#97）。**以前は目標額に届いた幕の
+   *   「エンドレスモードへ」**だった。**所持金が届いただけでは解禁されない。**
    */
   beginFreeSailing(): void {
     const here = this.getLocation()

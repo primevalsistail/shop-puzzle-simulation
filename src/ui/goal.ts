@@ -23,10 +23,33 @@ import { money } from './money.js'
  */
 export const GOAL_TUTORIAL_LINE = `目標: 所持金 ${money(GOAL_AMOUNT)} を達成しよう！`
 
-/**
- * 目標達成の幕に出す1行。⚠ **クリアした瞬間に、クリア条件と違う数字を見せない。**
- * 届いたのは所持金なので、出すのも所持金。
+/*
+ * ⚠ **`goalReachedLine(currentMoney)` は 2026-09-15 に消した**（#97）。
+ *   **幕の入口が「目標額に届く」から「商船を買う」に変わった**ので、
+ *   **幕が出る時点の所持金は、払った 1,000万ぶん減っている。**
+ *   出していたのは所持金なので、**そのまま残すと `所持金 0レン` が出る。**
+ *   代わりは下の `shipBoughtLine()`。
+ *   ⚠ **また所持金で幕を出すなら、ここへ戻して `goal.test.ts` に検査も戻すこと。**
  */
-export function goalReachedLine(currentMoney: number): string {
-  return `所持金 ${money(currentMoney)}`
+
+/**
+ * **商船の値段**（#97）。⚠ **目標額と同じ 1,000万**（決定 2026-09-15 ／
+ * `sessions/questions-96-97.md:52`）。
+ *
+ * ⚠ **ここも自分の数を持たない。**`GOAL_AMOUNT` を引くだけ。
+ *   **額の正は `GameService.GOAL_AMOUNT` の1つだけ**という #73 の形をそのまま使う。
+ * ⚠ **エンディングの入口はここ**（#97）。**所持金が目標額に届いても幕は出ない。**
+ *   届いた金で**商船を買った**ときに出る。
+ */
+export const SHIP_COST = GOAL_AMOUNT
+
+/**
+ * 商船を買ったときの幕に出す1行。
+ *
+ * ⚠ **`所持金` は出せない。**買った直後の所持金は**1,000万ぶん減っている**ので、
+ *   ここに所持金を出すと**エンディングの幕に `所持金 0レン` が出る。**
+ * ⚠ **文言は PO の領分**（#79）。**いまのは仮。**
+ */
+export function shipBoughtLine(): string {
+  return `商船 ${money(SHIP_COST)}`
 }
