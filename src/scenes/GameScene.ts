@@ -269,7 +269,6 @@ export class GameScene extends Phaser.Scene {
       this.registry_,
       this.placeFrame,
       () => this.floorGrid.getGridSize(),
-      () => this.floorGrid.getAllSlots().length,
       index => this.savePreset(index),
       index => this.applyPreset(index),
       index => this.deletePreset(index),
@@ -668,7 +667,7 @@ export class GameScene extends Phaser.Scene {
     const escKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC)
     escKey.on('down', () => {
       if (this.saveLoadMenu.isVisible()) { this.saveLoadMenu.close(); return }
-      // 場所ごとの出口は持たせない。「← 店に戻る」と同じ1つを通す（#58）
+      // 場所ごとの出口は持たせない。店に戻る印（🏠）と同じ1つを通す（#58）
       if (this.placeFrame.isShown()) { this.placeFrame.requestBack(); return }
       this.cancelDrag()
     })

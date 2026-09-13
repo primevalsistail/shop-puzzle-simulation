@@ -9,7 +9,7 @@ import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
 import { createInput, tryAddDom, setGameKeyboard } from './domInput.js'
 import {
-  CONTENT_L, SUBTITLE_Y, ROWS_TOP, ROWS_BOTTOM, PRESET_TEXT_FONT_PX, PRESET_SUB_FONT_PX,
+  CONTENT_L, ROWS_TOP, ROWS_BOTTOM, PRESET_TEXT_FONT_PX, PRESET_SUB_FONT_PX,
   PRESET_COLS, PRESET_GAP_X, PRESET_CELL_W, PRESET_PREVIEW_W,
   PRESET_TEXT_L_OFFSET, PRESET_NAME_INPUT_W, PRESET_NAME_INPUT_H,
 } from './layout.js'
@@ -72,8 +72,6 @@ export class PresetMenu {
     private frame: PlaceFrame,
     /** いまの盤面の大きさ。縮小図の枠に使う */
     private gridSize: () => GridSize,
-    /** いま棚に出ている区画の数 */
-    private currentCount: () => number,
     private onSave: (index: number) => void,
     private onApply: (index: number) => void,
     private onDelete: (index: number) => void,
@@ -206,13 +204,6 @@ export class PresetMenu {
 
   private build(): void {
     const objs: Phaser.GameObjects.GameObject[] = []
-
-    objs.push(
-      this.scene.add.text(CONTENT_L, SUBTITLE_Y,
-        `いま棚に出しているのは ${this.currentCount()}区画`, {
-        fontSize: '13px', color: '#8899aa',
-      }).setOrigin(0, 0.5),
-    )
 
     for (let i = 0; i < PRESET_COUNT; i++) this.buildCell(i, objs)
 

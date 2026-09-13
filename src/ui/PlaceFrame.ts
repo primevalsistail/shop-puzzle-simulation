@@ -32,7 +32,7 @@ export interface FrameTabs {
  *   棚を覆うことは判断の材料を隠している。だから枠は**棚を消してから**出る
  *   （`setShopVisible`）。
  *
- * ⚠ **出口はここ1つ。**「← 店に戻る」と ESC が同じ `onBack` を呼ぶ。
+ * ⚠ **出口はここ1つ。**店に戻る印（🏠）と ESC が同じ `onBack` を呼ぶ。
  *   場所ごとに [×] や「キャンセル」を持たせない（場所ごとに閉じ方が違って見える）。
  */
 export class PlaceFrame {
@@ -81,8 +81,10 @@ export class PlaceFrame {
       .setStrokeStyle(1, 0x6666aa)
       .setInteractive({ useHandCursor: true })
       .setDepth(FRAME_DEPTH)
-    const backLabel = this.scene.add.text(CONTENT_R - BACK_BTN_W / 2, TITLE_Y, '←  店に戻る', {
-      fontSize: '14px', color: '#ccddff',
+    // ⚠ **字は入れない**（PO 指示 2026-09-13）。**家の印だけ。**
+    //   出口は ESC と合わせて1つで、**どの場所でも同じ位置・同じ印**にする
+    const backLabel = this.scene.add.text(CONTENT_R - BACK_BTN_W / 2, TITLE_Y, '🏠', {
+      fontSize: '18px',
     }).setOrigin(0.5).setDepth(FRAME_DEPTH)
     backBg.on('pointerdown', () => this.requestBack())
     backBg.on('pointerover', () => backBg.setFillStyle(0x4a4a7a))
@@ -100,7 +102,7 @@ export class PlaceFrame {
   }
 
   /**
-   * 見出しの行にタブを並べる。**見出し（左）と「店に戻る」（右）のあいだ。**
+   * 見出しの行にタブを並べる。**見出し（左）と店に戻る印（右）のあいだ。**
    *
    * ⚠ **押しても作り直さない。**`setActiveTab` が色だけ塗り替える。
    *   作り直すと、中身が載せている `<input>` まで巻き添えで作り直される。

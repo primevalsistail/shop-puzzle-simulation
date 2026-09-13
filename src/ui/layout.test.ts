@@ -167,16 +167,25 @@ describe('マイセットが1画面に入る（2列 × 5行）', () => {
    * **升に出す1行に、島名が入るか**（#67）。
    *
    * 文字欄は**升の幅から、縮小図（左余白10 ＋ 70 ＋ 間隔12）を引いた残り。**
-   * ⚠ **最悪値は区画数が3桁のとき。**盤面はいちばん広いとき 13×10 ＝ 130升で、
-   *   1升の品ばかり並べると `130区画` になる。**いまよく出る `12区画` で見てはいけない。**
+   * ⚠ **区画数は 2026-09-13 に落とした**（PO 指示）ので、**島を持つ型の最悪値は島名だけ。**
+   *   ⚠ **`130区画` の最悪値は消えていない。**島を持たない古いセーブがそちらを通る
+   *   （盤面はいちばん広いとき 13×10 ＝ 130升で、1升の品ばかり並べると `130区画`）。
    */
   const presetTextW = PRESET_TEXT_W
 
-  it('文字欄に「島名 ＋ 区画数」が収まる（3桁の区画数でも）', () => {
+  it('文字欄に島名が収まる', () => {
     for (const island of ROUTE) {
       const line = describePreset({ savedAt: 0, island, slots: Array(130).fill(null) as never })
+      expect(line).toBe(`${island}島`)
       expect(estTextWidth(line, PRESET_TEXT_FONT_PX)).toBeLessThanOrEqual(presetTextW)
     }
+  })
+
+  /** ⚠ **島を持たない古いセーブは、これまでどおり区画数**（3桁まで出る） */
+  it('文字欄に「130区画」が収まる（島を持たない古い型）', () => {
+    const line = describePreset({ savedAt: 0, slots: Array(130).fill(null) as never })
+    expect(line).toBe('130区画')
+    expect(estTextWidth(line, PRESET_TEXT_FONT_PX)).toBeLessThanOrEqual(presetTextW)
   })
 
   it('文字欄に「島名 ＋ 全部下ろす」が収まる', () => {
@@ -377,13 +386,13 @@ describe('金額の文字が枠に収まる', () => {
 
 describe('見出しの下に1行が無い場所（工房）', () => {
   // ⚠ **束M で「28px まるごと詰めて壊れた」ときの再発防止。**
-  //   検索の入力欄が横線を跨ぎ、「店に戻る」ボタンに1pxまで近づいた。
+  //   検索の入力欄が横線を跨ぎ、店に戻る印のボタンに1pxまで近づいた。
   it('絞り込みの行が、見出しの横線より下から始まる', () => {
     const bandTop = FILTER_Y_NO_SUBTITLE - FILTER_BAND_H / 2
     expect(bandTop).toBeGreaterThan(TITLE_RULE_Y)
   })
 
-  it('絞り込みの行が「店に戻る」ボタンに重ならない', () => {
+  it('絞り込みの行が店に戻る印のボタンに重ならない', () => {
     // ボタンは TITLE_Y 中心・高さ30
     const backBottom = TITLE_Y + 15
     const bandTop = FILTER_Y_NO_SUBTITLE - FILTER_BAND_H / 2
@@ -530,7 +539,7 @@ describe('右パネルのボタン列とキャラ絵の枠（#9 で行を1つ足
     expect(BTN_PANEL_L).toBeGreaterThanOrEqual(RIGHT_PANEL_L)
   })
 
-  it('名前を付けても、2行目の島名と区画数が升に収まる（#83）', () => {
+  it('名前を付けても、2行目の島名が升に収まる（#83）', () => {
     // いちばん長い既定値
     const sub = estTextWidth('ミフユリア島 全部下ろす', PRESET_SUB_FONT_PX)
     expect(sub).toBeLessThanOrEqual(PRESET_TEXT_W)
@@ -674,7 +683,7 @@ describe('できごとの文字が窓に収まる', () => {
 
 /**
  * **「取引」の3タブ（#96）。**タブは見出しの行に並ぶので、
- * **見出しと「← 店に戻る」のどちらにも重ならない**ことをここで見る。
+ * **見出しと店に戻る印（🏠）のどちらにも重ならない**ことをここで見る。
  *
  * ⚠ **目で見ても数px の重なりは分からない。**`PurchaseMenu` の行と同じ扱いで、機械が見る。
  */
@@ -687,7 +696,7 @@ describe('「取引」の3タブ（#96）', () => {
     expect(tabsL()).toBeGreaterThan(headingR)
   })
 
-  it('タブは「← 店に戻る」に届かない', () => {
+  it('タブは店に戻る印（🏠）に届かない', () => {
     expect(tabsR()).toBeLessThan(CONTENT_R - BACK_BTN_W)
   })
 

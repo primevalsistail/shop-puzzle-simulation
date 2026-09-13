@@ -151,12 +151,22 @@ describe('セーブとの往復', () => {
  *
  * ⚠ **`12区画` が2つ並ぶと文字が完全に同一になる。**束M で保存日時を消したあと、
  *   見分けは縮小図だけが背負っていた。
+ * ⚠ **区画数は 2026-09-13 に落とした**（PO 指示）。**出すのは島名だけ。**
+ *   ⚠ **同じ島で2本覚えると、また字が同一になる。**見分けは縮小図と、
+ *   プレイヤーが付ける名前（#83）が背負う。
  */
 describe('describePreset — 升に出す1行（#67）', () => {
   it('覚えた島が出る', () => {
     const p = new ShelfPresets()
     p.save(0, LAYOUT, 'ハルヴェラ')
-    expect(describePreset(p.get(0))).toBe('ハルヴェラ島 2区画')
+    expect(describePreset(p.get(0))).toBe('ハルヴェラ島')
+  })
+
+  /** ⚠ **区画数は出さない**（PO 指示 2026-09-13）。**数は縮小図に出ている** */
+  it('島が分かるなら区画数は出さない', () => {
+    const p = new ShelfPresets()
+    p.save(0, LAYOUT, 'ハルヴェラ')
+    expect(describePreset(p.get(0))).not.toContain('区画')
   })
 
   /** ⚠ **型が島を持たない古いセーブがすでに手元にある。**従来どおりでなければならない */
@@ -234,7 +244,7 @@ describe('名前（#83）', () => {
     p.setName(0, 'ミフユリア用')
     p.setName(0, '')
     expect(p.get(0)?.name).toBeUndefined()
-    expect(describePreset(p.get(0))).toBe('ハルヴェラ島 2区画')
+    expect(describePreset(p.get(0))).toBe('ハルヴェラ島')
   })
 
   it('空白だけ打っても既定値へ戻る', () => {
@@ -242,14 +252,14 @@ describe('名前（#83）', () => {
     p.save(0, LAYOUT, 'ハルヴェラ')
     p.setName(0, '　  ')
     expect(p.get(0)?.name).toBeUndefined()
-    expect(describePreset(p.get(0))).toBe('ハルヴェラ島 2区画')
+    expect(describePreset(p.get(0))).toBe('ハルヴェラ島')
   })
 
   it('既定値は名前を見ない（入力欄の placeholder に出す字）', () => {
     const p = new ShelfPresets()
     p.save(0, LAYOUT, 'ハルヴェラ')
     p.setName(0, 'ミフユリア用')
-    expect(defaultPresetLabel(p.get(0))).toBe('ハルヴェラ島 2区画')
+    expect(defaultPresetLabel(p.get(0))).toBe('ハルヴェラ島')
     expect(defaultPresetLabel(null)).toBe('空')
   })
 
@@ -298,7 +308,7 @@ describe('名前（#83）', () => {
 
     p.clear(0)
     p.save(0, LAYOUT, 'ハルヴェラ')
-    expect(describePreset(p.get(0))).toBe('ハルヴェラ島 2区画')
+    expect(describePreset(p.get(0))).toBe('ハルヴェラ島')
   })
 })
 
@@ -318,7 +328,7 @@ describe('名前はセーブを往復する（#83）', () => {
     const p = new ShelfPresets()
     p.restore([{ savedAt: 1, island: 'ハルヴェラ', slots: capture(LAYOUT) }])
     expect(p.get(0)?.name).toBeUndefined()
-    expect(describePreset(p.get(0))).toBe('ハルヴェラ島 2区画')
+    expect(describePreset(p.get(0))).toBe('ハルヴェラ島')
   })
 
   /** ⚠ **手で書き換えたセーブの長い名前をそのまま画面へ出さない**（升からはみ出す） */
