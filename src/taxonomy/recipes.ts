@@ -1,5 +1,5 @@
 /**
- * レシピ **92本**
+ * レシピ **100本**
  *
  * ⚠ **#86 で7本足した**（小麦粉・うどん ／ 麻糸・麻布・染めの麻布・麻の上着 ／ 染料）。
  *
@@ -260,6 +260,15 @@ export const ALL_RECIPES: readonly RecipeDef[] = [
     ingredients: [{ itemId: 'strawberry_milk', quantity: 1 }, { itemId: 'ice', quantity: 2 }],
     durationMinutes: 15,
   },
+  // ⚠ **#87 魔法の品。**高くなっているのは**材料（蜂蜜）と所要分と `贅沢さ`** のせいであって、
+  //   **魔法のせいではない**（island-goods.md §0-C「魔法を価値の出どころにしない」）。
+  //   ⚠ **新しい倍率も例外も作っていない。**売値は既存の式のまま derive.ts が積む。
+  {
+    id: 'recipe_magic_potion', display: { name: '魔法の薬をつくる' },
+    outputItemId: 'magic_potion', outputQuantity: 2,
+    ingredients: [{ itemId: 'mint', quantity: 2 }, { itemId: 'honey', quantity: 1 }, { itemId: 'lemon', quantity: 1 }],
+    durationMinutes: 240,
+  },
 
   // ── 衣類 ──
   {
@@ -379,6 +388,13 @@ export const ALL_RECIPES: readonly RecipeDef[] = [
     ingredients: [{ itemId: 'dyed_hemp_cloth', quantity: 1 }, { itemId: 'hemp_yarn', quantity: 2 }, { itemId: 'reindeer_antler', quantity: 1 }],
     durationMinutes: 180,
   },
+  // ⚠ **#87 魔法の品。**羊毛のフェルト（tier2）と染料（tier2）が段を決めて tier3 になる。
+  {
+    id: 'recipe_magic_hat', display: { name: '魔法の帽子をしたてる' },
+    outputItemId: 'magic_hat', outputQuantity: 1,
+    ingredients: [{ itemId: 'wool_felt', quantity: 1 }, { itemId: 'dye', quantity: 1 }, { itemId: 'gull_feather', quantity: 1 }],
+    durationMinutes: 180,
+  },
 
   // ── 道具 ──
   {
@@ -448,6 +464,47 @@ export const ALL_RECIPES: readonly RecipeDef[] = [
     outputItemId: 'dye', outputQuantity: 2,
     ingredients: [{ itemId: 'indigo', quantity: 4 }],
     durationMinutes: 240,
+  },
+  // ⚠ **#87 魔法の品。**杖は素材だけで組むので tier2、お守りは麻糸（tier2）を通すので tier3。
+  {
+    id: 'recipe_magic_wand', display: { name: '魔法の杖をけずる' },
+    outputItemId: 'magic_wand', outputQuantity: 1,
+    ingredients: [{ itemId: 'birch', quantity: 2 }, { itemId: 'reindeer_antler', quantity: 1 }, { itemId: 'beeswax', quantity: 1 }],
+    durationMinutes: 180,
+  },
+  {
+    id: 'recipe_warding_charm', display: { name: '魔よけのお守りをつくる' },
+    outputItemId: 'warding_charm', outputQuantity: 2,
+    ingredients: [{ itemId: 'reindeer_antler', quantity: 1 }, { itemId: 'hemp_yarn', quantity: 1 }],
+    durationMinutes: 120,
+  },
+  // ⚠ **#87 の武器。**段は **鉄鉱石（tier1）→ 松の薪（tier2）と合わせて 鉄（tier3）→ 武器（tier4）**。
+  //   鉄は**リナツィアの鉄鉱石とミフユリアの松**が揃わないと作れないので、2島を回る理由になる。
+  //   ⚠ **高いのは材料（鉄）と所要分と `贅沢さ` のせい。**武器だからではない。
+  //   **新しい倍率も例外も作っていない。**
+  {
+    id: 'recipe_iron', display: { name: '鉄をふきわける' },
+    outputItemId: 'iron', outputQuantity: 2,
+    ingredients: [{ itemId: 'iron_ore', quantity: 4 }, { itemId: 'pine_firewood', quantity: 2 }],
+    durationMinutes: 240,
+  },
+  {
+    id: 'recipe_axe', display: { name: '斧をつくる' },
+    outputItemId: 'axe', outputQuantity: 1,
+    ingredients: [{ itemId: 'iron', quantity: 1 }, { itemId: 'birch', quantity: 1 }, { itemId: 'rope', quantity: 1 }],
+    durationMinutes: 210,
+  },
+  {
+    id: 'recipe_spear', display: { name: '槍をつくる' },
+    outputItemId: 'spear', outputQuantity: 1,
+    ingredients: [{ itemId: 'iron', quantity: 1 }, { itemId: 'bamboo', quantity: 2 }, { itemId: 'hemp_yarn', quantity: 1 }],
+    durationMinutes: 240,
+  },
+  {
+    id: 'recipe_sword', display: { name: '剣をきたえる' },
+    outputItemId: 'sword', outputQuantity: 1,
+    ingredients: [{ itemId: 'iron', quantity: 2 }, { itemId: 'reindeer_hide', quantity: 1 }, { itemId: 'file', quantity: 1 }],
+    durationMinutes: 300,
   },
   // ══════ 道具の10品 ══════
   {

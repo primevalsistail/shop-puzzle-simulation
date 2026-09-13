@@ -1,5 +1,5 @@
 /**
- * 実アイテム **145品**（素材53 ＋ 加工品92）
+ * 実アイテム **154品**（素材54 ＋ 加工品100）
  *
  * ⚠ **#86 で 麻・藍・小麦 の3素材と、そこから伸びる加工品7品を足した**（135品 → 145品）。
  *   足さなかった理由は「無くても成立している」だったが、それは**商品として扱わない**という判断で
@@ -18,7 +18,7 @@
  *
  * ⚠ 数値（basePrice）は一度置いたもので、調整していない。
  *
- * ⚠ **`display.reading`（検索用の読み）も手で書くデータ**（#65）。**全145品に必ず置く。**
+ * ⚠ **`display.reading`（検索用の読み）も手で書くデータ**（#65）。**全154品に必ず置く。**
  *   ひらがなだけ（カタカナの品も `あすぱらがす` のようにひらがなで書く）。**画面には出さない。**
  *   判定は `invariants.test.ts`「検索用の読み（#65）」。
  */
@@ -26,7 +26,7 @@
 import type { ItemDef } from './axes.js'
 
 export const ALL_ITEMS: readonly ItemDef[] = [
-  // ══════ 素材（tier1）53品 ══════
+  // ══════ 素材（tier1）54品 ══════
 
   // ── ハルヴェラ島（春） ──
   {
@@ -165,6 +165,17 @@ export const ALL_ITEMS: readonly ItemDef[] = [
     mainKind: '道具', origin: 'リナツィア', luxury: '上等', suitedLand: 'どこでも',
     shape: [[1], [1]], basePrice: 26,
     originReason: '葉がもっとも濃く茂る真夏に刈る',
+  },
+
+  // ⚠ **#87 で足した素材。金属の素材はこれが最初の1品。**
+  //   ⚠ **旬では島が決まらない品**なので、産地は **island-goods.md §2-B**
+  //   （土地から掘り出すものには PO が島を指名して産地を付ける）に沿って付けている。
+  //   **`なし` に落とすと U4 でどの島の商人にも並び、この系統から航海の理由が消える。**
+  {
+    id: 'iron_ore', display: { name: '鉄鉱石', reading: 'てつこうせき', color: 0x9a6a4a },
+    mainKind: '道具', origin: 'リナツィア', luxury: '日用', suitedLand: 'どこでも',
+    shape: [[1, 1]], basePrice: 30,
+    originReason: '岩の剥き出た丘を掘って採る。旬では島が決まらないので、島は指名で決めた',
   },
 
   // ── ノアキータ島（秋） ──
@@ -361,7 +372,7 @@ export const ALL_ITEMS: readonly ItemDef[] = [
     originReason: 'かもめは季節を問わず船について回る',
   },
 
-  // ══════ 加工品（tier2以上）92品 ══════
+  // ══════ 加工品（tier2以上）100品 ══════
   // 産地はすべて `なし`。**加工品は旬を持たないため**（island-goods.md §2）。
   // 「主材料の産地」を採らなかった理由は crafted-goods.md §5 を見ること。
 
@@ -593,6 +604,21 @@ export const ALL_ITEMS: readonly ItemDef[] = [
     shape: [[1], [1]],
     originReason: '船倉で作る品。旬を持たないので産地なし',
   },
+  // ⚠ **#87 で足した魔法の品（4品）。**ここと「衣類」「道具」に分かれて置いてある。
+  //   ⚠ **棚に並ぶ売り物であって、プレイヤーが使うものではない。効き目を定義しない**
+  //   （island-goods.md §0-C ／ world.md「魔法の扱い」）。**データにも文書にも効き目を書かない。**
+  //   ⚠ **値打ちの出どころは「材料」「所要分」「贅沢さ」の3つだけ。**
+  //   **「魔法だから高い」という4つ目を作っていない** —— 高い品になっているのは、
+  //   高い材料（蜂蜜・トナカイの角・羊毛のフェルト・染料）を使い、所要分を伸ばし、`贅沢さ` を上げたから。
+  //   ⚠ **軸も欄も1つも増やしていない。**主種類は既存の4つ、`ItemDef` のキー数も既存と同じ。
+  //   ⚠ **向く土地はすべて `どこでも`。**「土地を選ばないもの」であって、取りこぼしではない
+  //   （axes.ts の `どこでも` の定義）。魔法の品は気候に答える品ではない。
+  {
+    id: 'magic_potion', display: { name: '魔法の薬', reading: 'まほうのくすり', color: 0x4a6fb0 },
+    mainKind: '飲みもの', origin: 'なし', luxury: '贅沢', suitedLand: 'どこでも',
+    shape: [[1], [1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
 
   // ── 衣類 ──
   {
@@ -716,6 +742,15 @@ export const ALL_ITEMS: readonly ItemDef[] = [
     shape: [[1, 1], [1, 1], [1, 1]],
     originReason: '船倉で作る品。旬を持たないので産地なし',
   },
+  // ⚠ **#87 の魔法の品**（注記は `magic_potion` にまとめてある）。
+  //   **「フェルトの帽子」「帆布の日よけ帽子」とは別の品。**どの名前も他方を含んでおらず
+  //   （island-goods.md §0-B の1段目に当たらない）、りんご／柿／ぶどうと同じ並びの関係にある。
+  {
+    id: 'magic_hat', display: { name: '魔法の帽子', reading: 'まほうのぼうし', color: 0x6b4fa0 },
+    mainKind: '衣類', origin: 'なし', luxury: '贅沢', suitedLand: 'どこでも',
+    shape: [[0, 1, 0], [1, 1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
 
   // ── 道具 ──
   {
@@ -785,6 +820,53 @@ export const ALL_ITEMS: readonly ItemDef[] = [
     id: 'dye', display: { name: '染料', reading: 'せんりょう', color: 0x3a2f7a },
     mainKind: '道具', origin: 'なし', luxury: '上等', suitedLand: 'どこでも',
     shape: [[1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  // ⚠ **#87 の魔法の品**（注記は `magic_potion` にまとめてある）。
+  //   **主種類は `道具`。**「手に持って使うもの」なのでここに入る（武器と同じ扱い方 ／ §0-A）。
+  //   ⚠ **魔法のためのタグも主種類も足していない。**読む規則が無いタグを作らない（§0-A）。
+  {
+    id: 'magic_wand', display: { name: '魔法の杖', reading: 'まほうのつえ', color: 0x6e5a2c },
+    mainKind: '道具', origin: 'なし', luxury: '贅沢', suitedLand: 'どこでも',
+    shape: [[1], [1], [1], [1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'warding_charm', display: { name: '魔よけのお守り', reading: 'まよけのおまもり', color: 0xb08a3c },
+    mainKind: '道具', origin: 'なし', luxury: '上等', suitedLand: 'どこでも',
+    shape: [[1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  // ⚠ **#87 の武器（剣・槍・斧）と、その手前の 鉄。**
+  //   **主種類は `道具`**（「手に持って使うもの」）。
+  //   ⚠ **武器のためのタグも主種類も足していない**（§0-A）。
+  //   **「武器である」ことは品名がすでに言っている。**読む規則が無いタグを作らない。
+  //   ⚠ **値打ちの出どころは「材料」「所要分」「贅沢さ」の3つだけ。**
+  //   新しい倍率も例外も作っていない。売値は既存の式のまま derive.ts が積む。
+  //   ⚠ **鉄鉱石 → 鉄 は §0-B の包含に当たらない**（材料と加工品は包含ではない。麻 と 麻糸 と同じ）。
+  //   ⚠ `向く土地` は4品とも `どこでも`。**武器は気候に答える品ではない**（axes.ts の定義）。
+  {
+    id: 'iron', display: { name: '鉄', reading: 'てつ', color: 0x6e7683 },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: 'どこでも',
+    shape: [[1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'axe', display: { name: '斧', reading: 'おの', color: 0x8a7c6a },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: 'どこでも',
+    shape: [[1, 1], [0, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'spear', display: { name: '槍', reading: 'やり', color: 0x78889a },
+    mainKind: '道具', origin: 'なし', luxury: '上等', suitedLand: 'どこでも',
+    shape: [[1], [1], [1], [1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'sword', display: { name: '剣', reading: 'けん', color: 0x9aa3b2 },
+    mainKind: '道具', origin: 'なし', luxury: '贅沢', suitedLand: 'どこでも',
+    shape: [[1], [1], [1]],
     originReason: '船倉で作る品。旬を持たないので産地なし',
   },
   // ══════ 道具 10品 ══════
