@@ -13,7 +13,7 @@ import { ALL_ITEMS } from './items.js'
 import { ALL_RECIPES, RECIPES_BY_OUTPUT } from './recipes.js'
 import { cellCount, tier } from './derive.js'
 import { MAX_TIER } from './rules.js'
-import { ATTEMPT_HEADROOM, SKILL_INITIAL, difficulty, speedMultiplier } from './craft.js'
+import { SKILL_MAX, speedMultiplier } from './craft.js'
 
 const itemsAt = (t: number): readonly ItemDef[] => ALL_ITEMS.filter(i => tier(i.id) === t)
 const avgCells = (t: number): number => {
@@ -81,17 +81,15 @@ describe('深いほど品数は少なく、升は大きい', () => {
   })
 })
 
-describe('深い品も、着手できるようになった手際で作り切れる', () => {
-  it('着手可能になる最小の手際で、所要が1日（1080分）に収まる', () => {
-    // `craft.ts`: 着手条件は D <= S + ATTEMPT_HEADROOM なので、着手できる最小の手際は D − 8。
-    // ただし手際は SKILL_INITIAL から始まって下がらないので、実際の下限は両者の大きいほう。
-    // 深い品（tier5以上）は D − 8 の側で決まり、所要倍率が 2^(8/5) ≈ 3.03倍 まで伸びる。
-    // ここを超えると `CraftingSystem.fitsInToday` が常に false になり、
-    // **解禁されたのに一度も着手できないレシピ**が生まれる。
+describe('深い品も、手際を上げ切れば作り切れる', () => {
+  it('手際の上限で、どのレシピも所要が1日（1080分）に収まる', () => {
+    // ⚠ **「難しすぎて着手できない」は #111 で外した**（`craft.ts`）。
+    //   いま着手を止めているのは `CraftingSystem.fitsInToday` だけなので、
+    //   **手際を上限まで上げても1日に収まらない品があると、一度も作れないまま終わる。**
+    //   ここが、そのレシピが存在しないことの唯一の保証。
     const AWAKE_MINUTES_PER_DAY = 1080
     for (const recipe of ALL_RECIPES) {
-      const minSkill = Math.max(SKILL_INITIAL, difficulty(recipe.outputItemId) - ATTEMPT_HEADROOM)
-      const minutes = recipe.durationMinutes * speedMultiplier(recipe.outputItemId, minSkill)
+      const minutes = recipe.durationMinutes * speedMultiplier(recipe.outputItemId, SKILL_MAX)
       expect(minutes, recipe.id).toBeLessThanOrEqual(AWAKE_MINUTES_PER_DAY)
     }
   })

@@ -1,17 +1,19 @@
 import Phaser from 'phaser'
 import type { EconomyManager } from '../components/economy/EconomyManager.js'
 import type { Upgrades, UpgradeKind } from '../components/progress/Upgrades.js'
-import { UPGRADE_KINDS, MAX_STAGE, effectDeltaLabel } from '../components/progress/Upgrades.js'
+import { UPGRADE_KINDS, MAX_STAGE, effectValue } from '../components/progress/Upgrades.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
 import {
-  PLACE_CX, CONTENT_R, SUBTITLE_Y, ROWS_TOP,
+  PLACE_CX, CONTENT_R, SUBTITLE_Y,
   TAB_ROW_TITLE_FONT_PX, TAB_ROW_SUB_FONT_PX, TAB_NOTE_FONT_PX,
   BUY_FONT_PX,
+  UPGRADE_COLS, UPGRADE_HEAD_Y, UPGRADE_HEAD_FONT_PX, UPGRADE_ROWS_TOP,
   UPGRADE_ROW_H, UPGRADE_ROW_W, UPGRADE_NAME_X, UPGRADE_TITLE_DY, UPGRADE_SUB_DY,
+  UPGRADE_NOW_CX, UPGRADE_NEXT_CX, UPGRADE_ARROW_CX, UPGRADE_ARROW, UPGRADE_VALUE_FONT_PX,
   UPGRADE_STAGE_CX, UPGRADE_STAGE_FONT_PX,
   UPGRADE_BTN_W, UPGRADE_BTN_H, UPGRADE_BTN_L, UPGRADE_BTN_R,
   UPGRADE_COST_R, UPGRADE_COST_FONT_PX,
-  UPGRADE_LABEL, UPGRADE_REASON_FUNDS, UPGRADE_MAXED, upgradeSubLine,
+  UPGRADE_LABEL, UPGRADE_REASON_FUNDS, UPGRADE_MAXED, UPGRADE_WHAT_IT_DOES,
 } from './layout.js'
 import { money } from './money.js'
 
@@ -78,8 +80,8 @@ export class UpgradeMenu {
 
     // ⚠ **`所持金` はここに出さない**（PO 指示 2026-09-13「不要」）。
     //   **右パネルの HUD が常に出している**ので、ここに出すと同じ額が2つ並ぶ。
-    //   ⚠ **一覧の上端（`ROWS_TOP`）は動かさないこと。**取引は3タブが同じ枠を使うので、
-    //     改装だけ上げると**タブを切り替えるたびに一覧が跳ねる。**
+    //   ⚠ **一覧の上端（`ROWS_TOP` ＝ 見出しの行の位置）は動かさないこと。**
+    //     取引は3タブが同じ枠を使うので、改装だけ上げると**切り替えるたびに一覧が跳ねる。**
 
     // ⚠ **下の1行は消してはいけない。**この画面で下す判断は「いま買うか、目標まで我慢するか」で、
     //   その「目標まで我慢する」側を担う文字はここにしか無い。
@@ -98,12 +100,29 @@ export class UpgradeMenu {
       )
     }
 
+    this.buildHead(objs)
     UPGRADE_KINDS.forEach((kind, i) => {
-      this.buildRow(kind, ROWS_TOP + UPGRADE_ROW_H / 2 + i * UPGRADE_ROW_H, objs)
+      this.buildRow(kind, UPGRADE_ROWS_TOP + UPGRADE_ROW_H / 2 + i * UPGRADE_ROW_H, objs)
     })
 
     this.container = this.scene.add.container(0, 0, objs)
     this.container.setDepth(CONTENT_DEPTH)
+  }
+
+  /**
+   * 見出しの行。⚠ **一覧の上に1回だけ**（PO 回答 2026-09-14 Q8 = A）。
+   *   **行の中に入れると同じ3語が4回出る。**列の名も位置も `layout.ts` から来る。
+   */
+  private buildHead(objs: Phaser.GameObjects.GameObject[]): void {
+    const [now, next, cost] = UPGRADE_COLS
+    const head = (x: number, text: string, originX: number) =>
+      objs.push(this.scene.add.text(x, UPGRADE_HEAD_Y, text, {
+        fontSize: `${UPGRADE_HEAD_FONT_PX}px`, color: '#8899aa',
+      }).setOrigin(originX, 0.5))
+
+    head(UPGRADE_NOW_CX, now, 0.5)
+    head(UPGRADE_NEXT_CX, next, 0.5)
+    head(UPGRADE_COST_R, cost, 1)
   }
 
   private buildRow(kind: UpgradeKind, y: number, objs: Phaser.GameObjects.GameObject[]): void {
@@ -118,10 +137,8 @@ export class UpgradeMenu {
       this.scene.add.text(UPGRADE_NAME_X, y + UPGRADE_TITLE_DY, kind, {
         fontSize: `${TAB_ROW_TITLE_FONT_PX}px`, color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0, 0.5),
-      // ⚠ **一言のうしろに「前 → 後」**（PO 指示 2026-09-13「変更前と変更後を表示」）。
-      //   最大まで買っていれば一言だけになる。**数は `Upgrades` が持つ。**
-      this.scene.add.text(UPGRADE_NAME_X, y + UPGRADE_SUB_DY,
-        upgradeSubLine(kind, effectDeltaLabel(kind, stage)), {
+      // 何が良くなるかの一言。⚠ **数はここに混ぜない**（列で揃えるため。`layout.ts`）
+      this.scene.add.text(UPGRADE_NAME_X, y + UPGRADE_SUB_DY, UPGRADE_WHAT_IT_DOES[kind], {
         fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: '#8899aa',
       }).setOrigin(0, 0.5),
       // 段の表示。●が買った段、○がまだの段
@@ -129,6 +146,21 @@ export class UpgradeMenu {
         fontSize: `${UPGRADE_STAGE_FONT_PX}px`, color: '#77bbee',
       }).setOrigin(0.5),
     )
+
+    // ⚠ **`現在値` と `強化後` は列で揃える**（PO 赤入れ 2026-09-13「表にする」）。
+    //   **数は `Upgrades.effectValue` が持つ。**ここは置くだけ。
+    const value = (x: number, text: string, color: string) =>
+      objs.push(this.scene.add.text(x, y, text, {
+        fontSize: `${UPGRADE_VALUE_FONT_PX}px`, color,
+      }).setOrigin(0.5))
+
+    value(UPGRADE_NOW_CX, effectValue(kind, stage) ?? '', '#ffffff')
+    // 最大まで買った行には `強化後` が無いので、矢印もろとも出さない
+    const nextValue = maxed ? null : effectValue(kind, stage + 1)
+    if (nextValue !== null) {
+      value(UPGRADE_ARROW_CX, UPGRADE_ARROW, '#667788')
+      value(UPGRADE_NEXT_CX, nextValue, '#aaddff')
+    }
 
     if (maxed) {
       objs.push(this.scene.add.text(UPGRADE_BTN_R, y, UPGRADE_MAXED, {

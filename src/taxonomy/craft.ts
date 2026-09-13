@@ -3,13 +3,18 @@
  *
  * ## 何を解いているか
  *
- * 「作れない／背伸びすれば作れる／適正／量産できる」の**4段階**を作る。
- * 主人公の **手際 S** と、品の **難易度 D** の差だけで決まる。
+ * 主人公の **手際 S** と、品の **難易度 D** の差で**加工の所要時間**が決まる。
  *
  * ```
- * 着手できる条件 : D <= S + ATTEMPT_HEADROOM
- * 所要時間       : 基準時間 × clamp(2^((D − S) / 5), 0.25, 4.0)
+ * 所要時間 : 基準時間 × clamp(2^((D − S) / 5), 0.25, 4.0)
  * ```
+ *
+ * ⚠ **「難しすぎて着手できない」という決まりは無い**（#111 の PO 判断 2026-09-14 で外した）。
+ *   **手際の意味は「加工が速くなる」1つだけ。**
+ *   難しい品は **「その日のうちに終わらない加工は着手できない」**（#25 Q3 = B。
+ *   `CraftingSystem.fitsInToday`）という**既にある決まり**で止まる。
+ *   ⚠ **外しても止まるものはほとんど変わらない**（実測 2026-09-14: 手際10 で
+ *   1日に収まらないレシピが 9本 ＝ 以前 `canAttempt` が止めていた tier4 の10本とほぼ同じ）。
  *
  * ## ⚠ 効いているのは指数式ではなく clamp のほう
  *
@@ -35,15 +40,17 @@ import { RECIPES_BY_OUTPUT } from './recipes.js'
 /** 難易度は tier から出す。tier1（素材）は加工しないので 5 に落ちるが、参照されない */
 const DIFFICULTY_PER_TIER = 5
 
-/** どこまで背伸びできるか。D <= S + これ なら着手できる */
-export const ATTEMPT_HEADROOM = 8
-
-/** 倍率の下限・上限。これが4段階を作っている本体 */
+/** 倍率の下限・上限。これが「格上が格下に追いつく」を作っている本体 */
 export const SPEED_FLOOR = 0.25
 export const SPEED_CEILING = 4.0
 
-/** 難易度が 5 変わるごとに所要時間が2倍／半分になる */
-const HALVING_STEP = 5
+/**
+ * 難易度が 5 変わるごとに所要時間が2倍／半分になる。
+ *
+ * ⚠ **手際の段も同じ物差しで読む。**`Upgrades` はここを使って
+ *   段を「作業精度の累計倍率」に直している（`SKILL_SPEEDUPS`）。**別の数を書かない。**
+ */
+export const HALVING_STEP = 5
 
 /**
  * 手際の初期値と上限。
@@ -69,12 +76,7 @@ export function difficulty(itemId: ItemId): number {
   return tier(itemId) * DIFFICULTY_PER_TIER
 }
 
-/** 手際 S でその品に着手できるか。届かない品は「そもそも作れない」 */
-export function canAttempt(itemId: ItemId, skill: number): boolean {
-  return difficulty(itemId) <= skill + ATTEMPT_HEADROOM
-}
-
-/** 所要時間の倍率。clamp が4段階を作る */
+/** 所要時間の倍率。clamp が「格上が格下に追いつく」を作る */
 export function speedMultiplier(itemId: ItemId, skill: number): number {
   const raw = Math.pow(2, (difficulty(itemId) - skill) / HALVING_STEP)
   return Math.min(SPEED_CEILING, Math.max(SPEED_FLOOR, raw))
@@ -85,20 +87,10 @@ export function speedMultiplier(itemId: ItemId, skill: number): number {
  *
  * ⚠ これが「その日のうちに終わるか」の判定に使われる。
  *   起きている時間は 1080分/日 しかない（TimeManager）。
+ *   **いま着手を止めているのはこれだけ**である（上の注記）。
  */
 export function craftMinutes(itemId: ItemId, skill: number): number {
   const recipe = RECIPES_BY_OUTPUT.get(itemId)
   if (!recipe) return 0
   return Math.round(recipe.durationMinutes * speedMultiplier(itemId, skill))
-}
-
-/** いまの手際から見た段階。UI と判定の説明に使う */
-export type CraftStanding = '作れない' | '背伸び' | '適正' | '量産'
-
-export function standing(itemId: ItemId, skill: number): CraftStanding {
-  const d = difficulty(itemId)
-  if (!canAttempt(itemId, skill)) return '作れない'
-  if (d > skill) return '背伸び'
-  if (d === skill) return '適正'
-  return '量産'
 }

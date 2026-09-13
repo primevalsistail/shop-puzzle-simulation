@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { RecipeUnlocks, allowedGroupCount, UNLOCK_INTERVAL_DAYS } from './RecipeUnlocks.js'
+import { RecipeUnlocks } from './RecipeUnlocks.js'
 import { GameProgress } from './GameProgress.js'
 import { WorldState } from './WorldState.js'
 import { Upgrades } from './Upgrades.js'
@@ -10,7 +10,7 @@ import { ItemRegistry } from '../items/ItemRegistry.js'
 import { EventBus } from '../../services/EventBus.js'
 import { ALL_ITEMS } from '../../taxonomy/items.js'
 import { ALL_RECIPES } from '../../taxonomy/recipes.js'
-import { DAYS_PER_PORT } from '../../taxonomy/islands.js'
+import { stockedByIslandMerchant } from '../../taxonomy/evaluate.js'
 import type { TimeManager } from '../core/TimeManager.js'
 import { ShelfPresets } from '../floor/ShelfPresets.js'
 import { DeliveryOrders } from './DeliveryOrders.js'
@@ -43,7 +43,7 @@ function makeTimeManagerMock(): TimeManager {
 describe('RecipeUnlocks — 条件（#48「材料を取得したことがあるか」）', () => {
   it('材料を1つも持ったことがなければ、1本も並ばない', () => {
     const unlocks = new RecipeUnlocks(registry(), new Inventory(), store())
-    expect(unlocks.advanceTo(1)).toEqual([])
+    expect(unlocks.unlockEligible()).toEqual([])
     expect(unlocks.unlockedRecipes()).toEqual([])
   })
 
@@ -51,7 +51,7 @@ describe('RecipeUnlocks — 条件（#48「材料を取得したことがある�
     const inv = new Inventory()
     inv.add('sheep_milk', 1)   // バターには塩も要る
     const unlocks = new RecipeUnlocks(registry(), inv, store())
-    expect(unlocks.advanceTo(1)).toEqual([])
+    expect(unlocks.unlockEligible()).toEqual([])
     expect(unlocks.unlockedRecipes()).toEqual([])
   })
 
@@ -59,83 +59,82 @@ describe('RecipeUnlocks — 条件（#48「材料を取得したことがある�
     const inv = new Inventory()
     inv.add('sheep_milk', 1); inv.add('salt', 1)
     const unlocks = new RecipeUnlocks(registry(), inv, store())
-    unlocks.advanceTo(1)
+    unlocks.unlockEligible()
     expect(unlocks.unlockedRecipes().map(r => r.id)).toContain('recipe_butter')
   })
 })
 
-describe('RecipeUnlocks — 粒度（系統単位）', () => {
-  it('1本ではなく、その系統で条件を満たしたものがまとめて開く', () => {
+/**
+ * **#111 で作り替えたところ。**以前は「系統（主種類 × tier）」がまとめて開き、
+ * さらに**日付で増える枠**が本数を絞っていた。**どちらも無い。**
+ */
+describe('RecipeUnlocks — 粒度（1レシピ単位。#111）', () => {
+  it('条件を満たしたレシピだけが開く。同じ系統の兄弟は連れて行かない', () => {
     const inv = new Inventory()
-    // バター・チーズ・塩鮭はどれも「食料 / tier2」
-    inv.add('sheep_milk', 1); inv.add('salt', 1); inv.add('salmon', 1)
+    // バターとチーズは材料が違う（バター: 羊の乳＋塩 ／ チーズ: 羊の乳＋塩＋よもぎ）
+    inv.add('sheep_milk', 1); inv.add('salt', 1)
     const unlocks = new RecipeUnlocks(registry(), inv, store())
 
-    const events = unlocks.advanceTo(1)
-    expect(events).toHaveLength(1)
-    expect(events[0].mainKind).toBe('食料')
-    expect(events[0].tier).toBe(2)
-    expect(events[0].recipes.map(r => r.id).sort())
-      .toEqual(['recipe_butter', 'recipe_cheese', 'recipe_salted_salmon'])
+    const opened = unlocks.unlockEligible().map(r => r.id)
+    expect(opened).toContain('recipe_butter')
+    expect(opened).not.toContain('recipe_salted_salmon')   // 鮭をまだ持っていない
   })
 
-  it('系統をまたぐと、同じ日には枠のぶんしか開かない（Day 1 の枠は1つ）', () => {
+  it('日付を見ないので、同じ日に条件を満たしたぶんはすべて開く', () => {
     const inv = new Inventory()
     for (const item of ALL_ITEMS) inv.add(item.id, 1)   // 全部の条件を満たした状態
     const unlocks = new RecipeUnlocks(registry(), inv, store())
-    expect(unlocks.advanceTo(1)).toHaveLength(1)
+    expect(unlocks.unlockEligible()).toHaveLength(ALL_RECIPES.length)
   })
 
-  it('開いている系統に、あとから条件を満たしたものは枠を使わずに足される', () => {
+  it('あとから材料が揃えば、その場で開く（待たされない）', () => {
     const inv = new Inventory()
     inv.add('sheep_milk', 1); inv.add('salt', 1)
     const unlocks = new RecipeUnlocks(registry(), inv, store())
-    unlocks.advanceTo(1)
+    unlocks.unlockEligible()
     expect(unlocks.unlockedRecipes().map(r => r.id)).not.toContain('recipe_salted_salmon')
 
     inv.add('salmon', 1)
-    // 同じ日（枠は増えていない）でも、すでに開いた「食料 / tier2」には入る
-    expect(unlocks.advanceTo(1)).toEqual([])
-    expect(unlocks.unlockedRecipes().map(r => r.id)).toContain('recipe_salted_salmon')
+    expect(unlocks.unlockEligible().map(r => r.id)).toEqual(['recipe_salted_salmon'])
+  })
+
+  it('2回呼んでも同じものを2度開かない（知らせが重複しない）', () => {
+    const inv = new Inventory()
+    inv.add('sheep_milk', 1); inv.add('salt', 1)
+    const unlocks = new RecipeUnlocks(registry(), inv, store())
+    expect(unlocks.unlockEligible().length).toBeGreaterThan(0)
+    expect(unlocks.unlockEligible()).toEqual([])
   })
 })
 
-describe('RecipeUnlocks — 頻度（1寄港あたり2〜3回）', () => {
-  it('枠は Day 1 から4日ごとに1つ増える', () => {
-    expect(UNLOCK_INTERVAL_DAYS).toBe(4)
-    expect(allowedGroupCount(1)).toBe(1)
-    expect(allowedGroupCount(4)).toBe(1)
-    expect(allowedGroupCount(5)).toBe(2)
-    expect(allowedGroupCount(9)).toBe(3)
+/**
+ * ⚠ **段が消えていないこと。**「材料のどれか1つ」にすると Day 1 に半分近くが開く
+ *   （実測 2026-09-14: 47/106本、うち tier3以上が 24本）。**「全部」だから 5本で済む。**
+ */
+describe('RecipeUnlocks — Day 1 の実測（#111 の PO 判断の根拠）', () => {
+  /** 初期在庫（`GameScene.INITIAL_STOCK`）＋ 初日の島で買える品を全部手にした状態 */
+  const day1Inventory = (): Inventory => {
+    const inv = new Inventory()
+    inv.setInitialStock({ sheep_milk: 15, apple: 15, buckwheat_bread: 15 })
+    const world = new WorldState()
+    world.setDay(1)
+    for (const item of stockedByIslandMerchant(ALL_ITEMS, world.getState())) inv.add(item.id, 1)
+    return inv
+  }
+
+  it('初期在庫だけでは1本も開かない（材料が全部そろわない）', () => {
+    const inv = new Inventory()
+    inv.setInitialStock({ sheep_milk: 15, apple: 15, buckwheat_bread: 15 })
+    expect(new RecipeUnlocks(registry(), inv, store()).unlockEligible()).toEqual([])
   })
 
-  it('1寄港（10日）で 2〜3回 起きる', () => {
-    const inv = new Inventory()
-    for (const item of ALL_ITEMS) inv.add(item.id, 1)   // 待ちの系統を切らさない
-    const unlocks = new RecipeUnlocks(registry(), inv, store())
-
-    const perPort: number[] = []
-    for (let port = 0; port < 4; port++) {
-      let count = 0
-      for (let i = 1; i <= DAYS_PER_PORT; i++) {
-        count += unlocks.advanceTo(port * DAYS_PER_PORT + i).length
-      }
-      perPort.push(count)
-    }
-    // 10 / 4 = 2.5 なので、3回と2回が交互に来る
-    expect(perPort).toEqual([3, 2, 3, 2])
-    for (const n of perPort) expect(n).toBeGreaterThanOrEqual(2)
-    for (const n of perPort) expect(n).toBeLessThanOrEqual(3)
-  })
-
-  it('浅い tier から開く（乱数を使わないので順序は毎回同じ）', () => {
-    const inv = new Inventory()
-    for (const item of ALL_ITEMS) inv.add(item.id, 1)
-    const unlocks = new RecipeUnlocks(registry(), inv, store())
-    const opened = []
-    for (let day = 1; day <= 20; day++) opened.push(...unlocks.advanceTo(day))
-    expect(opened.map(e => e.tier)).toEqual([2, 2, 2, 2, 3])
-    expect(opened.slice(0, 4).map(e => e.mainKind)).toEqual(['食料', '飲みもの', '衣類', '道具'])
+  it('初日の島の品を全部買うと 5本開き、すべて tier2 に収まる', () => {
+    const inv = day1Inventory()
+    const reg = registry()
+    const opened = new RecipeUnlocks(reg, inv, store()).unlockEligible()
+    expect(opened.map(r => r.outputItemId).sort())
+      .toEqual(['bamboo_fan', 'butter', 'cheese', 'mugwort_tea', 'wool_yarn'])
+    for (const r of opened) expect(reg.tierOf(r.outputItemId)).toBe(2)
   })
 })
 
@@ -158,7 +157,7 @@ describe('RecipeUnlocks — セーブ', () => {
     const inv = new Inventory()
     inv.add('sheep_milk', 1); inv.add('salt', 1)
     const gp = progressWith(inv)
-    new RecipeUnlocks(registry(), inv, gp).advanceTo(1)
+    new RecipeUnlocks(registry(), inv, gp).unlockEligible()
     gp.save(0)
 
     const restoredInv = new Inventory()
@@ -170,14 +169,29 @@ describe('RecipeUnlocks — セーブ', () => {
     vi.unstubAllGlobals()
   })
 
-  it('解禁が無かった頃のセーブ（空）でも、日付から枠のぶんまで追いつく', () => {
+  it('解禁が無かった頃のセーブ（空）でも、材料の揃っているぶんまで追いつく', () => {
     const inv = new Inventory()
     for (const item of ALL_ITEMS) inv.add(item.id, 1)
     const gp = progressWith(inv)
     gp.restoreUnlockedRecipes([])   // 古いセーブ
 
-    // Day 21 のセーブなら枠は 1 + floor(20/4) = 6
-    const events = new RecipeUnlocks(registry(), inv, gp).advanceTo(21)
-    expect(events).toHaveLength(allowedGroupCount(21))
+    expect(new RecipeUnlocks(registry(), inv, gp).unlockEligible())
+      .toHaveLength(ALL_RECIPES.length)
+  })
+
+  /**
+   * ⚠ **系統単位で開いていた頃のセーブ**（#111 より前）。形はレシピ id の集合で同じなので、
+   *   **そのまま読めて、載っている id は閉じない。**材料を持っていなくても閉じない
+   *   —— 閉じると、古いセーブのプレイヤーが**作れていたものを取り上げられる。**
+   */
+  it('#111 より前のセーブに載っている解禁は、材料が無くても閉じない', () => {
+    const inv = new Inventory()   // 何も持っていない
+    const gp = progressWith(inv)
+    gp.restoreUnlockedRecipes(['recipe_butter', 'recipe_cheese'])
+
+    const unlocks = new RecipeUnlocks(registry(), inv, gp)
+    expect(unlocks.unlockEligible()).toEqual([])
+    expect(unlocks.unlockedRecipes().map(r => r.id).sort())
+      .toEqual(['recipe_butter', 'recipe_cheese'])
   })
 })

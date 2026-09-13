@@ -117,8 +117,10 @@ export class GameProgress {
   /**
    * ロードで解禁を戻す。積まないと**読み直すたびにクラフトメニューが空に戻る。**
    *
-   * 解禁が無かった頃のセーブは空で来るが、`RecipeUnlocks.allowedGroupCount` が
-   * 日付から枠を出すので、ロード直後の判定でその日ぶんまで追いつく。
+   * ⚠ **古いセーブでも落ちない**（#111）。解禁が無かった頃のセーブは空で来るし、
+   * 系統単位で開いていた頃のセーブは**レシピ id の集合**で来る —— どちらも形は同じで、
+   * ロード直後の `RecipeUnlocks.unlockEligible()` が**材料の揃っているぶんまで追いつく。**
+   * **一度開いたものを閉じることはしない**ので、載っている id はそのまま残る。
    */
   restoreUnlockedRecipes(ids: readonly string[]): void {
     this.unlockedRecipes = new Set(ids)

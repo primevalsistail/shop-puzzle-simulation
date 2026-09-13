@@ -4,7 +4,7 @@ import type { ItemRegistry, RecipeDef } from './ItemRegistry.js'
 import type { Inventory } from '../economy/Inventory.js'
 import type { TimeManager } from '../core/TimeManager.js'
 import type { Upgrades } from '../progress/Upgrades.js'
-import { craftMinutes, canAttempt } from '../../taxonomy/craft.js'
+import { craftMinutes } from '../../taxonomy/craft.js'
 
 /**
  * 加工はゲーム内時間を消費する（#25）。
@@ -13,6 +13,10 @@ import { craftMinutes, canAttempt } from '../../taxonomy/craft.js'
  * - **飛ばした分には客が来ない。**これが「**加工している間は店が閉まる**」の実装
  *   ＝ 作る時間はそのまま売る機会の損失になる（#25 Q1 = A）
  * - **その日のうちに終わらない加工は着手できない**（#25 Q3 = B）
+ *
+ * ⚠ **着手を止める決まりはこれ1つだけ**（#111 の PO 判断 2026-09-14）。
+ *   以前あった「手際が足りず難しすぎて着手できない」（`craft.ts` の `canAttempt`）は外した。
+ *   **手際の意味は「加工が速くなる」1つだけ**で、速くなった結果 1日に収まれば作れる。
  *
  * ⚠ **時計を止めないこと。**止めると加工のゲーム内コストがゼロになり、
  *   プレイヤーが払うのは実時間の待ちだけになる。
@@ -74,15 +78,8 @@ export class CraftingSystem {
     return craftMinutes(recipe.outputItemId, this.upgrades.skill())
   }
 
-  /** 手際が足りていて着手できるか。深い品ほど高い手際が要る */
-  canAttemptRecipe(recipeId: string): boolean {
-    if (!this.upgrades) return true
-    return canAttempt(this.registry.getRecipe(recipeId).outputItemId, this.upgrades.skill())
-  }
-
   canCraft(recipeId: string, times = 1): boolean {
     if (!Number.isInteger(times) || times < 1) return false
-    if (!this.canAttemptRecipe(recipeId)) return false
     return this.hasIngredients(recipeId, times)
       && this.fitsInStock(recipeId, times)
       && this.fitsInToday(recipeId, times)
@@ -150,7 +147,6 @@ export class CraftingSystem {
         Math.floor(this.inventory.getQuantity(ing.itemId) / ing.quantity),
       ),
     )
-    if (!this.canAttemptRecipe(recipeId)) return 0
     const byTime = Math.floor(this.timeManager.minutesUntilEndOfDay() / this.minutesFor(recipeId))
     const byRoom = Math.floor(
       this.inventory.spaceFor(recipe.outputItemId) / recipe.outputQuantity,

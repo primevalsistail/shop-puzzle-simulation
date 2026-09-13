@@ -35,10 +35,13 @@ import {
   TITLE_FONT_PX, BACK_BTN_W, TAB_W, TAB_H, TAB_GAP, TAB_FONT_PX, tabCx,
   TRADE_TITLE, TRADE_TABS, TAB_ROW_SUB_FONT_PX,
   UPGRADE_ROW_H, UPGRADE_NAME_X, UPGRADE_SUB_MAX_W,
+  UPGRADE_COLS, UPGRADE_HEAD_Y, UPGRADE_HEAD_FONT_PX, UPGRADE_ROWS_TOP,
+  UPGRADE_VALUE_W, UPGRADE_VALUE_FONT_PX, UPGRADE_NOW_L, UPGRADE_NOW_CX,
+  UPGRADE_NEXT_R, UPGRADE_NEXT_CX, UPGRADE_ARROW_CX, UPGRADE_ARROW,
   UPGRADE_STAGE_CX, UPGRADE_STAGE_FONT_PX, UPGRADE_STAGE_W, UPGRADE_STAGE_L,
   UPGRADE_BTN_W, UPGRADE_BTN_L, UPGRADE_BTN_R, UPGRADE_COST_W, UPGRADE_COST_L,
   UPGRADE_COST_R, UPGRADE_COST_FONT_PX,
-  UPGRADE_LABEL, UPGRADE_REASON_FUNDS, UPGRADE_MAXED, upgradeSubLine,
+  UPGRADE_LABEL, UPGRADE_REASON_FUNDS, UPGRADE_MAXED, UPGRADE_WHAT_IT_DOES,
   DELIVERY_TAB_EMPTY, DELIVERY_HEAD_Y, DELIVERY_HEAD_FONT_PX,
   DELIVERY_ROWS_TOP, DELIVERY_ROW_H,
   DELIVERY_NAME_L, DELIVERY_NAME_W, DELIVERY_CLIENT_L, DELIVERY_CLIENT_W,
@@ -63,7 +66,7 @@ import {
 } from './delivery.js'
 import { PRESET_COUNT, PRESET_NAME_MAX, describePreset } from '../components/floor/ShelfPresets.js'
 import { ROUTE } from '../taxonomy/islands.js'
-import { Upgrades, UPGRADE_KINDS, MAX_STAGE, effectDeltaLabel } from '../components/progress/Upgrades.js'
+import { Upgrades, UPGRADE_KINDS, MAX_STAGE, effectValue } from '../components/progress/Upgrades.js'
 import { salePrice } from '../taxonomy/derive.js'
 
 import {
@@ -1046,22 +1049,52 @@ describe('改装タブの行（PO 赤入れ 2026-09-13）', () => {
       .toBeLessThanOrEqual(UPGRADE_STAGE_W)
   })
 
-  it('説明の「前 → 後」が、段の ●○ に食い込まない', () => {
+  it('説明の一言が、`現在値` の列に食い込まない', () => {
+    for (const kind of UPGRADE_KINDS) {
+      const line = UPGRADE_WHAT_IT_DOES[kind]
+      expect(estTextWidth(line, TAB_ROW_SUB_FONT_PX), `${kind} ${line}`)
+        .toBeLessThanOrEqual(UPGRADE_SUB_MAX_W)
+    }
+  })
+
+  /** ⚠ **`現在値` と `強化後` は同じ幅の列。**どの段の値もそこに収まること */
+  it('どの段の効き目も、値の列に収まる', () => {
     for (const kind of UPGRADE_KINDS) {
       for (let stage = 0; stage <= MAX_STAGE; stage++) {
-        const line = upgradeSubLine(kind, effectDeltaLabel(kind, stage))
-        expect(estTextWidth(line, TAB_ROW_SUB_FONT_PX), `${kind} ${stage} ${line}`)
-          .toBeLessThanOrEqual(UPGRADE_SUB_MAX_W)
+        const v = effectValue(kind, stage)
+        expect(v, `${kind} ${stage}`).not.toBeNull()
+        expect(estTextWidth(v as string, UPGRADE_VALUE_FONT_PX), `${kind} ${stage} ${v}`)
+          .toBeLessThanOrEqual(UPGRADE_VALUE_W)
       }
     }
   })
 
-  it('最大まで買うと「前 → 後」が消え、一言だけ残る', () => {
+  /**
+   * ⚠ **見出しは一覧の上に1回だけ**（PO 回答 2026-09-14 Q8 = A）。
+   *   **それぞれが自分の列の幅に収まること。**はみ出すと隣の見出しとくっついて読めない。
+   */
+  it('見出しの3語が、それぞれの列に収まり、行と重ならない', () => {
+    const [now, next, cost] = UPGRADE_COLS
+    expect(estTextWidth(now, UPGRADE_HEAD_FONT_PX)).toBeLessThanOrEqual(UPGRADE_VALUE_W)
+    expect(estTextWidth(next, UPGRADE_HEAD_FONT_PX)).toBeLessThanOrEqual(UPGRADE_VALUE_W)
+    expect(estTextWidth(cost, UPGRADE_HEAD_FONT_PX)).toBeLessThanOrEqual(UPGRADE_COST_W)
+    expect(UPGRADE_HEAD_Y).toBeLessThan(UPGRADE_ROWS_TOP)
+  })
+
+  it('最大まで買った行には `強化後` が無い', () => {
     for (const kind of UPGRADE_KINDS) {
-      expect(effectDeltaLabel(kind, MAX_STAGE)).toBeNull()
-      expect(upgradeSubLine(kind, null)).not.toContain('→')
-      expect(upgradeSubLine(kind, null).length).toBeGreaterThan(0)
+      expect(effectValue(kind, MAX_STAGE + 1)).toBeNull()
     }
+  })
+
+  /** ⚠ **`現在値` `→` `強化後` が、左の説明にも右の ●○ にも掛からないこと** */
+  it('値の3つが、説明と ●○ のあいだに収まる', () => {
+    expect(UPGRADE_NOW_L).toBeGreaterThan(UPGRADE_NAME_X + UPGRADE_SUB_MAX_W)
+    expect(UPGRADE_NOW_CX).toBeLessThan(UPGRADE_ARROW_CX)
+    expect(UPGRADE_ARROW_CX).toBeLessThan(UPGRADE_NEXT_CX)
+    expect(UPGRADE_NEXT_R).toBeLessThan(UPGRADE_STAGE_L)
+    expect(estTextWidth(UPGRADE_ARROW, UPGRADE_VALUE_FONT_PX))
+      .toBeLessThanOrEqual(UPGRADE_NEXT_R - UPGRADE_NOW_L)
   })
 
   /**
@@ -1100,11 +1133,13 @@ describe('改装タブの行（PO 赤入れ 2026-09-13）', () => {
    * ⚠ **4系統がこの枠に入りきること。**
    *
    * ⚠ **5行目（#97 の `商船の購入`）は、いまの行の高さでは入らない** ——
-   *   `110 + 5×100 = 610` で、枠の下端 `564` を越える（実測 2026-09-13）。
-   *   **#97 は行の高さを下げるか、商船を行の外へ置くことになる。**残っている余白は 54px。
+   *   `140 + 5×100 = 640` で、枠の下端 `564` を越える（見出しの行を足した 2026-09-14 の実測。
+   *   それ以前は `110 + 5×100 = 610` だった）。
+   *   **#97 は行の高さを下げるか、商船を行の外へ置くことになる。**残っている余白は 24px。
    */
-  it('4系統が一覧の枠に収まる', () => {
-    expect(ROWS_TOP + UPGRADE_KINDS.length * UPGRADE_ROW_H).toBeLessThanOrEqual(ROWS_BOTTOM)
+  it('4系統が、見出しの行の下の枠に収まる', () => {
+    expect(UPGRADE_ROWS_TOP + UPGRADE_KINDS.length * UPGRADE_ROW_H)
+      .toBeLessThanOrEqual(ROWS_BOTTOM)
   })
 })
 

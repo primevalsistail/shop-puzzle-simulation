@@ -16,7 +16,7 @@ import { PeddlerStock } from '../components/progress/PeddlerStock.js'
 import { StoryEventScheduler } from '../components/progress/StoryEventScheduler.js'
 import { STORY_EVENTS } from '../components/progress/StoryEvents.js'
 import type { StoryChoice } from '../components/progress/StoryEvents.js'
-import { RecipeUnlocks, groupLabel } from '../components/progress/RecipeUnlocks.js'
+import { RecipeUnlocks } from '../components/progress/RecipeUnlocks.js'
 import { Upgrades } from '../components/progress/Upgrades.js'
 import { FloorRenderer, GRID_ORIGIN_X, GRID_ORIGIN_Y, CELL_SIZE } from '../ui/FloorRenderer.js'
 import { InventoryPanel } from '../ui/InventoryPanel.js'
@@ -40,7 +40,7 @@ import {
   BTN_PANEL_L, BTN_PANEL_W, BTN_ICON_W, BTN_ICON_H, BTN_ACTION_H,
   BTN_Y_ADVANCE, BTN_Y_SPEED, BTN_Y_CRAFT, BTN_Y_TRADE, BTN_Y_ICON,
   TRADE_TITLE,
-  CHAR_ART_CX, CHAR_ART_CY, CHAR_ART_W, CHAR_ART_H, craftTimeLabel,
+  CHAR_ART_CX, CHAR_ART_CY, CHAR_ART_W, CHAR_ART_H, craftTimeLabel, recipeUnlockedText,
 } from '../ui/layout.js'
 import { MessageLog } from '../ui/MessageLog.js'
 import { money } from '../ui/money.js'
@@ -335,7 +335,7 @@ export class GameScene extends Phaser.Scene {
         if (data.isEndlessMode && !this.world.isFreeSailing()) this.world.beginFreeSailing()
         this.applyShelfSize()
         this.timeManager.setTime(data.currentTime)
-        // 解禁が無かった頃のセーブは空で来る。枠は日付から出るのでここで追いつく（#48）
+        // 解禁が無かった頃のセーブは空で来る。材料の揃っているぶんまでここで追いつく（#48・#111）
         this.checkRecipeUnlocks()
 
         // HUD・パネルを更新
@@ -938,7 +938,7 @@ export class GameScene extends Phaser.Scene {
     // その日ぶんのできごとを引く（#24）。**当たった日だけ、その日のどこかで起きる**
     this.storyEvents.ensureDay(day)
 
-    // 滞在中にも解禁が起きる（段4-4）。枠は4日に1つ増える ＝ 1寄港あたり2〜3回
+    // 島が変わって品ぞろえが変われば、材料が揃って開くものが出る（#111）
     this.checkRecipeUnlocks()
   }
 
@@ -1064,22 +1064,21 @@ export class GameScene extends Phaser.Scene {
   private openCraftMenu(): void {
     this.stopAdvancing()
     // 買った直後に開いても取りこぼさないよう、ここでも判定する。
-    // **枠は日付で決まる**ので、何度呼んでも解禁の速さは変わらない（RecipeUnlocks）
+    // **条件は材料だけ**なので、何度呼んでも結果は変わらない（RecipeUnlocks。#111）
     this.checkRecipeUnlocks()
     this.craftMenu.open()
   }
 
   /**
-   * レシピの解禁（#48 ／ 段4-4）。**開いた系統だけを知らせる。**
-   * 1本ずつ知らせると、まとめて開く意味が消えるうえ、log が流れる。
+   * レシピの解禁（#48 ／ 段4-4 → **#111 で1レシピ単位になった**）。
+   *
+   * ⚠ **日付を渡さない。**材料が全種そろった瞬間に開くので、判定に日付は要らない
+   *   （`RecipeUnlocks`）。**知らせも1本につき1行**で、系統の名でまとめない。
    */
   private checkRecipeUnlocks(): void {
-    const day = this.timeManager.getCurrentTime().day
-    for (const event of this.recipeUnlocks.advanceTo(day)) {
-      this.messageLog.addMessage(
-        `${groupLabel(event)}の作り方が分かった（${event.recipes.length}種）`,
-        'event',
-      )
+    for (const recipe of this.recipeUnlocks.unlockEligible()) {
+      const item = this.registry_.getItem(recipe.outputItemId)
+      this.messageLog.addMessage(recipeUnlockedText(item.display.name), 'event')
     }
   }
 

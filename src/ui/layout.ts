@@ -425,6 +425,20 @@ export const UPGRADE_NAME_X = CONTENT_L + 28
 export const UPGRADE_TITLE_DY = -20
 export const UPGRADE_SUB_DY = 10
 
+/**
+ * 見出しの行（`現在値` `強化後` `強化費用`）。
+ *
+ * ⚠ **一覧の上に1回だけ出す**（PO 回答 2026-09-14 ／ `sessions/questions-ui-all.md` Q8 = A）。
+ *   **行の中に入れると、同じ3語が4行とも繰り返される。**
+ * ⚠ **納品タブ（`DELIVERY_HEAD_Y` / `DELIVERY_ROWS_TOP`）と同じ形に揃えてある。**
+ *   取引は3タブが同じ枠を使うので、見出しの置き方まで揃えないとタブを切り替えるたびに跳ねる。
+ */
+export const UPGRADE_COLS = ['現在値', '強化後', '強化費用'] as const
+export const UPGRADE_HEAD_Y = ROWS_TOP + 10
+export const UPGRADE_HEAD_FONT_PX = 12
+/** 1行目の上端。⚠ **見出しの行と重ならないこと**（`layout.test.ts` が見ている） */
+export const UPGRADE_ROWS_TOP = ROWS_TOP + 30
+
 /** 段の `●○` の中心と、その文字の大きさ */
 export const UPGRADE_STAGE_CX = PLACE_CX + 40
 export const UPGRADE_STAGE_FONT_PX = 20
@@ -438,11 +452,32 @@ export const UPGRADE_STAGE_W = 100
 export const UPGRADE_STAGE_L = UPGRADE_STAGE_CX - UPGRADE_STAGE_W / 2
 
 /**
- * 説明の1行（`売り場が広がる　6×5 → 7×6`）に使える幅。
+ * `現在値` `→` `強化後` の3つ。**`●○` の左端から左へ決める**
+ * （右側の `費用`・ボタンが枠の右端から左へ決めてあるのと同じ作り）。
  *
- * ⚠ **`●○` に食い込ませないこと。**食い込むと、いちばん見たい「前 → 後」が丸に重なる。
+ * ⚠ **説明の中に流し込まないこと。**以前は `売り場が広がる　6×5 → 7×6` の1行で、
+ *   **説明の長さで `→` の位置が4行ともずれていた**（PO 赤入れ 2026-09-13「表にする」）。
+ *   **列が固定されて初めて、見出しを一覧の上に1回だけ置ける。**
  */
-export const UPGRADE_SUB_MAX_W = UPGRADE_STAGE_L - UPGRADE_NAME_X - 12
+export const UPGRADE_VALUE_W = 64
+export const UPGRADE_ARROW_W = 20
+export const UPGRADE_ARROW = '→'
+export const UPGRADE_NEXT_R = UPGRADE_STAGE_L - 16
+export const UPGRADE_NEXT_L = UPGRADE_NEXT_R - UPGRADE_VALUE_W
+export const UPGRADE_NEXT_CX = (UPGRADE_NEXT_L + UPGRADE_NEXT_R) / 2
+export const UPGRADE_ARROW_CX = UPGRADE_NEXT_L - UPGRADE_ARROW_W / 2
+export const UPGRADE_NOW_R = UPGRADE_NEXT_L - UPGRADE_ARROW_W
+export const UPGRADE_NOW_L = UPGRADE_NOW_R - UPGRADE_VALUE_W
+export const UPGRADE_NOW_CX = (UPGRADE_NOW_L + UPGRADE_NOW_R) / 2
+/** 値の文字の大きさ。⚠ **費用（`UPGRADE_COST_FONT_PX`）と揃える。**同じ表の中の数である */
+export const UPGRADE_VALUE_FONT_PX = 14
+
+/**
+ * 説明の一言（`売り場が広がる`）に使える幅。
+ *
+ * ⚠ **`現在値` の列に食い込ませないこと。**食い込むと、列で揃えた意味が消える。
+ */
+export const UPGRADE_SUB_MAX_W = UPGRADE_NOW_L - UPGRADE_NAME_X - 12
 
 /**
  * 行の右端 ——「**費用**」と「**改装**」の2つ。
@@ -498,15 +533,6 @@ export const UPGRADE_WHAT_IT_DOES: Record<UpgradeKind, string> = {
   手際:   '加工が速くなる',
 }
 
-/**
- * 説明の1行。**一言のうしろに「前 → 後」を付ける**（PO 指示 2026-09-13）。
- * 最大まで買っていれば（`delta` が `null`）一言だけ。
- *
- * ⚠ **数は `Upgrades.effectDeltaLabel` が作る。**ここは繋ぐだけで、**自分の数を持たない。**
- */
-export function upgradeSubLine(kind: UpgradeKind, delta: string | null): string {
-  return delta === null ? UPGRADE_WHAT_IT_DOES[kind] : `${UPGRADE_WHAT_IT_DOES[kind]}　${delta}`
-}
 
 // ─── 納品タブの表 ──────────────────────────────────────────────
 /**
@@ -901,6 +927,17 @@ export const CRAFT_STEP_FONT_PX = 11
  */
 export function craftTimeLabel(minutes: number): string {
   return `${minutes}分`
+}
+
+/**
+ * レシピが1本開いたときの知らせ（#111。**1レシピ単位**）。
+ *
+ * ⚠ **語を増やしていない**（#79）。系統単位だった頃の
+ *   `食料（tier2）の作り方が分かった（13種）` から、**系統の名と本数を落としただけ。**
+ *   開くのが1本ずつになったので、**まとめ方を表す語がもう要らない。**
+ */
+export function recipeUnlockedText(itemName: string): string {
+  return `${itemName}の作り方が分かった`
 }
 
 // ─── 納品の帯（#28） ──────────────────────────────────
