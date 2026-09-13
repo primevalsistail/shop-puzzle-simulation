@@ -145,6 +145,21 @@
   もうすぐ買える行は**買う部品をそもそも作らない**ので `buy()` から手が届かない。
   ⚠ **しきい値（100）を画面にもテストにも書き写さない。**規則を評価して残りを探す
 
+### 人物の見た目
+
+- **ネームド8人の全身図がある**（`inception/worldbuilding/art/characters/`、8枚 約17MB）。
+  **依頼書は `inception/worldbuilding/prompts/characters/`。**外見の正は
+  [characters.md](inception/worldbuilding/characters.md)、主人公だけ
+  [char-visual.md](inception/worldbuilding/char-visual.md)（案F で確定）
+- ⚠ **8枚は [attire.md](inception/worldbuilding/attire.md) §1 の線を2つ越えている**
+  —— **まだ世界に無い染料で染めた服**と、**金属の留め具。**§1 は「色数が少ない。素材の地色が基本」
+  「染料は #86 で商品に入る」「留め具は獣の角、革の帯、紐」。**8枚はモブの側。**
+  ⚠ **PO 判断待ち** → [#88](https://github.com/primevalsistail/shop-puzzle-simulation/issues/88) ／
+  [questions-named-cast-visual.md](sessions/questions-named-cast-visual.md) Q3。
+  **決まるまで、この8枚を次の絵の参照に使わないこと**（寄せると矛盾が増える）
+- **画像は通常の blob で入れる。LFS は入れない**（`.git` 62MB。GitHub の警告線まで余裕がある）。
+  ⚠ **差分・サイズ違いを積み始めるときに再検討する**
+
 ---
 
 ## 進め方の決まり
