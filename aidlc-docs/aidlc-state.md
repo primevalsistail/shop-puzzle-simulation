@@ -157,6 +157,9 @@
   ⚠ **PO 判断待ち** → [#88](https://github.com/primevalsistail/shop-puzzle-simulation/issues/88) ／
   [questions-named-cast-visual.md](sessions/questions-named-cast-visual.md) Q3。
   **決まるまで、この8枚を次の絵の参照に使わないこと**（寄せると矛盾が増える）
+- ⚠ **主人公の髪色が濃茶になり、[#15](https://github.com/primevalsistail/shop-puzzle-simulation/issues/15) の導出
+  （亜麻〜明るい金茶。地色 `0x1a2a3a` に沈まない帯はそこしか残っていない）を覆している。**
+  **叔母テレナも濃茶で被る。**⚠ **PO 判断待ち** → 質問票 Q5
 - **画像は通常の blob で入れる。LFS は入れない**（`.git` 62MB。GitHub の警告線まで余裕がある）。
   ⚠ **差分・サイズ違いを積み始めるときに再検討する**
 
