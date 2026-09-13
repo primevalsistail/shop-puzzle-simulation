@@ -1,6 +1,7 @@
 # ネームド8人の画像化 — 聞きたいこと
 
-**答えてほしいのは Q1 と Q2 の2つだけ。**下半分は報告なので、読み飛ばして構いません。
+✅ **2026-09-13 に回答済み。決着は `c577170`（→ [#88](https://github.com/primevalsistail/shop-puzzle-simulation/issues/88) ／ [#15](https://github.com/primevalsistail/shop-puzzle-simulation/issues/15)）。**
+**Q1 = B**（設定を直す。絵は描き直さない） ／ **Q2 = A**（濃茶のまま）。「決めた3件」は止めるもの無し。
 
 画像: `aidlc-docs/inception/worldbuilding/art/characters/`（8枚）
 
