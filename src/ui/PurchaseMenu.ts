@@ -5,8 +5,6 @@ import type { Inventory } from '../components/economy/Inventory.js'
 import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
 import { MAX_QUANTITY } from '../components/economy/Inventory.js'
 import type { IslandName } from '../taxonomy/islands.js'
-import type { MaterialNeed } from '../taxonomy/materials.js'
-import type { ItemId } from '../taxonomy/axes.js'
 import type { UpcomingStock } from '../taxonomy/evaluate.js'
 import { SearchBox } from './SearchBox.js'
 import { money } from './money.js'
@@ -15,13 +13,14 @@ import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
 import {
   PLACE_CX, CONTENT_L, CONTENT_R,
-  FILTER_Y, LIST_SEARCH_W, LIST_SEARCH_H, ROWS_TOP, PAGER_Y, rowsThatFit,
+  FILTER_Y, FILTER_Y_NO_SUBTITLE, LIST_SEARCH_W, LIST_SEARCH_H,
+  ROWS_TOP, ROWS_TOP_NO_SUBTITLE, PAGER_Y, rowsThatFit,
   BUY_W, BUY_BTN_W, BUY_TOTAL_FONT_PX, BUY_FONT_PX, BUY_LABEL,
   BUY_REASON_FUNDS, buyReasonCap, QTY_REASON_EMPTY, QTY_REASON_NOT_INT,
   INFO_FONT_PX, LOG_T,
   ROW_NAME_X, ROW_BUY_L, ROW_BUY_BTN_L, ROW_TOTAL_R,
   ROW_MAX_L, ROW_MAX_W, ROW_PLUS_L, ROW_INPUT_L, ROW_INPUT_W, ROW_INPUT_H,
-  ROW_MINUS_L, ROW_STEP_W, ROW_INFO_R, ROW_NEED_R,
+  ROW_MINUS_L, ROW_STEP_W, ROW_INFO_R,
   UPCOMING_FONT_PX, upcomingLabel,
   PEDDLER_TITLE, PEDDLER_REMAIN_FONT_PX, peddlerRemainText,
   TAB_ROW_TITLE_FONT_PX,
@@ -31,6 +30,15 @@ import type { PeddlerStock } from '../components/progress/PeddlerStock.js'
 const ROW_H = 56
 /** ⚠ **決め打ちしない。**領域の高さから出す（`layout.ts`） */
 const VISIBLE_COUNT = rowsThatFit(ROW_H)
+/**
+ * **行商人の1頁**（#105）。**見出しの下の1行が無いので一覧が上から始まる**ぶん、
+ * 島の商人より多く入りうる。
+ *
+ * ⚠ **`VISIBLE_COUNT` を使い回さないこと。**上端が違えば入る行数も違う。
+ * ⚠ **いまの寸法ではどちらも 8行**（詰めたのは 18px で、行は 56px あるため）。
+ *   **`ROWS_TOP` や `PAGER_Y` を動かすとここだけ増える**ので、値ではなく式で持つ。
+ */
+const VISIBLE_COUNT_PEDDLER = rowsThatFit(ROW_H, ROWS_TOP_NO_SUBTITLE)
 /** 何個買うかの初期値。**固定ではない**（打ち込める） */
 const DEFAULT_QTY = 5
 
@@ -103,13 +111,15 @@ export class PurchaseMenu {
   private ownsFrame = false
   private materials: ItemDef[] = []
   private islandName: IslandName = 'ハルヴェラ'
+  /**
+   * ⚠ **`begin()` で作り直す。**1頁に入る行数が**島の商人と行商人で違いうる**ため
+   *   （`VISIBLE_COUNT` / `VISIBLE_COUNT_PEDDLER`）。**module 定数のまま固定しない。**
+   */
   private paging = new ListPaging(VISIBLE_COUNT)
   /** 棚から「これを補充したい」と来た品。1行だけ目立たせる */
   private focusId: string | null = null
   /** ⚠ **一覧とは別に持つ。**一緒に作り直すと打鍵のたびにカーソルが飛ぶ（#55） */
   private search: SearchBox
-  /** この島の素材が、作れる品の何本に要るか（#33）。`open()` で1度だけ数える */
-  private needs: Map<ItemId, MaterialNeed> = new Map()
   /** 1行ぶんの部品。**打鍵では作り直さない**（カーソルが飛ぶ） */
   private rows: Row[] = []
   /** 品ごとに打ち込んだ個数。買ったあとも覚えておく */
@@ -127,8 +137,6 @@ export class PurchaseMenu {
     private economy: EconomyManager,
     private inventory: Inventory,
     private frame: PlaceFrame,
-    /** 解禁済みのレシピが要する素材（#33）。**開くたびに数え直す** */
-    private materialNeeds: () => Map<ItemId, MaterialNeed>,
     private onClose: () => void,
   ) {
     this.search = new SearchBox(scene)
@@ -163,7 +171,7 @@ export class PurchaseMenu {
    *   島の話で（#66）、島を持たない行商人では意味が無い。
    *
    * @param islandName いまいる島。**値段には使わない**（行商人に産地割引は無い）。
-   *                   行の `N品に要る` の `⚠ 切らしている` がこの島の産かどうかを見る
+   *                   **行の色**（`ROW_BG_LOCAL` / `ROW_BG_ANY`）だけがこれを見る
    */
   openPeddler(stock: PeddlerStock, materials: ItemDef[], islandName: IslandName): void {
     if (this.isOpen) return
@@ -185,6 +193,8 @@ export class PurchaseMenu {
   ): void {
     this.isOpen = true
     this.peddler = peddler
+    // ⚠ **行数は上端から出す。**行商人は見出しの下が空なので一覧を詰めてある（#105）
+    this.paging = new ListPaging(peddler ? VISIBLE_COUNT_PEDDLER : VISIBLE_COUNT)
     // ⚠ **買えるものが先。**買えない行が上に来ると、開いた瞬間に「何も買えない」と読まれる
     this.materials = [...materials, ...upcoming.map(u => u.item)]
     this.salesLeft = new Map(upcoming.map(u => [u.item.id, u.salesLeft]))
@@ -192,10 +202,9 @@ export class PurchaseMenu {
     this.focusId = focusId ?? null
     this.paging.clearKinds()
     this.paging.setQuery('')
-    this.needs = this.materialNeeds()
     if (focusId) this.paging.jumpTo(this.shown().findIndex(m => m.id === focusId), this.shown().length)
     this.search.place(
-      CONTENT_R - LIST_SEARCH_W / 2, FILTER_Y, LIST_SEARCH_W, LIST_SEARCH_H, '名前で探す',
+      CONTENT_R - LIST_SEARCH_W / 2, this.filterY(), LIST_SEARCH_W, LIST_SEARCH_H, '名前で探す',
       q => { this.paging.setQuery(q); this.rebuild() },
       CONTENT_DEPTH,
     )
@@ -234,23 +243,18 @@ export class PurchaseMenu {
   }
 
   /**
-   * その品が、作れる品の材料になっているか（#23）。
+   * 一覧の上端。**行商人は見出しの下の1行が無いので詰める**（#105・PO 回答 2026-09-14）。
    *
-   * **これが「買って売るだけではない」の印**になる。品数が増えると、
-   * どれが材料でどれが売り物か分からなくなるので、仕入れの行で言う。
+   * ⚠ **島の商人（`取引` の1タブ）は詰めない。**3タブが同じ枠を使うので、
+   *   **タブを行き来するたびに一覧が跳ねる**（`layout.ts` の注記）。
    */
-  private needOf(mat: ItemDef): MaterialNeed | null {
-    return this.needs.get(mat.id) ?? null
+  private rowsTop(): number {
+    return this.peddler ? ROWS_TOP_NO_SUBTITLE : ROWS_TOP
   }
 
-  /**
-   * **この島でしか買えない**品か（#33）。
-   *
-   * ⚠ **産地が `なし` の品は違う。**どの島でも買えるので、切らしても取り返せる。
-   *   急ぐ必要があるのはこの島の産だけ。
-   */
-  private isLocalOnly(mat: ItemDef): boolean {
-    return mat.origin === this.islandName
+  /** 絞り込みの行。⚠ **一覧と一緒に上がる**（離すと検索欄だけが取り残される） */
+  private filterY(): number {
+    return this.peddler ? FILTER_Y_NO_SUBTITLE : FILTER_Y
   }
 
   private shown(): ItemDef[] {
@@ -281,10 +285,9 @@ export class PurchaseMenu {
     // ⚠ **もうどこにも出さない。**島の商人も行商人も、赤入れはすべて「不要」だった
     //   （PO 指示 2026-09-13。商人タブ3箇所 ＋ 行商人の `今日の品ぞろえ…`）。
     //   **`所持金` も `あと10日` も右パネルの HUD が常に出している**ので、ここは写しだった。
-    // ⚠ **帯そのものは残す。**一覧の上端（`ROWS_TOP`）を上げると、
+    // ⚠ **帯を残すのは島の商人だけ。**一覧の上端（`ROWS_TOP`）を上げると、
     //   **改装・納品とタブを行き来するたびに一覧が跳ねる**（3タブは同じ枠を使う）。
-    //   ⚠ **行商人だけ上げるのも避ける。**`VISIBLE_COUNT` は `ROWS_TOP` から出す module 定数で、
-    //   **上げると1頁に入る行数が変わる**（＝ページ送りの挙動が変わる）。→ PO 判断へ回した
+    //   ⚠ **行商人は自分の枠を持つので詰めてある**（#105・PO 回答 2026-09-14。`rowsTop()`）。
 
     // ── 絞り込み（主種類） ──
     const btnW = 64, btnH = 22, gap = 8
@@ -292,10 +295,10 @@ export class PurchaseMenu {
     KIND_BUTTONS.forEach((cat, i) => {
       const bx = PLACE_CX - groupW / 2 + btnW / 2 + i * (btnW + gap)
       const on = this.paging.isKindActive(cat.id)
-      const bg = this.scene.add.rectangle(bx, FILTER_Y, btnW, btnH, on ? 0x6a5a2a : 0x232338)
+      const bg = this.scene.add.rectangle(bx, this.filterY(), btnW, btnH, on ? 0x6a5a2a : 0x232338)
         .setStrokeStyle(1, on ? 0xbb9944 : 0x444455)
         .setInteractive({ useHandCursor: true })
-      const label = this.scene.add.text(bx, FILTER_Y, cat.label, {
+      const label = this.scene.add.text(bx, this.filterY(), cat.label, {
         fontSize: '12px', color: on ? '#ffdd88' : '#778899',
       }).setOrigin(0.5)
       bg.on('pointerdown', () => { this.paging.toggleKind(cat.id); this.rebuild() })
@@ -303,7 +306,7 @@ export class PurchaseMenu {
     })
 
     this.paging.slice(materials).forEach((mat, i) => {
-      const y = ROWS_TOP + ROW_H / 2 + i * ROW_H
+      const y = this.rowsTop() + ROW_H / 2 + i * ROW_H
       const left = this.salesLeft.get(mat.id)
       // ⚠ **買えない行は別の組み立てを通す。**買う部品を作ってから無効にするのではなく、
       //   **そもそも作らない**（`this.rows` にも入らないので `buy()` から手が届かない）
@@ -316,7 +319,7 @@ export class PurchaseMenu {
     if (total === 0) {
       const filtered = this.paging.hasQuery() || this.paging.hasFilter()
       objs.push(
-        this.scene.add.text(PLACE_CX, ROWS_TOP + 60,
+        this.scene.add.text(PLACE_CX, this.rowsTop() + 60,
           filtered
             ? '商人に、当てはまる品はありません'
             : this.peddler
@@ -384,8 +387,7 @@ export class PurchaseMenu {
       }).setOrigin(0, 0.5),
     )
 
-    // ⚠ **注記を出さない。**素の `N品に要る` は落とした（PO 指示 2026-09-13「不要」）。
-    //   `⚠ 切らしている` も元から出していない（**急いでも買えないので、急かす意味が無い**）。
+    // ⚠ **注記を出さない**（買える行と同じ。PO 回答 2026-09-14「基本表示しない」）。
 
     // ⚠ **「買う」ボタンと同じ右端に、ボタンを作らずに置く。**
     //   文字とその大きさは `layout.ts`（`layout.test.ts` が幅を見ている）
@@ -431,20 +433,11 @@ export class PurchaseMenu {
       )
     }
 
-    // **この島でしか買えない**うえ切らしているなら、急ぐ理由として強く出す（#33）。
-    // ⚠ **素の `N品に要る` は出さない**（PO 指示 2026-09-13「不要」）。
-    //   **どの行にも出るので、行が字で埋まっていた。**
-    //   ⚠ **残したのは橙の警告だけ。**あちらは**切らしていて、ここでしか買えない品**にしか出ず、
-    //   **出た時点で「いま買わないと次は40日後」という意味がある**（#33・#34）。
-    // ⚠ **必要数は出さない。**誰も「1回ずつ」は作らないので嘘になる
-    const need = this.needOf(mat)
-    if (need && this.isLocalOnly(mat) && this.inventory.getQuantity(mat.id) === 0) {
-      objs.push(
-        this.scene.add.text(ROW_NEED_R, y, `⚠ 切らしている（${need.recipes}品に要る）`, {
-          fontSize: '12px', color: '#ffaa66',
-        }).setOrigin(1, 0.5),
-      )
-    }
+    // ⚠ **`N品に要る` の注記は、素のものも橙の警告も出さない**
+    //   （PO 指示 2026-09-13「不要」／ PO 回答 2026-09-14「基本表示しない」）。
+    //   **島の商人タブと行商人の両方に効く**（同じ組み立てを通るため）。
+    //   ⚠ **戻すなら `materialNeeds`（`taxonomy/materials.ts`）から数え直すこと。**
+    //   **画面から消えたので、`PurchaseMenu` はもう素材の要り用を持っていない。**
 
     // ⚠ **大きさは `layout.ts` の `INFO_FONT_PX`。**12px だと4桁の仕入れ値で左隣に重なる
     const infoText = this.scene.add.text(ROW_INFO_R, y, '', {

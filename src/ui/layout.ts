@@ -306,8 +306,8 @@ export const HUD_NEXT_PORT_H = 18
  * ⚠ **`118 → 138` に広げてある。**総額（11px で最悪 78.7px）とボタン（52px）は
  *   **118px には並ばない。**広げたぶんは左の「最大」「＋」「−」が寄る
  *   （列の並びは下の `ROW_*`）。
- * ⚠ **これ以上広げないこと。**広げると `⚠ 切らしている（N品に要る）` が品名に重なる
- *   （`layout.test.ts` が産地つきのいちばん長い品名で見ている）。
+ * ⚠ **これ以上広げないこと。**広げると列全体が左へ寄り、
+ *   **行商人の `残り N個` が仕入れ値に重なる**（`ROW_INFO_L`。`layout.test.ts` が見ている）。
  */
 export const BUY_BTN_W = 52
 /** 総額を置く幅。**右そろえ。**⚠ 7桁（`3,237,759レン`）が `BUY_TOTAL_FONT_PX` で収まること */
@@ -405,8 +405,16 @@ export const ROW_INPUT_L = ROW_PLUS_L - 4 - ROW_INPUT_W
 export const ROW_MINUS_L = ROW_INPUT_L - 4 - ROW_STEP_W
 /** 「51レン/個　在庫 100/999」の右端（右そろえ） */
 export const ROW_INFO_R = ROW_MINUS_L - 14
-/** 「N品に要る」の右端（右そろえ）。⚠ **間隔は `INFO_MAX_W`** */
-export const ROW_NEED_R = ROW_INFO_R - INFO_MAX_W
+/**
+ * 「51レン/個　在庫 100/999」の**左端**（＝右そろえの右端から `INFO_MAX_W` ぶん左）。
+ *
+ * ⚠ **ここより左へ字を伸ばさないこと。**行商人の `残り N個` は品名の右から伸びるので、
+ *   **この線に届くと仕入れ値に重なる**（`layout.test.ts` が測っている）。
+ * ⚠ **2026-09-14 まで `ROW_NEED_R`（`⚠ 切らしている（N品に要る）` の右端）だった。**
+ *   **注記は PO 指示で画面から消えた**（「基本表示しない」）が、
+ *   **境界としての線は残る**ので、名前だけ実体に合わせた。
+ */
+export const ROW_INFO_L = ROW_INFO_R - INFO_MAX_W
 
 // ─── 改装タブの行 ──────────────────────────────────────────────
 /**
@@ -1118,4 +1126,50 @@ export const MSG_LINES_MAX = Math.max(
 export function msgChoiceCx(index: number, count: number): number {
   const total = count * MSG_CHOICE_W + (count - 1) * MSG_CHOICE_GAP
   return MSG_WIN_CX - total / 2 + MSG_CHOICE_W / 2 + index * (MSG_CHOICE_W + MSG_CHOICE_GAP)
+}
+
+// ─── 確認のダイアログ（セーブの上書き／ロード ＋ 納品の `廃棄`） ──────────
+/**
+ * **戻らない操作の前に出す確認。**
+ *
+ * ⚠ **4つ目の形を作らないこと。**この作りのダイアログは
+ *   **`Tutorial` ／ `SaveLoadMenu` ／ できごとの窓**の3つで、どれも
+ *   **全画面の暗幕（`MSG_SCRIM_ALPHA`）＋ 画面中央の不透明な面**である。
+ *   **`ConfirmDialog` はその形をそのまま使う**（色も `SaveLoadMenu` と同じ）。
+ *
+ * ⚠ **大きさは `SaveLoadMenu` の確認から移したもの**（PO 指示 2026-09-13「大きすぎる」で
+ *   枠の一覧 480×310 から切り離した値）。**写しを作らず、両方がここを読む。**
+ */
+export const CONFIRM_MW = 360
+export const CONFIRM_MH = 150
+/** 確認のボタン。**2つ並べて面に収まる幅** */
+export const CONFIRM_BTN_W = 130
+export const CONFIRM_BTN_H = 36
+export const CONFIRM_BTN_GAP = 20
+export const CONFIRM_BTN_FONT_PX = 14
+/** ボタンの列の中心 y。**面の下端から 30px** */
+export const CONFIRM_BTN_CY = MSG_WIN_CY + CONFIRM_MH / 2 - 30
+/** 本文の1行目の中心 y。⚠ **行の高さは窓と同じ `MSG_LINE_H`**（別の刻みを作らない） */
+export const CONFIRM_TEXT_TOP = MSG_WIN_CY - CONFIRM_MH / 2 + 30
+/** 本文に使える幅。⚠ **内側の余白は窓と同じ `MSG_WIN_PAD`** */
+export const CONFIRM_TEXT_MAX_W = CONFIRM_MW - MSG_WIN_PAD * 2
+/**
+ * 本文に使える行数。**ボタンの列に食い込まない範囲。**
+ *
+ * ⚠ **決め打ちにしないこと**（`MSG_LINES_MAX` と同じ直し）。
+ */
+export const CONFIRM_LINES_MAX = Math.max(
+  0,
+  Math.floor((CONFIRM_BTN_CY - CONFIRM_BTN_H / 2 - 8 - CONFIRM_TEXT_TOP) / MSG_LINE_H),
+)
+/**
+ * 「やめる」側の字。⚠ **`SaveLoadMenu` の確認と同じ語**（同じ役目を2つの語で呼ばない）。
+ *   あちらは**ソースを縛るテスト**が直書きを見ているので、字はそのまま置いてある。
+ */
+export const CONFIRM_CANCEL_LABEL = 'やめる'
+
+/** 確認のボタン `count` 個を1行に並べたときの、`index` 番目の中心 x */
+export function confirmBtnCx(index: number, count: number): number {
+  const total = count * CONFIRM_BTN_W + (count - 1) * CONFIRM_BTN_GAP
+  return MSG_WIN_CX - total / 2 + CONFIRM_BTN_W / 2 + index * (CONFIRM_BTN_W + CONFIRM_BTN_GAP)
 }

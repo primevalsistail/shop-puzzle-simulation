@@ -1,6 +1,9 @@
 import Phaser from 'phaser'
 import type { SlotMeta } from '../types/index.js'
 import { money } from './money.js'
+import {
+  CONFIRM_MW, CONFIRM_MH, CONFIRM_BTN_W, CONFIRM_BTN_H, CONFIRM_BTN_FONT_PX, confirmBtnCx,
+} from './layout.js'
 
 const SLOT_COUNT = 3
 /**
@@ -15,9 +18,9 @@ const MH = 310  // menu height
 /**
  * 確認の面。**枠の一覧（480×310）を使い回さない**（PO 指示 2026-09-13「大きすぎる」）。
  * ⚠ **入るのは見出し1行と、ボタンの列だけ。**枠が3つ並ぶ高さは要らない。
+ * ⚠ **寸法は `layout.ts` の `CONFIRM_*`。**納品の `廃棄`（`ConfirmDialog`）と同じ面なので、
+ *   **ここに写しを置かない**（片方だけ動くと、同じ確認が2つの大きさで出る）。
  */
-const CONFIRM_MW = 360
-const CONFIRM_MH = 150
 
 type Push = (...objs: Phaser.GameObjects.GameObject[]) => void
 
@@ -178,17 +181,17 @@ export class SaveLoadMenu {
     //   確認の面がその上に残る（`MessageWindow.show()` と同じ順）。
     const by = cy + CONFIRM_MH / 2 - 30
     if (saving) {
-      this.button(push, cx - 75, by, '上書きする', 0x6a3a3a, 0x8a4a4a, () => {
+      this.button(push, confirmBtnCx(0, 2), by, '上書きする', 0x6a3a3a, 0x8a4a4a, () => {
         this.close()
         this.onSave(slot)
       })
     } else {
-      this.button(push, cx - 75, by, '読み込む', 0x2f5a2f, 0x3f7a3f, () => {
+      this.button(push, confirmBtnCx(0, 2), by, '読み込む', 0x2f5a2f, 0x3f7a3f, () => {
         this.close()
         this.onLoad(slot)
       })
     }
-    this.button(push, cx + 75, by, 'やめる', 0x3a3a4a, 0x555566, () => {
+    this.button(push, confirmBtnCx(1, 2), by, 'やめる', 0x3a3a4a, 0x555566, () => {
       this.confirmSlot = null
       this.build()
     })
@@ -198,12 +201,12 @@ export class SaveLoadMenu {
     push: Push, x: number, y: number, label: string,
     fill: number, hover: number, onClick: () => void,
   ): void {
-    const bg = this.scene.add.rectangle(x, y, 130, 36, fill)
+    const bg = this.scene.add.rectangle(x, y, CONFIRM_BTN_W, CONFIRM_BTN_H, fill)
       .setStrokeStyle(1, 0x666677).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
     push(
       bg,
       this.scene.add.text(x, y, label, {
-        fontSize: '14px', color: '#bbbbcc',
+        fontSize: `${CONFIRM_BTN_FONT_PX}px`, color: '#bbbbcc',
       }).setOrigin(0.5).setDepth(DEPTH),
     )
     bg.on('pointerover', () => bg.setFillStyle(hover))

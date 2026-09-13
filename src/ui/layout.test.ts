@@ -3,13 +3,14 @@ import { describe, it, expect } from 'vitest'
 import purchaseSource from './PurchaseMenu.ts?raw'
 import messageWindowSource from './MessageWindow.ts?raw'
 import craftSource from './CraftMenu.ts?raw'
+import deliveryTabSource from './DeliveryTab.ts?raw'
 import {
   SCREEN_W, SCREEN_H,
   HUD_PANEL_W, HUD_MONEY_FONT_PX, estTextWidth,
   BUY_W, BUY_BTN_W, BUY_TOTAL_W, BUY_TOTAL_FONT_PX, BUY_FONT_PX, BUY_LABEL,
   BUY_REASON_FUNDS, buyReasonCap, QTY_REASON_EMPTY, QTY_REASON_NOT_INT,
   INFO_MAX_W, INFO_FONT_PX,
-  ROW_NAME_X, ROW_NEED_R, ROW_INPUT_L, ROW_INPUT_W, ROW_PLUS_L, ROW_MINUS_L, ROW_STEP_W,
+  ROW_NAME_X, ROW_INFO_L, ROW_INPUT_L, ROW_INPUT_W, ROW_PLUS_L, ROW_MINUS_L, ROW_STEP_W,
   LIST_SEARCH_W, LIST_SEARCH_H,
   UPCOMING_FONT_PX, upcomingLabel, PRESET_TEXT_FONT_PX, PRESET_SUB_FONT_PX,
   PRESET_COLS, PRESET_GAP_X, PRESET_CELL_W, PRESET_TEXT_L_OFFSET, PRESET_TEXT_W,
@@ -55,15 +56,20 @@ import {
   MSG_SPEAKER_FONT_PX, MSG_SPEAKER_Y, MSG_TEXT_FONT_PX, MSG_TEXT_TOP, MSG_LINE_H,
   MSG_LINES_MAX, MSG_CHOICE_W, MSG_CHOICE_H, MSG_CHOICE_GAP, MSG_CHOICE_FONT_PX,
   MSG_CHOICE_CY, msgChoiceCx,
+  CONFIRM_MW, CONFIRM_MH, CONFIRM_TEXT_TOP, CONFIRM_TEXT_MAX_W, CONFIRM_LINES_MAX,
+  CONFIRM_BTN_W, CONFIRM_BTN_H, CONFIRM_BTN_CY, CONFIRM_BTN_FONT_PX, CONFIRM_CANCEL_LABEL,
+  confirmBtnCx,
   ORDER_BAR_T, ORDER_BAR_L, ORDER_BAR_R, GRID_ORIGIN_Y, CELL_SIZE,
   HUD_BAR_W, HUD_NEXT_PORT_FONT_PX, HUD_NEXT_PORT_H, nextPortLabel,
 } from './layout.js'
 import { STORY_EVENTS } from '../components/progress/StoryEvents.js'
+import { MAX_QUANTITY } from '../components/economy/Inventory.js'
 import { ALL_ITEMS } from '../taxonomy/items.js'
 import { PEDDLER_MAX_PER_KIND, peddlerPrice } from '../components/progress/PeddlerStock.js'
 import { money } from './money.js'
 import {
   DELIVERY_COLS, DELIVERY_BTN_LABEL, DISCARD_BTN_LABEL, deliveryShortLabel,
+  discardConfirmLines,
 } from './delivery.js'
 import { PRESET_COUNT, PRESET_NAME_MAX, describePreset } from '../components/floor/ShelfPresets.js'
 import { ROUTE } from '../taxonomy/islands.js'
@@ -696,7 +702,8 @@ describe('行商人バレンのところ（#9）', () => {
   // ⚠ **列の式を写さないこと。**`layout.ts` の `ROW_*` が唯一の出どころで、
   //   `PurchaseMenu.ts` も同じものを読んでいる（以前はここに式の写しがあった）
   const NAME_X = ROW_NAME_X
-  const NEED_R = ROW_NEED_R
+  /** ⚠ **`51レン/個　在庫 100/999` の左端。**2026-09-14 まで `ROW_NEED_R` だった */
+  const INFO_L = ROW_INFO_L
 
   /**
    * ⚠ **`残り N個` を `51レン/個　在庫 100/999` の側に足さないこと。**
@@ -708,43 +715,26 @@ describe('行商人バレンのところ（#9）', () => {
     expect(estTextWidth(crowded, INFO_FONT_PX)).toBeGreaterThan(INFO_MAX_W)
   })
 
-  it('いちばん長い品名でも、`残り N個` が `N品に要る` に重ならない', () => {
+  it('いちばん長い品名でも、`残り N個` が仕入れ値の列に重ならない', () => {
     const longest = ALL_ITEMS.reduce(
       (a, b) => (b.display.name.length > a.display.name.length ? b : a))
     // 品名は 15px（`PurchaseMenu.buildRow`）。右に 8px 空けて置く
     const tagL = NAME_X + estTextWidth(longest.display.name, 15) + 8
     const tagR = tagL + estTextWidth(peddlerRemainText(PEDDLER_MAX_PER_KIND), PEDDLER_REMAIN_FONT_PX)
-    expect(tagR, longest.display.name).toBeLessThanOrEqual(NEED_R)
+    expect(tagR, longest.display.name).toBeLessThanOrEqual(INFO_L)
   })
 
   /**
-   * 仕入れの行でいちばん長い注記は `⚠ 切らしている（N品に要る）`（#33）。**右そろえ**なので、
-   * **左へ伸びて品名に重なる**。
-   *
-   * ⚠ **総額を「買う」から分けたぶん、列が 20px 左へ寄った**（2026-09-13）。
-   *   **ここが開いているかは、それまで誰も見ていなかった。**
-   * ⚠ **`⚠ 切らしている` が出るのは産地がこの島の品だけ**（`PurchaseMenu.isLocalOnly`）。
-   *   **加工品（産地 `なし`）の長い名前と重なることはない。**
-   *   だから**産地を持つ品の中で**いちばん長い名前で見る。
-   * ⚠ **`N品に要る` だけの行はどの品にも出る**ので、そちらは全品で見る。
+   * ⚠ **`N品に要る` の注記は、素のものも橙の警告も画面から消えた**
+   *   （PO 指示 2026-09-13「不要」→ PO 回答 2026-09-14「基本表示しない」）。
+   *   ⚠ **`取引 ＞ 商人` タブと行商人は同じ組み立てを通る**ので、**片方だけ残ることはない。**
+   *   ⚠ **`ROW_INFO_L` は捨てない。**`残り N個` が仕入れ値に重ならない境界がそこにある。
    */
-  it('⚠ 切らしている（N品に要る）が、産地つきのいちばん長い品名に重ならない', () => {
-    const withOrigin = ALL_ITEMS.filter(i => i.origin !== 'なし')
-    const longest = withOrigin.reduce(
-      (a, b) => (b.display.name.length > a.display.name.length ? b : a))
-    const nameR = NAME_X + estTextWidth(longest.display.name, 15)
-    // 品数は 106レシピ ＝ 最大3桁。行の注記は 12px（`PurchaseMenu.buildRow`）
-    const needL = NEED_R - estTextWidth('⚠ 切らしている（106品に要る）', 12)
-    expect(needL, longest.display.name).toBeGreaterThan(nameR)
-  })
-
-  /**
-   * ⚠ **素の `N品に要る` はもう出さない**（PO 指示 2026-09-13「不要」）。
-   *   **どの行にも出るので、行が字で埋まっていた。**
-   *   ⚠ **`ROW_NEED_R` は捨てない。**橙の `⚠ 切らしている（N品に要る）` が同じ場所を使う。
-   */
-  it('⚠ 素の `N品に要る` を画面に戻していない', () => {
+  it('`N品に要る` を画面に戻していない（素のものも橙の警告も）', () => {
     expect(purchaseSource).not.toMatch(/`\$\{need\.recipes\}品に要る`/)
+    expect(purchaseSource).not.toMatch(/add\.text\([^)]*切らしている/)
+    // 数える材料そのものを持っていない（戻すなら `materialNeeds` から数え直す）
+    expect(purchaseSource).not.toContain('MaterialNeed')
   })
 
   /**
@@ -1271,25 +1261,28 @@ describe('納品タブの表（#98 ／ PO 赤入れ 2026-09-13）', () => {
       .toBeLessThanOrEqual(DELIVERY_REWARD_W)
   })
 
-  it('いちばん多い数量が数量の列に収まる', () => {
+  /**
+   * ⚠ **`数量` の列は `手持ち/必要`**（PO 回答 2026-09-14）。
+   *   **手持ちは在庫の上限（999）まで、必要な数は tier1 の上限まで**出うる。
+   */
+  it('いちばん長い `手持ち/必要` が数量の列に収まる', () => {
     const most = Math.max(...ALL_ITEMS.map(i => orderQuantity(i.id)))
-    expect(estTextWidth(String(most), TAB_ROW_SUB_FONT_PX)).toBeLessThanOrEqual(DELIVERY_QTY_W)
+    const worst = deliveryShortLabel(MAX_QUANTITY, most)
+    expect(estTextWidth(worst, TAB_ROW_SUB_FONT_PX), worst).toBeLessThanOrEqual(DELIVERY_QTY_W)
   })
 
   /**
-   * ⚠ **納品ボタンは字が2通りある** —— 納められるときは `納品`、
-   *   足りないときは **`手持ち/必要`**（手持ちの列が無いので、ここが唯一の出しどころ）。
-   *   **どちらもボタンに収まること。**
+   * ⚠ **納品ボタンの字は1通りだけ**（`納品`）。
+   *   **2026-09-14 まで、足りないときは `手持ち/必要` に変わっていた** ——
+   *   PO 回答で**その数は `数量` の列へ移った**ので、**同じ数を1行に2回出さない。**
    */
-  it('納品ボタンの字は、どちらの出方でもボタンに収まる', () => {
+  it('納品ボタンの字がボタンに収まる（字は1通り）', () => {
     expect(estTextWidth(DELIVERY_BTN_LABEL, DELIVERY_BTN_FONT_PX))
-      .toBeLessThanOrEqual(DELIVERY_BTN_W - 8)
-    // 手持ちは在庫の上限（999）まで、必要な数は tier1 の上限まで出うる
-    const worst = deliveryShortLabel(999, Math.max(...ALL_ITEMS.map(i => orderQuantity(i.id))))
-    expect(estTextWidth(worst, DELIVERY_BTN_FONT_PX), worst)
       .toBeLessThanOrEqual(DELIVERY_BTN_W - 8)
     expect(estTextWidth(DISCARD_BTN_LABEL, DELIVERY_BTN_FONT_PX))
       .toBeLessThanOrEqual(DELIVERY_DISCARD_W - 8)
+    // 手持ちの数はボタンではなく列に出る
+    expect(deliveryTabSource).toContain('DELIVERY_QTY_R, y, deliveryShortLabel(held, order.quantity)')
   })
 
   it('見出しの語が、それぞれの列の幅に収まる', () => {
@@ -1325,5 +1318,80 @@ describe('納品タブの表（#98 ／ PO 赤入れ 2026-09-13）', () => {
   it('1件も無いときの1行が枠に収まる', () => {
     expect(estTextWidth(DELIVERY_TAB_EMPTY, TAB_ROW_SUB_FONT_PX))
       .toBeLessThanOrEqual(CONTENT_R - CONTENT_L)
+  })
+})
+
+/**
+ * **確認のダイアログ**（納品の `廃棄`。PO 指示 2026-09-14「ダイアログ形式で」）。
+ *
+ * ⚠ **4つ目の形を作らない**という縛りを機械で見る —— **`SaveLoadMenu` の確認と同じ寸法**で、
+ *   **暗幕の濃さも窓と同じ**（`MSG_SCRIM_ALPHA`）。
+ * ⚠ **本文は `ui/delivery.ts` が組み立てる**ので、**実物の文字列**をここで測れる。
+ */
+describe('確認のダイアログ（廃棄。PO 指示 2026-09-14）', () => {
+  /** 表に出しうる全部の組み合わせ（161品 × 依頼者4人）の中で、いちばん長い行 */
+  function worstLine(): string {
+    let worst = ''
+    for (const item of ALL_ITEMS) {
+      for (const island of ISLANDS) {
+        const order = {
+          id: 'x', itemId: item.id, client: island.merchant,
+          quantity: orderQuantity(item.id), reward: 0, issuedDay: 1,
+        }
+        for (const line of discardConfirmLines(item.display.name, order)) {
+          if (estTextWidth(line, MSG_TEXT_FONT_PX) > estTextWidth(worst, MSG_TEXT_FONT_PX)) {
+            worst = line
+          }
+        }
+      }
+    }
+    return worst
+  }
+
+  it('本文がいちばん長い組み合わせでも、面からはみ出さない', () => {
+    const worst = worstLine()
+    expect(estTextWidth(worst, MSG_TEXT_FONT_PX), worst).toBeLessThanOrEqual(CONFIRM_TEXT_MAX_W)
+  })
+
+  /** ⚠ **1行にすると入らない**（だから2行に分けてある）。行数はボタンに食い込まない範囲 */
+  it('本文の行数が、ボタンに食い込まない範囲に収まる', () => {
+    const order = {
+      id: 'x', itemId: ALL_ITEMS[0].id, client: ISLANDS[0].merchant,
+      quantity: 1, reward: 0, issuedDay: 1,
+    }
+    expect(discardConfirmLines(ALL_ITEMS[0].display.name, order).length)
+      .toBeLessThanOrEqual(CONFIRM_LINES_MAX)
+    expect(CONFIRM_TEXT_TOP + CONFIRM_LINES_MAX * MSG_LINE_H)
+      .toBeLessThanOrEqual(CONFIRM_BTN_CY - CONFIRM_BTN_H / 2)
+  })
+
+  it('ボタン2つが面の中に収まり、重ならない', () => {
+    expect(confirmBtnCx(0, 2) - CONFIRM_BTN_W / 2)
+      .toBeGreaterThanOrEqual(MSG_WIN_CX - CONFIRM_MW / 2 + MSG_WIN_PAD)
+    expect(confirmBtnCx(1, 2) + CONFIRM_BTN_W / 2)
+      .toBeLessThanOrEqual(MSG_WIN_CX + CONFIRM_MW / 2 - MSG_WIN_PAD)
+    expect(confirmBtnCx(1, 2) - confirmBtnCx(0, 2)).toBeGreaterThanOrEqual(CONFIRM_BTN_W)
+    expect(CONFIRM_BTN_CY + CONFIRM_BTN_H / 2)
+      .toBeLessThanOrEqual(MSG_WIN_CY + CONFIRM_MH / 2)
+  })
+
+  it('ボタンの字が、どちらもボタンに収まる', () => {
+    for (const label of [DISCARD_BTN_LABEL, CONFIRM_CANCEL_LABEL]) {
+      expect(estTextWidth(label, CONFIRM_BTN_FONT_PX), label)
+        .toBeLessThanOrEqual(CONFIRM_BTN_W - 8)
+    }
+  })
+
+  /** ⚠ **押した場で捨てない。**確認を通す口は `confirmNeeded('廃棄')` の1つだけ（#113） */
+  it('廃棄は押した場で実行せず、確認を通す', () => {
+    expect(deliveryTabSource).toContain("this.askDiscard(row)")
+    expect(deliveryTabSource).toContain("confirmNeeded('廃棄')")
+    // `onDiscard` を呼ぶのは、確認を通した1箇所だけ
+    expect(deliveryTabSource.match(/this\.onDiscard\(/g)).toHaveLength(1)
+  })
+
+  /** ⚠ **タブを離れるときに暗幕が残らない** */
+  it('タブを出るときに確認も片付ける', () => {
+    expect(deliveryTabSource).toContain('this.confirm.close()')
   })
 })
