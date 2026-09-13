@@ -89,7 +89,7 @@ export function installDebugTools(scene: Phaser.Scene, deps: DebugDeps): void {
     {
       key: 'P', label: '行商人を呼ぶ',
       run: () => deps.raiseStoryEvent('peddler_visit')
-        ? '行商人バレンを呼んだ'
+        ? '行商人を呼んだ'
         : '行商人は呼べなかった（窓が開いている）',
     },
     {

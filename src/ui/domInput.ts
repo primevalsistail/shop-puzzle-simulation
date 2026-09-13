@@ -23,16 +23,31 @@ export function setGameKeyboard(scene: Phaser.Scene, enabled: boolean): void {
  * `<input>` を画面に載せる。載せられなければ `null` を返す
  * （`dom.createContainer` と `parent` が揃っていないと Phaser が例外を投げる）。
  *
- * ⚠ **例外で画面全体を道連れにしない。**呼ぶ側は null のときの出し方を用意する。
+ * ⚠ **渡すのは「中心」ではなく「左上」。**`setOrigin(0, 0)` で置いている。
+ *
+ * ## なぜ中心基点で置かないのか（2026-09-13・行商人の赤入れ）
+ *
+ * Phaser の `DOMElement` は既定で中心基点だが、**中心に寄せる幅と高さを
+ * `getBoundingClientRect()` で1度だけ測って焼き付ける。**
+ *
+ * ⚠ **`<input>` を作る時点で DOM コンテナが隠れていることがある。**
+ *   できごとの窓・案内・セーブ画面を出している間は `setDomInputsVisible(scene, false)`
+ *   （＝ コンテナに `display: none`）で、**行商人はそのできごとの窓から開く。**
+ *   **隠れている要素の `getBoundingClientRect()` は 0×0** なので、
+ *   **中心へ寄せる量が 0 のまま固定され、左上が指定点に来る。**
+ *   実測では検索欄が右へ 80px・下へ 12px ずれ、**枠を突き抜けて右の HUD に被った。**
+ *
+ * **左上基点なら測った大きさを使わない**ので、隠れていようがいまいが同じ場所に出る。
+ * ⚠ **中心で置きたい側が `w / 2` を引くこと。**ここには戻さない。
  */
 export function tryAddDom(
   scene: Phaser.Scene,
-  x: number, y: number,
+  left: number, top: number,
   el: HTMLElement,
   where: string,
 ): Phaser.GameObjects.DOMElement | null {
   try {
-    return scene.add.dom(x, y, el)
+    return scene.add.dom(left, top, el).setOrigin(0, 0)
   } catch (e) {
     console.warn(`${where}: DOM を使えません`, e)
     return null
@@ -77,9 +92,14 @@ export function createInput(scene: Phaser.Scene, opts: InputOptions): HTMLInputE
   if (opts.numeric) el.inputMode = 'numeric'
   if (opts.placeholder) el.placeholder = opts.placeholder
   el.value = opts.value ?? ''
+  // ⚠ **`index.html` の `* { box-sizing: border-box }` がこの要素にも効く。**
+  //   ここで明示しておかないと、**枠と余白のぶんだけ実寸が指定より小さくなる**
+  //   （検索欄が 160×24 のつもりで 150×18 だった。2026-09-13 実測）。
+  //   **`layout.ts` が確保した大きさと、画面に出る大きさを一致させる。**
   el.style.cssText = [
-    `width: ${opts.width - 10}px`,
-    `height: ${opts.height - 6}px`,
+    'box-sizing: border-box',
+    `width: ${opts.width}px`,
+    `height: ${opts.height}px`,
     'padding: 0 4px',
     'font-size: 12px',
     'font-family: sans-serif',

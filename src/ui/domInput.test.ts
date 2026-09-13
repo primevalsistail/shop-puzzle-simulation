@@ -85,3 +85,30 @@ describe('上に重ねる画面の間は `<input>` を隠す', () => {
     }
   })
 })
+
+/**
+ * **2026-09-13 の赤入れ2件（「UIがずれている」）の直し。**
+ *
+ * ⚠ **`<input>` は左上基点で置く。**Phaser の `DOMElement` は既定で中心基点だが、
+ *   **中心へ寄せる幅と高さを `getBoundingClientRect()` で1度だけ測って焼き付ける。**
+ *   **作る時点でコンテナが隠れていると 0×0 になり、寄せる量が 0 のまま固定される。**
+ *   行商人は**できごとの窓から開く**ので、欄を作る瞬間はいつも隠れている。
+ */
+describe('`<input>` は左上基点で置く（隠れていても同じ場所に出る）', () => {
+  it('`tryAddDom` が setOrigin(0, 0) を付けている', () => {
+    const fn = methodBody(dom, 'export function tryAddDom')
+    expect(fn).toContain('setOrigin(0, 0)')
+  })
+
+  /**
+   * ⚠ **`index.html` の `* { box-sizing: border-box }` がこの要素にも効く。**
+   *   明示しないと、**枠と余白のぶんだけ実寸が指定より小さくなる**
+   *   （検索欄が 160×24 のつもりで 150×18 だった）。
+   */
+  it('欄の実寸が、頼まれた大きさと同じ', () => {
+    const fn = methodBody(dom, 'export function createInput')
+    expect(fn).toContain("'box-sizing: border-box'")
+    expect(fn).toContain('`width: ${opts.width}px`')
+    expect(fn).toContain('`height: ${opts.height}px`')
+  })
+})

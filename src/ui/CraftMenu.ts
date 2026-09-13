@@ -1,24 +1,29 @@
 import Phaser from 'phaser'
 import type { CraftingSystem } from '../components/items/CraftingSystem.js'
 import type { Inventory } from '../components/economy/Inventory.js'
-import { MAX_QUANTITY } from '../components/economy/Inventory.js'
 import type { ItemRegistry, RecipeDef } from '../components/items/ItemRegistry.js'
 import type { RecipeUnlocks } from '../components/progress/RecipeUnlocks.js'
 import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
 import { SearchBox } from './SearchBox.js'
-import { money } from './money.js'
 import { createInput, tryAddDom, setGameKeyboard, readCount } from './domInput.js'
 import type { IslandName } from '../taxonomy/islands.js'
-import { routeValues } from '../taxonomy/routes.js'
 import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
 import {
   PLACE_CX, CONTENT_L, CONTENT_R,
-  FILTER_Y_NO_SUBTITLE as FILTER_Y, ROWS_TOP_NO_SUBTITLE as ROWS_TOP, PAGER_Y, rowsThatFit,
-  CRAFT_CONTROLS_L, CRAFT_TEXT_MAX_W, CRAFT_ROUTE_FONT_PX, LOG_T, craftTimeLabel,
+  FILTER_Y_NO_SUBTITLE as FILTER_Y, PAGER_Y, rowsThatFit,
+  LIST_SEARCH_W, LIST_SEARCH_H,
+  LOG_T, craftTimeLabel,
+  CRAFT_HEAD_Y, CRAFT_HEAD_FONT_PX, CRAFT_ROWS_TOP, CRAFT_ROW_H, CRAFT_COLS,
+  CRAFT_NAME_L, CRAFT_NAME_W, CRAFT_NAME_FONT_PX, CRAFT_CELL_FONT_PX,
+  CRAFT_MADE_R, CRAFT_STOCK_R, CRAFT_TIME_L, CRAFT_TIME_W,
+  CRAFT_DEMAND_L, CRAFT_DEMAND_W, CRAFT_DEMAND_SEP,
+  CRAFT_BTN_W, CRAFT_BTN_H, CRAFT_BTN_L, CRAFT_BTN_FONT_PX, CRAFT_BTN_LABEL,
+  CRAFT_REASON_INGREDIENTS, CRAFT_REASON_STOCK, CRAFT_REASON_TIME,
+  CRAFT_REASON_EMPTY, CRAFT_REASON_NOT_INT,
+  CRAFT_STEP_BIG_W, CRAFT_STEP_ONE_W, CRAFT_INPUT_W, CRAFT_INPUT_H, CRAFT_MAX_W,
+  CRAFT_STEP_XS, CRAFT_STEP_LABELS, CRAFT_STEP_FONT_PX,
 } from './layout.js'
-
-const ROW_H = 84
 
 /**
  * 一度に映る行数。**レシピは106本ある**（#30。ただし並ぶのは解禁済みのぶんだけ。#48）ので、
@@ -28,36 +33,21 @@ const ROW_H = 84
  *   手で書くと、領域を動かしたとき最後の行がページ送りへ食い込んでいても気づけない。
  */
 // ⚠ **工房は見出しの下の1行が無いので、上端が他の3画面より上にある**（`layout.ts`）
-const VISIBLE_ROWS = rowsThatFit(ROW_H, ROWS_TOP)
+// ⚠ **見出しの行のぶん、一覧の上端は `CRAFT_ROWS_TOP`**（`ROWS_TOP` ではない）
+const VISIBLE_ROWS = rowsThatFit(CRAFT_ROW_H, CRAFT_ROWS_TOP)
 
-/**
- * 右側の操作列の左端。ここから右は数量入力とボタンの領域で、文字は入れない
- * （**名前が長くてもボタンに被らない**ようにするため）。
- *
- * ⚠ **値は `layout.ts` にある。**3ルートの行が `…` に切れないかをテストが見ている。
- */
-const CONTROLS_L = CRAFT_CONTROLS_L
-/** 左の文字列に使える幅 */
-const TEXT_MAX_W = CRAFT_TEXT_MAX_W
 
-const INPUT_W = 52
-const INPUT_H = 22
-
-/** 検索の入力欄。絞り込みの行の右端に置く */
-const SEARCH_W = 160
-const SEARCH_H = 24
-
-/** 1行ぶんの、あとから書き換える部品 */
+/** 1行ぶんの、あとから書き換える部品。⚠ **列の順は `layout.ts` の `CRAFT_COLS`** */
 interface Row {
   recipe: RecipeDef
   max: number
   input: HTMLInputElement
   /** DOM が使えないときの数字表示（使えるときは undefined） */
   valueText?: Phaser.GameObjects.Text
-  outText: Phaser.GameObjects.Text
-  ingText: Phaser.GameObjects.Text
+  /** `作成数` — **出来高 × 回数**。1回ぶんではない */
+  madeText: Phaser.GameObjects.Text
+  /** `時間` — `◯分（営業◯分）`（#53） */
   timeText: Phaser.GameObjects.Text
-  reason: Phaser.GameObjects.Text
   craftBg: Phaser.GameObjects.Rectangle
   craftLabel: Phaser.GameObjects.Text
 }
@@ -93,18 +83,6 @@ export class CraftMenu {
     private frame: PlaceFrame,
     /** いまいる島（#33）。**ここで手に入らない材料に産地を出す**ため */
     private islandOf: () => IslandName,
-    /**
-     * 値段の強化の倍率（#76）。**持ち物一覧と同じものを通す。**
-     *
-     * ⚠ **渡さないと、強化を買うほど3ルートの数字が一覧とずれていく。**
-     */
-    private marginOf: () => number,
-    /**
-     * 主人公の手際（#53）。**3ルートの分数に掛ける。**
-     *
-     * ⚠ **渡さないと、行の分数（`craftTimeLabel`）と3ルートの `計◯分` が食い違う。**
-     */
-    private skillOf: () => number,
     private onClose: () => void,
   ) {
     this.search = new SearchBox(scene)
@@ -134,7 +112,7 @@ export class CraftMenu {
     }
     this.frame.show('工房', () => this.close())
     this.search.place(
-      CONTENT_R - SEARCH_W / 2, FILTER_Y, SEARCH_W, SEARCH_H, '名前で探す',
+      CONTENT_R - LIST_SEARCH_W / 2, FILTER_Y, LIST_SEARCH_W, LIST_SEARCH_H, '名前で探す',
       q => { this.paging.setQuery(q); this.rebuild() },
       CONTENT_DEPTH,
     )
@@ -201,8 +179,9 @@ export class CraftMenu {
     const shown = this.shown()
 
     this.buildFilterBar(objs)
+    if (shown.length > 0) this.buildHead(objs)
     this.paging.slice(shown).forEach((recipe, i) => {
-      this.buildRecipeRow(recipe, ROWS_TOP + ROW_H / 2 + i * ROW_H, objs)
+      this.buildRecipeRow(recipe, CRAFT_ROWS_TOP + CRAFT_ROW_H / 2 + i * CRAFT_ROW_H, objs)
     })
     if (shown.length === 0) {
       // 0件の理由は2つある。**「まだ1本も解禁されていない」を「該当なし」と書かない**
@@ -210,7 +189,7 @@ export class CraftMenu {
       const message = this.unlocks.unlockedRecipes().length === 0
         ? '材料を手に入れると、作れるものが増えていく'
         : '当てはまるレシピがありません'
-      objs.push(this.scene.add.text(PLACE_CX, ROWS_TOP + 60, message, {
+      objs.push(this.scene.add.text(PLACE_CX, CRAFT_ROWS_TOP + 40, message, {
         fontSize: '14px', color: '#889999',
       }).setOrigin(0.5))
     }
@@ -219,6 +198,28 @@ export class CraftMenu {
     this.container = this.scene.add.container(0, 0, objs)
     this.container.setDepth(CONTENT_DEPTH)
     for (const row of this.rows) this.refreshRow(row)
+  }
+
+  /**
+   * 見出しの行（**PO 赤入れ 2026-09-13**「↓のように表示して」）。
+   *
+   * ⚠ **一覧の上に1回だけ**（納品タブと同じ）。**行の中には入れない。**
+   * ⚠ **列の名も位置も `layout.ts` から来る**（`CRAFT_COLS`）。ここに字を書かない。
+   */
+  private buildHead(objs: Phaser.GameObjects.GameObject[]): void {
+    const [name, made, stock, time, demand, qty, craft] = CRAFT_COLS
+    const head = (x: number, text: string, originX: number) =>
+      objs.push(this.scene.add.text(x, CRAFT_HEAD_Y, text, {
+        fontSize: `${CRAFT_HEAD_FONT_PX}px`, color: '#8899aa',
+      }).setOrigin(originX, 0.5))
+
+    head(CRAFT_NAME_L, name, 0)
+    head(CRAFT_MADE_R, made, 1)
+    head(CRAFT_STOCK_R, stock, 1)
+    head(CRAFT_TIME_L, time, 0)
+    head(CRAFT_DEMAND_L, demand, 0)
+    head(CRAFT_STEP_XS.input + CRAFT_INPUT_W / 2, qty, 0.5)
+    head(CRAFT_BTN_L + CRAFT_BTN_W / 2, craft, 0.5)
   }
 
   /** 絞り込み — 主種類4つ ＋「作れる」 */
@@ -278,89 +279,113 @@ export class CraftMenu {
     }).setOrigin(1, 0.5))
   }
 
+  /**
+   * 1件ぶんの行。**1行で7列**（**PO 赤入れ 2026-09-13**）。
+   *
+   * ⚠ **3段組みには戻さない。**材料の一覧と儲け方の3ルート（#23）は
+   *   図に列が無いので落ちている（→ #107 ／ #108）。**戻すなら列を足す話になる。**
+   */
   private buildRecipeRow(recipe: RecipeDef, cy: number, objs: Phaser.GameObjects.GameObject[]): void {
     const max = this.craftingSystem.maxCraftTimes(recipe.id)
+    const out = this.registry.getItem(recipe.outputItemId)
 
     const focused = recipe.id === this.focusId
     objs.push(
       this.scene.add
-        .rectangle(PLACE_CX, cy, CONTENT_R - CONTENT_L, ROW_H - 8, max > 0 ? 0x2a3a2a : 0x3a2a2a)
+        .rectangle(PLACE_CX, cy, CONTENT_R - CONTENT_L, CRAFT_ROW_H - 6, max > 0 ? 0x2a3a2a : 0x3a2a2a)
         .setStrokeStyle(focused ? 2 : 1, focused ? 0xffdd88 : 0x555555),
     )
 
-    // 左は3段 — 完成品と時間／材料／**儲け方の3ルート**（#23）。数は括弧が在庫
-    const outText = this.text(CONTENT_L, cy - 24, '', 14, '#ffffff')
-    const ingText = this.text(CONTENT_L, cy - 2, '', 11, '#aaaaaa')
-    const timeText = this.text(CONTENT_L, cy + 22, '', CRAFT_ROUTE_FONT_PX, '#aaddaa')
-    const reason = this.scene.add.text(CONTROLS_L - 10, cy + 22, '', {
-      fontSize: '11px', color: '#dd8888',
+    // ── 商品 ／ 在庫 ／ 需要 —— **回数で変わらない列。**ここで1度だけ書く ──
+    objs.push(
+      this.cell(CRAFT_NAME_L, cy, out.display.name, CRAFT_NAME_FONT_PX, '#ffffff', CRAFT_NAME_W),
+      this.scene.add.text(CRAFT_STOCK_R, cy, String(this.inventory.getQuantity(out.id)), {
+        fontSize: `${CRAFT_CELL_FONT_PX}px`, color: '#ffffff',
+      }).setOrigin(1, 0.5),
+      this.cell(CRAFT_DEMAND_L, cy, this.demandLabel(recipe), CRAFT_CELL_FONT_PX, '#ddbb88',
+        CRAFT_DEMAND_W),
+    )
+
+    // ── 作成数 ／ 時間 —— **回数で変わる列**（`refreshRow` が書き換える） ──
+    const madeText = this.scene.add.text(CRAFT_MADE_R, cy, '', {
+      fontSize: `${CRAFT_CELL_FONT_PX}px`, color: '#ffffff',
     }).setOrigin(1, 0.5)
-    objs.push(outText, ingText, timeText, reason)
+    const timeText = this.cell(CRAFT_TIME_L, cy, '', CRAFT_CELL_FONT_PX, '#aaddaa', CRAFT_TIME_W)
+    objs.push(madeText, timeText)
 
-    // 右上 — − [n]回 ＋
-    const groupW = 26 + 4 + INPUT_W + 4 + 16 + 4 + 26
-    let x = CONTROLS_L + (CONTENT_R - CONTROLS_L - groupW) / 2
-    const minusAt = x
-    x += 26 + 4
-    const inputAt = x
-    x += INPUT_W + 4
-    const unitAt = x
-    x += 16 + 4
-    const plusAt = x
+    // ── 作る ── ⚠ **作れないときは字が理由に変わる**（商人タブと同じ作り）
+    const craftBg = this.scene.add
+      .rectangle(CRAFT_BTN_L + CRAFT_BTN_W / 2, cy, CRAFT_BTN_W, CRAFT_BTN_H, 0x4a4a8a)
+      .setStrokeStyle(1, 0x6a6ab0)
+      .setInteractive({ useHandCursor: true })
+    const craftLabel = this.scene.add.text(CRAFT_BTN_L + CRAFT_BTN_W / 2, cy, CRAFT_BTN_LABEL, {
+      fontSize: `${CRAFT_BTN_FONT_PX}px`, color: '#ffffff',
+    }).setOrigin(0.5)
+    objs.push(craftBg, craftLabel)
 
+    // ── 数量 —— `-10` `-1` `□` `+1` `+10` `最大` ──
     const input = this.createInput(recipe)
+    const row: Row = { recipe, max, input, madeText, timeText, craftBg, craftLabel }
+    craftBg.on('pointerdown', () => this.craft(row))
+
+    // ⚠ **`tryAddDom` は左上基点**（`domInput.ts` の注記）
+    const domEl = tryAddDom(
+      this.scene, CRAFT_STEP_XS.input, cy - CRAFT_INPUT_H / 2, input, '工房の回数入力')
     // DOM が使えない設定でも**メニュー全体を道連れにしない**。
-    // 使えないときは数字を表示するだけにして、− ＋ 最大 で操作できるようにする
-    let valueText: Phaser.GameObjects.Text | undefined
-    const domEl = tryAddDom(this.scene, inputAt + INPUT_W / 2, cy - 17, input, '工房の回数入力')
+    // 使えないときは数字を表示するだけにして、段のボタンで操作できるようにする
     if (domEl) {
       objs.push(domEl)
     } else {
       objs.push(
-        this.scene.add.rectangle(inputAt + INPUT_W / 2, cy - 17, INPUT_W, INPUT_H, 0x15152a)
+        this.scene.add
+          .rectangle(CRAFT_STEP_XS.input + CRAFT_INPUT_W / 2, cy, CRAFT_INPUT_W, CRAFT_INPUT_H,
+            0x15152a)
           .setStrokeStyle(1, 0x4a4a8a),
       )
-      valueText = this.scene.add.text(inputAt + INPUT_W - 6, cy - 17, input.value, {
-        fontSize: '12px', color: '#ffffff',
-      }).setOrigin(1, 0.5)
-      objs.push(valueText)
+      row.valueText = this.scene.add.text(
+        CRAFT_STEP_XS.input + CRAFT_INPUT_W - 6, cy, input.value, {
+          fontSize: `${CRAFT_STEP_FONT_PX}px`, color: '#ffffff',
+        }).setOrigin(1, 0.5)
+      objs.push(row.valueText)
     }
 
-    // 右下 — 最大 ／ 作る
-    const craftW = CONTENT_R - CONTROLS_L - 44
-    const craftBg = this.scene.add.rectangle(CONTROLS_L + 44 + craftW / 2, cy + 17, craftW, 24, 0x4a4a8a)
-      .setStrokeStyle(1, 0x6a6ab0)
-      .setInteractive({ useHandCursor: true })
-    const craftLabel = this.scene.add.text(CONTROLS_L + 44 + craftW / 2, cy + 17, '作る', {
-      fontSize: '12px', color: '#ffffff',
-    }).setOrigin(0.5)
-    objs.push(craftBg, craftLabel)
-
-    const row: Row = { recipe, max, input, valueText, outText, ingText, timeText, reason, craftBg, craftLabel }
-    craftBg.on('pointerdown', () => this.craft(row))
-
-    // 右上 — − [n]回 ＋
-    this.pushButton(objs, minusAt, cy - 17, 26, INPUT_H, '−', () => this.step(row, -1))
-    objs.push(
-      this.scene.add.text(unitAt + 8, cy - 17, '回', { fontSize: '12px', color: '#cccccc' })
-        .setOrigin(0.5),
-    )
-    this.pushButton(objs, plusAt, cy - 17, 26, INPUT_H, '＋', () => this.step(row, 1))
-
+    const step = CRAFT_STEP_LABELS
+    this.pushButton(objs, CRAFT_STEP_XS.minusTen, cy, CRAFT_STEP_BIG_W, CRAFT_INPUT_H,
+      step.minusTen, () => this.step(row, -10))
+    this.pushButton(objs, CRAFT_STEP_XS.minusOne, cy, CRAFT_STEP_ONE_W, CRAFT_INPUT_H,
+      step.minusOne, () => this.step(row, -1))
+    this.pushButton(objs, CRAFT_STEP_XS.plusOne, cy, CRAFT_STEP_ONE_W, CRAFT_INPUT_H,
+      step.plusOne, () => this.step(row, 1))
+    this.pushButton(objs, CRAFT_STEP_XS.plusTen, cy, CRAFT_STEP_BIG_W, CRAFT_INPUT_H,
+      step.plusTen, () => this.step(row, 10))
     // ⚠ **「最大」は `maxCraftTimes` を使う**（#64）。
     //   これは材料・**在庫の空き**・当日の残り時間のいちばん小さいものなので、
     //   押した瞬間に在庫から溢れる回数は入らない
-    this.pushButton(objs, CONTROLS_L, cy + 17, 38, 24, '最大', () => {
-      this.setValue(row, Math.max(row.max, 1))
-    })
+    this.pushButton(objs, CRAFT_STEP_XS.max, cy, CRAFT_MAX_W, CRAFT_INPUT_H,
+      step.max, () => this.setValue(row, Math.max(row.max, 1)))
 
     this.rows.push(row)
+  }
+
+  /**
+   * `需要` の列 —— **いまの島では手に入らない材料の産地**（#33）。
+   *
+   * ⚠ **「売れる島」ではない。**列の名は PO 判断（`sessions/questions-craft-tab.md` Q1）。
+   * ⚠ **ここで手に入る材料には出さない。**全部に出すと列が溢れるうえ、
+   *   **答えたいのは「ここで手に入るか」**である。産地が `なし` の品はどの島でも買える。
+   */
+  private demandLabel(recipe: RecipeDef): string {
+    const island = this.islandOf()
+    const origins = recipe.ingredients
+      .map(ing => this.registry.getItem(ing.itemId).origin)
+      .filter(o => o !== 'なし' && o !== island)
+    return [...new Set(origins)].join(CRAFT_DEMAND_SEP)
   }
 
   /** 回数入力の `<input>`。打鍵ではこの要素を作り直さない（カーソルが飛ぶため） */
   private createInput(recipe: RecipeDef): HTMLInputElement {
     return createInput(this.scene, {
-      width: INPUT_W, height: INPUT_H, numeric: true,
+      width: CRAFT_INPUT_W, height: CRAFT_INPUT_H, numeric: true,
       value: String(this.times.get(recipe.id) ?? 1),
       onInput: () => {
         const row = this.rows.find(r => r.recipe.id === recipe.id)
@@ -405,58 +430,25 @@ export class CraftMenu {
 
     // 数の欄は、読める値のときだけ書き換える（編集中に数字が踊らないように）
     if (times !== null) {
-      const out = this.registry.getItem(recipe.outputItemId)
+      row.madeText.setText(String(recipe.outputQuantity * times))
       // ⚠ **`recipe.durationMinutes` を出さないこと**（#53）。あれは手際を掛ける前の素の値で、
       //   **初期手際 S=10 の時点ですでに tier3 以上は実際の半分**を表示していた。
       //   時間が値段である以上、ここがずれると**払う額を間違えて見せている**ことになる。
       const minutes = this.craftingSystem.minutesFor(recipe.id) * times
-      const business = this.craftingSystem.businessMinutesFor(recipe.id, times)
-      this.setText(row.outText,
-        `${out.display.name}×${recipe.outputQuantity * times}(${this.inventory.getQuantity(out.id)})`
-        + `　${craftTimeLabel(minutes, business)}`)
-      // ⚠ **ここで手に入らない材料にだけ産地を付ける**（#33）。
-      //   全部に付けると行が溢れるうえ、**答えたいのは「ここで手に入るか」**である。
-      //   産地が `なし` の品はどの島でも買えるので付けない
-      const island = this.islandOf()
-      this.setText(row.ingText, recipe.ingredients
-        .map(ing => {
-          const item = this.registry.getItem(ing.itemId)
-          const here = item.origin === 'なし' || item.origin === island
-          const at = here ? '' : `＠${item.origin}`
-          return `${item.display.name}×${ing.quantity * times}(${this.inventory.getQuantity(ing.itemId)})${at}`
-        })
-        .join('  '))
-      this.setText(row.timeText, this.routeLabel(recipe, times))
+      this.fit(row.timeText, craftTimeLabel(minutes), CRAFT_TIME_W)
     }
 
+    // ⚠ **理由はボタンの字になる**（1行になって、理由を置く段が無くなったため）
     const reason = this.reasonFor(row, times)
-    row.reason.setText(reason)
     const enabled = reason === ''
+    row.craftLabel.setText(enabled ? CRAFT_BTN_LABEL : reason)
     row.craftBg.setFillStyle(enabled ? 0x4a4a8a : 0x3a3a4a)
-    row.craftLabel.setColor(enabled ? '#ffffff' : '#8888aa')
+    row.craftLabel.setColor(enabled ? '#ffffff' : '#cc9999')
     if (enabled) {
       row.craftBg.setInteractive({ useHandCursor: true })
     } else {
       row.craftBg.disableInteractive()
     }
-  }
-
-  /**
-   * 儲け方の3ルートを金額で1行にする（#23）。
-   *
-   * **設計としては3ルート成立しているのに、遊んでいる側に見えていない**のが #23。
-   * ⚠ **目安であることを忘れないこと。**実際の売上は配置の効き目と島の需要で変わる。
-   *   **強化の利益率は持ち物一覧と同じものを通している**（#76。`marginOf`）。
-   * ⚠ **③ は時間も一緒に出す。**取り分だけ見せると「材料も作る」がただ得に見える。
-   */
-  private routeLabel(recipe: RecipeDef, times: number): string {
-    const v = routeValues(
-      recipe, this.unlocks.unlockedRecipes(), this.islandOf(), this.marginOf(), this.skillOf(),
-    )
-    const amount = (n: number) => `${n >= 0 ? '+' : '−'}${money(Math.abs(n * times))}`
-    const base = `転売${amount(v.resell)} → 作る${amount(v.craft)}`
-    if (!v.hasDeeper) return base
-    return `${base} → 材料も作る${amount(v.deepCraft)}（計${v.deepMinutes * times}分）`
   }
 
   /**
@@ -466,29 +458,42 @@ export class CraftMenu {
    *   「在庫が上限」は**待てば直るかどうかが違う。**
    *   在庫の側を「時間がない」と言うと、**明日まで待ってまた作れず**に終わる。
    * ⚠ **在庫を時間より先に見る。**両方だめなときに出したいのは、待っても直らないほう。
+   * ⚠ **字は `作る` ボタンに入る**ので短い（`layout.ts` の `CRAFT_REASON_*`）。
+   *   **`在庫が上限 400` のように数を足さないこと。**ボタンから出る。
    */
   private reasonFor(row: Row, times: number | null): string {
     if (times === null) {
-      return row.input.value.trim() === '' ? '回数を入れて' : '1以上の整数'
+      return row.input.value.trim() === '' ? CRAFT_REASON_EMPTY : CRAFT_REASON_NOT_INT
     }
-    if (!this.craftingSystem.hasIngredients(row.recipe.id, times)) return '材料が足りない'
+    if (!this.craftingSystem.hasIngredients(row.recipe.id, times)) return CRAFT_REASON_INGREDIENTS
     // ⚠ **知らせは出さない。**作り終えて上限に達したときの知らせが `GameScene` にあり、
     //   そちらと重なる。ここは仕入れ画面と同じく**押せなくして理由を出す**だけ
-    if (!this.craftingSystem.fitsInStock(row.recipe.id, times)) return `在庫が上限 ${MAX_QUANTITY}`
-    if (!this.craftingSystem.fitsInToday(row.recipe.id, times)) return '今日はもう時間がない'
+    if (!this.craftingSystem.fitsInStock(row.recipe.id, times)) return CRAFT_REASON_STOCK
+    if (!this.craftingSystem.fitsInToday(row.recipe.id, times)) return CRAFT_REASON_TIME
     return ''
   }
 
-  /** 枠に収まる文字（はみ出す分は末尾を … に詰める）。左端そろえ */
-  private text(x: number, y: number, content: string, size: number, color: string): Phaser.GameObjects.Text {
-    return this.scene.add.text(x, y, content, { fontSize: `${size}px`, color }).setOrigin(0, 0.5)
+  /** 左端そろえの1マス。**その列の幅を超えたら末尾を … に詰める** */
+  private cell(
+    x: number, y: number, content: string, size: number, color: string, maxW: number,
+  ): Phaser.GameObjects.Text {
+    const t = this.scene.add.text(x, y, '', { fontSize: `${size}px`, color }).setOrigin(0, 0.5)
+    t.setData('maxW', maxW)
+    this.fit(t, content, maxW)
+    return t
   }
 
-  private setText(t: Phaser.GameObjects.Text, content: string): void {
+  /**
+   * 列の幅に収める。
+   *
+   * ⚠ **列ごとに測る**（画面の左半分ぜんぶ、ではない）。
+   *   **表にした時点で、はみ出す先は隣の列である。**
+   */
+  private fit(t: Phaser.GameObjects.Text, content: string, maxW: number): void {
     t.setText(content)
-    if (t.width <= TEXT_MAX_W) return
+    if (t.width <= maxW) return
     let s = content
-    while (s.length > 1 && t.width > TEXT_MAX_W) {
+    while (s.length > 1 && t.width > maxW) {
       s = s.slice(0, -1)
       t.setText(`${s}…`)
     }

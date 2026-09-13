@@ -1,5 +1,6 @@
 import type Phaser from 'phaser'
 import {
+  SCREEN_W, SCREEN_H, MSG_SCRIM_ALPHA,
   MSG_WIN_L, MSG_WIN_W, MSG_WIN_H, MSG_WIN_CX, MSG_WIN_CY, MSG_WIN_PAD,
   MSG_SPEAKER_FONT_PX, MSG_SPEAKER_Y,
   MSG_TEXT_FONT_PX, MSG_TEXT_TOP, MSG_LINE_H,
@@ -28,6 +29,11 @@ const DEPTH = 120
  * ⚠ **出口は選択肢だけ。**ESC でも外側を押しても閉じない —— 選ばせるために
  *   時間を止めているのに、選ばずに閉じられるなら止める意味が無い。
  *
+ * ⚠ **ダイアログとして出す**（PO 2026-09-14「なんか前に出てる感ないよね」）。
+ *   **全画面の暗幕 ＋ 画面中央の不透明な面** —— `Tutorial` と `SaveLoadMenu` と同じ形で、
+ *   **この作りで「前に出ている」を表しているのはこの形だけ。**3つ目の形を作らない。
+ *   ⚠ **暗幕は「消す」ではなく「沈める」。**後ろの棚は見えている（#24 の既決2）。
+ *
  * ⚠ **文字はここで作らない。**話し手も本文も選択肢も `StoryEvents.ts`（Phaser を読まない）
  *   が持つ。ここで組み立てると `layout.test.ts` が実物の文字列を測れなくなる。
  */
@@ -52,20 +58,31 @@ export class MessageWindow {
     if (this.shown) return
     this.shown = true
 
-    const bg = this.scene.add
-      .rectangle(MSG_WIN_CX, MSG_WIN_CY, MSG_WIN_W, MSG_WIN_H, 0x141b2e, 0.97)
-      .setStrokeStyle(2, 0x6a6aaa)
-      // ⚠ **下の盤面を押させない。**判定は `isShelfBlocked()` が持つが、
-      //   窓の下にある棚が「押せそうに見える」状態にはしない
-      .setInteractive()
-      .setDepth(DEPTH)
-    this.objects.push(bg)
+    // ⚠ **暗幕は全画面。**窓の下だけでは「前に出ている」に見えない（PO 2026-09-14）。
+    //   ⚠ **`setInteractive()` を外さないこと。**下の盤面を押させないのはこの面で、
+    //   判定（`isShelfBlocked()`）とは別に、**押せそうに見える状態を作らない**ため。
+    this.objects.push(
+      this.scene.add
+        .rectangle(MSG_WIN_CX, MSG_WIN_CY, SCREEN_W, SCREEN_H, 0x000000, MSG_SCRIM_ALPHA)
+        .setInteractive()
+        .setDepth(DEPTH),
+    )
+
+    // ⚠ **面は不透明。**透けると後ろの盤面と混ざって、暗幕を敷いても沈まない。
+    //   **色は `SaveLoadMenu` と同じ**（同じ作りのダイアログを2つの色で出さない）
+    this.objects.push(
+      this.scene.add
+        .rectangle(MSG_WIN_CX, MSG_WIN_CY, MSG_WIN_W, MSG_WIN_H, 0x16213e)
+        .setStrokeStyle(2, 0x5566cc)
+        .setInteractive()
+        .setDepth(DEPTH + 1),
+    )
 
     // 話し手。⚠ **名前だけ**（絵は #21・#15 で後から入る）
     this.objects.push(
       this.scene.add.text(MSG_WIN_L + MSG_WIN_PAD, MSG_SPEAKER_Y, def.speaker, {
         fontSize: `${MSG_SPEAKER_FONT_PX}px`, color: '#00ffee', fontStyle: 'bold',
-      }).setOrigin(0, 0).setDepth(DEPTH + 1),
+      }).setOrigin(0, 0).setDepth(DEPTH + 2),
     )
 
     // 本文。**1要素が1行**（自動で折り返さない）
@@ -73,7 +90,7 @@ export class MessageWindow {
       this.objects.push(
         this.scene.add.text(MSG_WIN_L + MSG_WIN_PAD, MSG_TEXT_TOP + i * MSG_LINE_H, line, {
           fontSize: `${MSG_TEXT_FONT_PX}px`, color: '#ffffff',
-        }).setOrigin(0, 0).setDepth(DEPTH + 1),
+        }).setOrigin(0, 0).setDepth(DEPTH + 2),
       )
     })
 
@@ -83,10 +100,10 @@ export class MessageWindow {
         .rectangle(cx, MSG_CHOICE_CY, MSG_CHOICE_W, MSG_CHOICE_H, 0x2a2a4a)
         .setStrokeStyle(1, 0x6666aa)
         .setInteractive({ useHandCursor: true })
-        .setDepth(DEPTH + 1)
+        .setDepth(DEPTH + 2)
       const label = this.scene.add.text(cx, MSG_CHOICE_CY, choice.label, {
         fontSize: `${MSG_CHOICE_FONT_PX}px`, color: '#ccddff',
-      }).setOrigin(0.5).setDepth(DEPTH + 2)
+      }).setOrigin(0.5).setDepth(DEPTH + 3)
       btn.on('pointerover', () => btn.setFillStyle(0x4a4a7a))
       btn.on('pointerout', () => btn.setFillStyle(0x2a2a4a))
       btn.on('pointerdown', () => {

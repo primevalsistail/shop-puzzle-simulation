@@ -80,6 +80,16 @@ export const TITLE_Y = PLACE_T + 28
 export const SUBTITLE_Y = PLACE_T + 56
 /** 絞り込みの行 */
 export const FILTER_Y = PLACE_T + 84
+/**
+ * 絞り込みの行の右端に置く「名前で探す」欄（#55）。**仕入れと工房で同じ大きさ。**
+ *
+ * ⚠ **`PurchaseMenu.ts` / `CraftMenu.ts` に写しを置かないこと。**
+ *   以前は両方が 160×24 を自前で持っていて、**画面に出る実寸は 150×18 だった**
+ *   （`index.html` の `box-sizing: border-box` と `createInput` の食い違い。2026-09-13）。
+ *   **`layout.test.ts` が枠からはみ出さないことを見るには、出どころが1つで要る。**
+ */
+export const LIST_SEARCH_W = 160
+export const LIST_SEARCH_H = 24
 /** 一覧の上端（ここから下へ1行ずつ積む） */
 export const ROWS_TOP = PLACE_T + 104
 /** ページ送りの行 */
@@ -585,11 +595,13 @@ export function upcomingLabel(salesLeft: number): string {
 export const UPCOMING_FONT_PX = 11
 
 /**
- * 行商人バレンのところ（#9）に出す文字。
+ * 行商人のところ（#9）に出す文字。
  *
  * ⚠ **ここに置いてあるのは、幅を測るため**（`upcomingLabel` と同じ理由）。
  *   `PurchaseMenu.ts` は Phaser を読むので node の単体テストから import できない。
  * ⚠ **言い回しは仮置き。**画面に足す文言は PO が指示する（#79）。
+ * ⚠ **見出しの下の1行はもう無い**（PO 指示 2026-09-13「不要」）。
+ *   `所持金` を落としたときと同じで、**戻すなら PO の指示が要る。**
  */
 
 /**
@@ -608,25 +620,16 @@ export function peddlerRemainText(remaining: number): string {
 export const PEDDLER_REMAIN_FONT_PX = 11
 
 /**
- * 行商人の見出しの下の1行。
- *
- * ⚠ **「今日だけ」であることを言う。**言わないと、島の商人と同じく
- *   **いつでもそこに居る店**に見え、**買い逃しても気づけない**（品揃えは毎日入れ替わる）。
- * ⚠ **`所持金` を戻さないこと**（PO 指示 2026-09-13「右上にあるから統一で消した」）。
- *   **右パネルの HUD が常に出している。**商人・改装・ここ、**3箇所とも落としてある。**
- */
-export function peddlerSubtitleText(): string {
-  return '今日の品ぞろえ（明日には別の品になる）'
-}
-
-/**
  * 行商人の場所の見出し。
  *
  * ⚠ **できごとの窓に出る話し手の名（`STORY_EVENTS`）と同じにすること。**
  *   同じ相手を2つの名で呼ばない（`クラフト`→`工房` と同じ直し。束M）。
  *   ⚠ **ボタン列にはもう無い**（#90。向こうから来るので、窓の「見る」からだけ開く）。
+ * ⚠ **`バレン` を戻さないこと**（PO 指示 2026-09-13「`バレン` は不要」）。
+ *   **戻すなら話し手も一緒に戻す**（`STORY_EVENTS.peddler_visit.speaker`）。
+ *   ⚠ **内部の語はそのまま**（`StockedBy` の `'行商人バレン'`）。**画面に出ない。**
  */
-export const PEDDLER_TITLE = '行商人バレン'
+export const PEDDLER_TITLE = '行商人'
 
 /**
  * マイセットの升に出す1行（`ハルヴェラ島`。#67）の文字の大きさ。
@@ -742,41 +745,162 @@ export const CHAR_ART_H = CHAR_ART_B - CHAR_ART_T
 export const CHAR_ART_CX = 1185
 export const CHAR_ART_W = 170
 
-// ─── 工房（クラフト）の行 ──────────────────────────────────
-/** 操作列（回数の入力とボタン）の左端。ここより左が文字の領域 */
-export const CRAFT_CONTROLS_L = CONTENT_R - 260
-/** 文字に使える幅。**ここを超えた分は末尾が `…` に詰められる**（`CraftMenu.setText`） */
-export const CRAFT_TEXT_MAX_W = CRAFT_CONTROLS_L - CONTENT_L - 22
-
+// ─── 工房の表 ────────────────────────────────────────────────
 /**
- * 儲け方の3ルートを金額で並べる行（#23）の文字の大きさ。
+ * 工房（`CraftMenu`）の表（**PO 赤入れ 2026-09-13**「↓のように表示して」）。
  *
- * ⚠ **`…` で切れると意味が消える行である。**「転売 → 作る → 材料も作る」の3つが
- *   並んで初めて比べられるので、末尾が落ちると #23 で入れた意味そのものが無くなる。
- *   収まるかは `layout.test.ts` が見ている。
+ * **商品 ／ 作成数 ／ 在庫 ／ 時間 ／ 需要 ／ 数量 ／ 作る**（列の名は `CRAFT_COLS`）。
+ * ⚠ **材料の一覧と、儲け方の3ルート（#23）は図に列が無い**ので行から落ちている
+ *   （→ #107 ／ #108）。**戻すなら列を足す話になる。**
+ *
+ * ⚠ **納品タブ（`DELIVERY_*`）と同じく左から順に決める。**
+ *   商人タブ・改装タブが右端から決めているのは**右端にボタンが貼り付いているから**で、
+ *   この表は**左の5列が短く、右の2列（数量・作る）だけが固定幅**なので、
+ *   **左は左から、右は右から**決めて、あいだが空くかをテストで見る。
+ * ⚠ **写しを作らないこと。**`CraftMenu.ts` はここを読むだけで、自分の数を持たない。
  */
-export const CRAFT_ROUTE_FONT_PX = 12
+/** 見出しの行（`商品` `作成数` …）の y。⚠ **工房は見出しの下の1行が無い**ので上端が他より上 */
+export const CRAFT_HEAD_Y = ROWS_TOP_NO_SUBTITLE + 10
+export const CRAFT_HEAD_FONT_PX = 12
+/** 1件目の行の上端。⚠ **見出しの行と重ならないこと**（`layout.test.ts` が見ている） */
+export const CRAFT_ROWS_TOP = ROWS_TOP_NO_SUBTITLE + 30
+/**
+ * 1行の高さ。**3段組み（84px）をやめて1行にした。**
+ *
+ * ⚠ **行数は決め打ちしない**（`rowsThatFit`）。84px のときは5行、いまは11行入る。
+ */
+export const CRAFT_ROW_H = 40
+
+/** 列の名。⚠ **見出しの字はここだけ。**`CraftMenu.ts` に書かない */
+export const CRAFT_COLS = ['商品', '作成数', '在庫', '時間', '需要', '数量', '作る'] as const
 
 /**
- * 加工が**何分かかり、そのうち何分が営業時間か**を1行にする（#53）。
+ * `商品` の左端と幅。**出来上がる品の名前だけ**（`×3(400)` は `作成数` と `在庫` に割れた）。
  *
- * ⚠ **「所要分」だけでは値段が見えない。**加工中は `TimeManager.skipMinutes` が
- *   `TIME_MINUTE_PASSED` を出さないので**客が1人も来ない**。つまり営業時間に
- *   食い込んだ分はそのまま売上が消える（実測: 営業600分のうち240分を加工に使うと
- *   その日の売上は 41.7% 減）。**払っているのに画面に出ていなかったのがこれ。**
+ * ⚠ **いちばん長い品名が `作成数` に届かないこと**（`layout.test.ts`）。
+ *   **実測: `フェルト張りの氷入れ` が 10文字＝140px**（`CRAFT_NAME_FONT_PX`）。
+ */
+export const CRAFT_NAME_L = CONTENT_L + 8
+export const CRAFT_NAME_W = 142
+/** ⚠ **納品タブ（15px）より1つ小さい。**列が7つあり、ここを 15px にすると `需要` が入らない */
+export const CRAFT_NAME_FONT_PX = 14
+
+/** 行の中の数字と島名の大きさ */
+export const CRAFT_CELL_FONT_PX = 11
+
+/** `作成数` の右端（右そろえ）。**`出来高 × 回数`** であって、1回ぶんではない */
+export const CRAFT_MADE_R = CRAFT_NAME_L + CRAFT_NAME_W + 44
+/** `在庫` の右端（右そろえ）。**出来上がる品の在庫** */
+export const CRAFT_STOCK_R = CRAFT_MADE_R + 56
+/**
+ * `時間` の左端と幅。**`craftTimeLabel` が作る `◯分`**。
+ *
+ * ⚠ **4桁までしか測っていない**（`9999分`）。**1日は 1440分**なので、
+ *   作れる回数のあいだは必ず4桁に収まる。**それ以上を手で打つと `…` に詰まる**が、
+ *   そのときは `作る` が押せない状態なので実害は無い。
+ *
+ * ⚠ **`（営業◯分）` を消しても幅は詰めていない**（PO 指示 2026-09-14）。
+ *   **`需要` の左端はここから導いている**ので、詰めると表全体が左へ寄り、
+ *   **`需要` と `数量` のあいだに穴が開く**（`数量` と `作る` は右端に固定）。
+ *   **穴の場所が変わるだけなので、動かさない。**
+ */
+export const CRAFT_TIME_L = CRAFT_STOCK_R + 16
+export const CRAFT_TIME_W = 118
+/**
+ * `需要` の左端と幅。
+ *
+ * ⚠ **中身は「いまの島では手に入らない材料の産地」である**（これまで `＠` で付けていたもの）。
+ *   **「売れる島」ではない。**→ 列名は PO 判断（`sessions/questions-craft-tab.md` Q1）。
+ * ⚠ **2島まで収まる幅**（`ハルヴェラ・リナツィア` ＝ 121px）。
+ *   **3島になる組み合わせは 424組中2組**しかないので、そこは `…` に詰まってよい。
+ */
+export const CRAFT_DEMAND_L = CRAFT_TIME_L + CRAFT_TIME_W + 8
+export const CRAFT_DEMAND_W = 129
+/** 産地が2つ以上あるときの繋ぎ。⚠ **幅の見積もりに入る**ので `layout.test.ts` と揃える */
+export const CRAFT_DEMAND_SEP = '・'
+
+/**
+ * `作る` ボタン。**右端から決める。**
+ *
+ * ⚠ **作れないときは字が理由に変わる**（商人タブ `BUY_REASON_FUNDS` と同じ作り）。
+ *   **1行になった時点で、理由を置く段が無くなった。**
+ * ⚠ **いちばん長い理由がここに収まること**（`layout.test.ts`）。
+ */
+export const CRAFT_BTN_W = 76
+export const CRAFT_BTN_H = 26
+export const CRAFT_BTN_L = CONTENT_R - 6 - CRAFT_BTN_W
+export const CRAFT_BTN_FONT_PX = 12
+export const CRAFT_BTN_LABEL = '作る'
+
+/**
+ * 作れない理由。**ボタンの字になる**ので短い。
+ *
+ * ⚠ **1つにまとめないこと**（#64）。「時間がない」と「在庫が上限」は
+ *   **待てば直るかどうかが違う。**在庫の側を「時間がない」と言うと、
+ *   **明日まで待ってまた作れず**に終わる。
+ * ⚠ **言い回しは PO の領分（#79）。**仮置き。**ここに置いてあるのは幅を測るため。**
+ */
+export const CRAFT_REASON_INGREDIENTS = '材料不足'
+export const CRAFT_REASON_STOCK = '在庫上限'
+export const CRAFT_REASON_TIME = '時間切れ'
+export const CRAFT_REASON_EMPTY = '回数を入れて'
+export const CRAFT_REASON_NOT_INT = '1以上の整数'
+
+/**
+ * `数量` の列 —— `-10` `-1` `□` `+1` `+10` `最大`（**PO の図のとおりの並び**）。
+ *
+ * ⚠ **`回` の字は出さない**（図に無い）。**別の段にあった `最大` もここへ入った。**
+ * ⚠ **右端は `作る` ボタンから `CRAFT_QTY_GAP` 空ける。**
+ */
+export const CRAFT_STEP_BIG_W = 28
+export const CRAFT_STEP_ONE_W = 22
+export const CRAFT_INPUT_W = 40
+export const CRAFT_INPUT_H = 22
+export const CRAFT_MAX_W = 34
+export const CRAFT_STEP_GAP = 3
+export const CRAFT_QTY_GAP = 10
+/** 数量の列の幅（6つぶんと隙間5つ） */
+export const CRAFT_QTY_W =
+  CRAFT_STEP_BIG_W + CRAFT_STEP_ONE_W + CRAFT_INPUT_W
+  + CRAFT_STEP_ONE_W + CRAFT_STEP_BIG_W + CRAFT_MAX_W + CRAFT_STEP_GAP * 5
+/** 数量の列の左端 */
+export const CRAFT_QTY_L = CRAFT_BTN_L - CRAFT_QTY_GAP - CRAFT_QTY_W
+/** ⚠ **並びは1箇所から**。`CraftMenu.ts` も `layout.test.ts` もここを読む */
+export const CRAFT_STEP_XS = {
+  minusTen: CRAFT_QTY_L,
+  minusOne: CRAFT_QTY_L + CRAFT_STEP_BIG_W + CRAFT_STEP_GAP,
+  input: CRAFT_QTY_L + CRAFT_STEP_BIG_W + CRAFT_STEP_ONE_W + CRAFT_STEP_GAP * 2,
+  plusOne: CRAFT_QTY_L + CRAFT_STEP_BIG_W + CRAFT_STEP_ONE_W + CRAFT_INPUT_W + CRAFT_STEP_GAP * 3,
+  plusTen: CRAFT_QTY_L + CRAFT_STEP_BIG_W + CRAFT_STEP_ONE_W + CRAFT_INPUT_W
+    + CRAFT_STEP_ONE_W + CRAFT_STEP_GAP * 4,
+  max: CRAFT_QTY_L + CRAFT_STEP_BIG_W + CRAFT_STEP_ONE_W + CRAFT_INPUT_W
+    + CRAFT_STEP_ONE_W + CRAFT_STEP_BIG_W + CRAFT_STEP_GAP * 5,
+} as const
+/** 段の刻み。⚠ **`最大` は `maxCraftTimes` を使う**（#64）ので、ここには入らない */
+export const CRAFT_STEP_LABELS = {
+  minusTen: '-10', minusOne: '-1', plusOne: '+1', plusTen: '+10', max: '最大',
+} as const
+export const CRAFT_STEP_FONT_PX = 11
+
+/**
+ * 加工が**何分かかるか**を1行にする。
+ *
+ * ⚠ **`（営業◯分）` を足さないこと**（PO 指示 2026-09-14「**とか不要です。消せ**」）。
+ *   #53 で足したもので、**加工中は客が1人も来ない**（`TimeManager.skipMinutes` が
+ *   `TIME_MINUTE_PASSED` を出さない）ため、営業時間に食い込んだ分だけ売上が消える
+ *   ——という**仕組みそのものは変わっていない**（実測: 営業600分のうち240分を加工に使うと
+ *   その日の売上は 41.7% 減）。**画面から消えたのは、その知らせだけである。**
+ *   **どこで知らせ直すかは #109。**
  *
  * ⚠ **`recipe.durationMinutes` を渡さないこと。**あれは手際を掛ける前の素の値で、
  *   `CraftingSystem.minutesFor` とは**初期手際 S=10 の時点ですでに食い違う**
  *   （tier3 以上は2倍。最悪は `recipe_feast_hamper` の 240分 → 実際728分）。
  *
- * ⚠ **営業0分のときは何も足さない。**夜と朝に作るのが「削らない作り方」で、
- *   そこに毎回`（営業0分）`と出ると、**削っている行だけが目立つ形にならない。**
  * ⚠ **ここに置いてあるのは、幅を測るため**（`upcomingLabel` と同じ理由）。
- *   ⚠ **言い回しは PO の領分（#79）。**仮置き。
+ *   ⚠ **言い回しは PO の領分（#79）。**
  */
-export function craftTimeLabel(minutes: number, businessMinutes: number): string {
-  if (businessMinutes <= 0) return `${minutes}分`
-  return `${minutes}分（営業${businessMinutes}分）`
+export function craftTimeLabel(minutes: number): string {
+  return `${minutes}分`
 }
 
 // ─── 納品の帯（#28） ──────────────────────────────────
@@ -818,23 +942,36 @@ export const ORDER_BAR_FONT_PX = 12
  *
  * ⚠ **納品の帯（#28）とメッセージ欄に被せない。**帯はいま受けている注文で、
  *   **選ぶ材料になる**（「見る」かどうかは何が要るかで決まる）。
- *   ⚠ **帯とそろえるのは「中心」であって「左右」ではない**（PO 2026-09-13）。
- *   以前は左右をそろえていたが、**帯の幅にそろえる限り横の余白は消せない** ——
- *   本文は5文字、ボタン2つで 332px しかないのに、帯は 748px ある。
- *   **中心をそろえておけば、幅が違っても軸は1本のまま。**
  * ⚠ **キャラ帯（980〜1090）を覆わない。**`PlaceFrame` は帯を隠してからその領域まで使うが、
  *   こちらは**隠さない**ので、覆うと店番と来店客が窓に切られる。
  *   ⚠ **話し手の絵はいずれあの帯に入る**（#21・#15）。覆うと絵が見えない窓になる。
- * ⚠ **盤面には重なる。**盤面はいちばん広いとき y588 まで来るので、
- *   帯より上に置く以上は避けようがない。**消さずに重ねる**のがここの線引き。
+ * ⚠ **盤面には重なる。**消さずに重ねる、が #24 の線引き。
+ *
+ * ## 置き場所（PO 2026-09-14「なんか前に出てる感ないよね。ダイアログにして」）
+ *
+ * ⚠ **画面の中央。**この作りのダイアログは**全画面の暗幕 ＋ 画面中央の面**で、
+ *   **`Tutorial` と `SaveLoadMenu` の2つがどちらもその形**である。**3つ目の形を作らない。**
+ *
+ * ⚠ **以前の「納品の帯と中心をそろえる」は捨てた**（PO 2026-09-13 の規則）。
+ *   **あれは窓が帯のすぐ上にあったときの話**で、**画面の中央へ出すならそろえる相手は帯ではない。**
+ *   ⚠ **「被らない」ほうは全部そのまま成り立っている**（下の実測）。捨てたのは「そろえる相手」だけ。
+ *
+ * ⚠ **暗幕は「消す」ではなく「沈める」。**#24 の既決2（**棚を消さない**）は生きている ——
+ *   `PlaceFrame` は棚を `destroy()` してから中央を入れ替えるが、**こちらは後ろが見えている。**
  */
-export const MSG_WIN_B = ORDER_BAR_T - 6
 /**
- * 窓の幅。**帯（748px）より狭く、中心だけそろえる**（PO 2026-09-13「大きすぎる」）。
+ * 暗幕の濃さ。**下を押させないための面でもある**（`setInteractive()`）。
+ *
+ * ⚠ **`Tutorial`（0.75）と `SaveLoadMenu`（0.65）は自前で持っている。**
+ *   3箇所を1つにまとめるのは別の話（issue）。**ここはセーブ枠に合わせた。**
+ */
+export const MSG_SCRIM_ALPHA = 0.65
+/**
+ * 窓の幅。
  *
  * ⚠ **広げるなら、何が入らなかったのかを書くこと。**ここは
  *   **選択肢3つぶん（110×3 ＋ 隙間）＋内側の余白**でできていて、
- *   **それより1つぶん以上広いと `layout.test.ts` が落ちる。**
+ *   **それより1つぶん以上広いと `layout.test.ts` が落ちる**（PO 2026-09-13「余白が多すぎる」）。
  */
 export const MSG_WIN_W = 440
 /**
@@ -846,12 +983,13 @@ export const MSG_WIN_W = 440
  *   **黙って余らせておかない**（PO 2026-09-13「余白が多すぎる」）。
  */
 export const MSG_WIN_H = 120
-export const MSG_WIN_T = MSG_WIN_B - MSG_WIN_H
-/** ⚠ **中心は帯とそろえる**（左右はそろえない。上の注記） */
-export const MSG_WIN_CX = (ORDER_BAR_L + ORDER_BAR_R) / 2
+/** ⚠ **画面の中央。**`Tutorial` `SaveLoadMenu` と同じ中心（上の注記） */
+export const MSG_WIN_CX = SCREEN_W / 2
+export const MSG_WIN_CY = SCREEN_H / 2
 export const MSG_WIN_L = MSG_WIN_CX - MSG_WIN_W / 2
 export const MSG_WIN_R = MSG_WIN_CX + MSG_WIN_W / 2
-export const MSG_WIN_CY = (MSG_WIN_T + MSG_WIN_B) / 2
+export const MSG_WIN_T = MSG_WIN_CY - MSG_WIN_H / 2
+export const MSG_WIN_B = MSG_WIN_CY + MSG_WIN_H / 2
 /** 窓の内側の余白 */
 export const MSG_WIN_PAD = 14
 /** 本文と名前に使える幅 */

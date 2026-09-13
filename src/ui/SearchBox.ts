@@ -47,7 +47,8 @@ export class SearchBox {
       onInput: value => onChange(value),
     })
 
-    const dom = tryAddDom(this.scene, x, y, el, '一覧の検索')
+    // ⚠ **`tryAddDom` は左上基点**（`domInput.ts` の注記）。ここで中心から寄せる
+    const dom = tryAddDom(this.scene, x - w / 2, y - h / 2, el, '一覧の検索')
     if (!dom) return
     this.dom = dom.setDepth(depth)
     this.input = el

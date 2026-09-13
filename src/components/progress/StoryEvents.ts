@@ -78,7 +78,8 @@ export const STORY_EVENTS: readonly StoryEventDef[] = [
   {
     id: 'peddler_visit',
     // ⚠ **「行く場所」のボタンと同じ名**（同じ相手を2つの名で呼ばない。束M）
-    speaker: '行商人バレン',
+    // ⚠ **見出し（`PEDDLER_TITLE`）と同じ語**（`layout.test.ts` が一致を見ている）
+    speaker: '行商人',
     // ⚠ **言い回しは PO の領分（#79）。**既にある知らせの語をそのまま使っている
     lines: ['船に寄った'],
     choices: [

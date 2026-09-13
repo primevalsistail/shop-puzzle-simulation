@@ -15,7 +15,7 @@ import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
 import {
   PLACE_CX, CONTENT_L, CONTENT_R,
-  SUBTITLE_Y, FILTER_Y, ROWS_TOP, PAGER_Y, rowsThatFit,
+  FILTER_Y, LIST_SEARCH_W, LIST_SEARCH_H, ROWS_TOP, PAGER_Y, rowsThatFit,
   BUY_W, BUY_BTN_W, BUY_TOTAL_FONT_PX, BUY_FONT_PX, BUY_LABEL,
   BUY_REASON_FUNDS, buyReasonCap, QTY_REASON_EMPTY, QTY_REASON_NOT_INT,
   INFO_FONT_PX, LOG_T,
@@ -23,8 +23,8 @@ import {
   ROW_MAX_L, ROW_MAX_W, ROW_PLUS_L, ROW_INPUT_L, ROW_INPUT_W, ROW_INPUT_H,
   ROW_MINUS_L, ROW_STEP_W, ROW_INFO_R, ROW_NEED_R,
   UPCOMING_FONT_PX, upcomingLabel,
-  PEDDLER_TITLE, PEDDLER_REMAIN_FONT_PX, peddlerRemainText, peddlerSubtitleText,
-  TAB_ROW_TITLE_FONT_PX, TAB_ROW_SUB_FONT_PX, TAB_SUBTITLE_FONT_PX,
+  PEDDLER_TITLE, PEDDLER_REMAIN_FONT_PX, peddlerRemainText,
+  TAB_ROW_TITLE_FONT_PX,
 } from './layout.js'
 import type { PeddlerStock } from '../components/progress/PeddlerStock.js'
 
@@ -33,9 +33,6 @@ const ROW_H = 56
 const VISIBLE_COUNT = rowsThatFit(ROW_H)
 /** 何個買うかの初期値。**固定ではない**（打ち込める） */
 const DEFAULT_QTY = 5
-/** 検索の入力欄。絞り込みの行の右端に置く */
-const SEARCH_W = 160
-const SEARCH_H = 24
 
 /** 行の帯の幅。⚠ **列（`ROW_*`）は `layout.ts` が持つ。ここに式を写さないこと** */
 const ROW_W = CONTENT_R - CONTENT_L
@@ -198,7 +195,7 @@ export class PurchaseMenu {
     this.needs = this.materialNeeds()
     if (focusId) this.paging.jumpTo(this.shown().findIndex(m => m.id === focusId), this.shown().length)
     this.search.place(
-      CONTENT_R - SEARCH_W / 2, FILTER_Y, SEARCH_W, SEARCH_H, '名前で探す',
+      CONTENT_R - LIST_SEARCH_W / 2, FILTER_Y, LIST_SEARCH_W, LIST_SEARCH_H, '名前で探す',
       q => { this.paging.setQuery(q); this.rebuild() },
       CONTENT_DEPTH,
     )
@@ -281,21 +278,13 @@ export class PurchaseMenu {
     const total = materials.length
 
     // ── 見出しの下の1行 ──
-    // ⚠ **島の商人には何も出さない**（PO 指示 2026-09-13。赤入れ3箇所とも「不要」）。
+    // ⚠ **もうどこにも出さない。**島の商人も行商人も、赤入れはすべて「不要」だった
+    //   （PO 指示 2026-09-13。商人タブ3箇所 ＋ 行商人の `今日の品ぞろえ…`）。
     //   **`所持金` も `あと10日` も右パネルの HUD が常に出している**ので、ここは写しだった。
-    //   ⚠ **`所持金` は改装タブと行商人からも落ちている**（PO「右上にあるから統一で消した」）。
-    //   ⚠ **帯そのものは残す。**一覧の上端（`ROWS_TOP`）を上げると、
+    // ⚠ **帯そのものは残す。**一覧の上端（`ROWS_TOP`）を上げると、
     //   **改装・納品とタブを行き来するたびに一覧が跳ねる**（3タブは同じ枠を使う）。
-    // ⚠ **行商人にだけ出す。**あちらは「**今日の品ぞろえ**」であることが歯止めそのもので、
-    //   言わないと島の商人と同じ「いつでもある店」に見える（#9）。
-    if (this.peddler) {
-      objs.push(
-        this.scene.add.text(CONTENT_L, SUBTITLE_Y,
-          peddlerSubtitleText(), {
-          fontSize: `${TAB_SUBTITLE_FONT_PX}px`, color: '#ffdd44',
-        }).setOrigin(0, 0.5),
-      )
-    }
+    //   ⚠ **行商人だけ上げるのも避ける。**`VISIBLE_COUNT` は `ROWS_TOP` から出す module 定数で、
+    //   **上げると1頁に入る行数が変わる**（＝ページ送りの挙動が変わる）。→ PO 判断へ回した
 
     // ── 絞り込み（主種類） ──
     const btnW = 64, btnH = 22, gap = 8
@@ -395,16 +384,8 @@ export class PurchaseMenu {
       }).setOrigin(0, 0.5),
     )
 
-    // 作れる品の材料になっているなら、買える行と同じように言う（#23）。
-    // ⚠ **`⚠ 切らしている` は出さない。**急いでも買えないので、急かす意味が無い
-    const need = this.needOf(mat)
-    if (need) {
-      objs.push(
-        this.scene.add.text(ROW_NEED_R, y, `${need.recipes}品に要る`, {
-          fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: '#667788',
-        }).setOrigin(1, 0.5),
-      )
-    }
+    // ⚠ **注記を出さない。**素の `N品に要る` は落とした（PO 指示 2026-09-13「不要」）。
+    //   `⚠ 切らしている` も元から出していない（**急いでも買えないので、急かす意味が無い**）。
 
     // ⚠ **「買う」ボタンと同じ右端に、ボタンを作らずに置く。**
     //   文字とその大きさは `layout.ts`（`layout.test.ts` が幅を見ている）
@@ -450,16 +431,17 @@ export class PurchaseMenu {
       )
     }
 
-    // 作れる品の材料になっているなら、その本数を出す（#23）。
     // **この島でしか買えない**うえ切らしているなら、急ぐ理由として強く出す（#33）。
+    // ⚠ **素の `N品に要る` は出さない**（PO 指示 2026-09-13「不要」）。
+    //   **どの行にも出るので、行が字で埋まっていた。**
+    //   ⚠ **残したのは橙の警告だけ。**あちらは**切らしていて、ここでしか買えない品**にしか出ず、
+    //   **出た時点で「いま買わないと次は40日後」という意味がある**（#33・#34）。
     // ⚠ **必要数は出さない。**誰も「1回ずつ」は作らないので嘘になる
     const need = this.needOf(mat)
-    if (need) {
-      const urgent = this.isLocalOnly(mat) && this.inventory.getQuantity(mat.id) === 0
+    if (need && this.isLocalOnly(mat) && this.inventory.getQuantity(mat.id) === 0) {
       objs.push(
-        this.scene.add.text(ROW_NEED_R, y,
-          urgent ? `⚠ 切らしている（${need.recipes}品に要る）` : `${need.recipes}品に要る`, {
-          fontSize: '12px', color: urgent ? '#ffaa66' : '#8899aa',
+        this.scene.add.text(ROW_NEED_R, y, `⚠ 切らしている（${need.recipes}品に要る）`, {
+          fontSize: '12px', color: '#ffaa66',
         }).setOrigin(1, 0.5),
       )
     }
@@ -483,7 +465,8 @@ export class PurchaseMenu {
     // DOM が使えない設定でも**画面全体を道連れにしない。**
     // 使えないときは数字を出すだけにして、− ＋ 最大 で操作できるようにする
     let valueText: Phaser.GameObjects.Text | undefined
-    const domEl = tryAddDom(this.scene, ROW_INPUT_L + ROW_INPUT_W / 2, y, input, '仕入れの個数入力')
+    // ⚠ **`tryAddDom` は左上基点**（`domInput.ts` の注記）
+    const domEl = tryAddDom(this.scene, ROW_INPUT_L, y - ROW_INPUT_H / 2, input, '仕入れの個数入力')
     if (domEl) {
       objs.push(domEl)
     } else {

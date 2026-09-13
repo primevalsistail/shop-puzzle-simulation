@@ -146,8 +146,9 @@ export class PresetMenu {
       })
       // ⚠ **升からはみ出させない**（`PRESET_NAME_MAX`）。長さの根拠は `ShelfPresets.ts`
       el.maxLength = PRESET_NAME_MAX
+      // ⚠ **`tryAddDom` は左上基点**（`domInput.ts` の注記）
       const dom = tryAddDom(
-        this.scene, box.textL + PRESET_NAME_INPUT_W / 2, box.nameCy, el, 'マイセットの名前',
+        this.scene, box.textL, box.nameCy - PRESET_NAME_INPUT_H / 2, el, 'マイセットの名前',
       )
       if (!dom) continue
       this.nameDoms[i] = dom.setDepth(CONTENT_DEPTH)

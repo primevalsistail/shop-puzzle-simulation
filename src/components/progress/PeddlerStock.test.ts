@@ -59,23 +59,32 @@ describe('行商人バレン — 来訪と品揃え（#9 ／ #34 を畳んだ）
     expect(a).not.toBe(b)
   })
 
-  it('10種類・各10個の上限を超えない（#9 必須）', () => {
+  it('1日10種類の上限を超えない（#9 必須）', () => {
     for (let day = 1; day <= 40; day++) {
       const s = stockAt(day, day)
       expect(s.list().length).toBeLessThanOrEqual(PEDDLER_MAX_KINDS)
       expect(s.list().length).toBeGreaterThan(0)
-      for (const e of s.list()) {
-        expect(e.remaining).toBeGreaterThanOrEqual(1)
-        expect(e.remaining).toBeLessThanOrEqual(PEDDLER_MAX_PER_KIND)
-      }
       // 同じ品を2行出さない（10種類の上限がすり抜けないこと）
       expect(new Set(s.list().map(e => e.itemId)).size).toBe(s.list().length)
     }
   })
 
   /**
+   * ⚠ **個数は乱数にしない**（PO 指示 2026-09-13「初期数量が乱数になっている。100に統一する」）。
+   *   **どの品も、どの日も、同じ数で始まる。**
+   *   乱数が残っているのは**どの種類を積むか**のほうだけ（上の検査）。
+   */
+  it('どの品も `PEDDLER_MAX_PER_KIND` 個で始まる（乱数にしない）', () => {
+    for (let day = 1; day <= 40; day++) {
+      for (const e of stockAt(day, day).list()) {
+        expect(e.remaining, `day${day} ${e.itemId}`).toBe(PEDDLER_MAX_PER_KIND)
+      }
+    }
+  })
+
+  /**
    * ⚠ **買ったぶんが減ること。**減らないと、閉じて開き直すだけで何度でも買えて
-   *   「各10個」が意味を失う。
+   *   **1品あたりの数の上限が意味を失う。**
    */
   it('買ったぶんだけ減り、積荷より多くは買えない', () => {
     const s = stockAt(1, 5)

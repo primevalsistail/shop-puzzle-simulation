@@ -12,8 +12,16 @@ import { purchasePrice } from '../../taxonomy/derive.js'
  */
 export const PEDDLER_MAX_KINDS = 10
 
-/** 1品あたりの**個数**の上限（#9 本文・必須） */
-export const PEDDLER_MAX_PER_KIND = 10
+/**
+ * 1品あたりの**個数**（PO 指示 2026-09-13「初期数量が乱数になっている。100に統一する」）。
+ *
+ * ⚠ **`1〜10 の乱数` をやめて、全品これで積む。**上限であると同時に**初期値**である。
+ * ⚠ **#9 本文の「各10個まで」とは食い違う。**issue の本文をどう直すかは PO 判断へ回した
+ *   （`construction/plans/peddler-tab-questions.md`）。
+ *   **歯止めとして残っているのは3つ** —— **1日10種類まで**（`PEDDLER_MAX_KINDS`）、
+ *   **次の寄港地の産は積まない**（`stockedByPeddler`）、**島の商人より高い**（`PEDDLER_MARKUP`）。
+ */
+export const PEDDLER_MAX_PER_KIND = 100
 
 /**
  * 行商人の**割増率**。`買値 = 割引なしの買値 × これ`。
@@ -69,19 +77,20 @@ export interface PeddlerRecord {
  *
  * 素材は採れる島でしか買えず、切らすと**次にその島へ戻るまで最大40日**その品が作れない
  * （#34。遊ぶ人5人全員が同じ不満を挙げた）。行商人は、その罰を
- * **「待ち時間」から「金」へ置き換える**。割高で、少ししか無いので、
+ * **「待ち時間」から「金」へ置き換える**。割高で、**その日その10種類しか無い**ので、
  * **「取り寄せて損切りするか、次の周まで我慢して利幅を守るか」**という判断が増える。
  *
  * ## なぜ持つ必要があるか（毎回ランダムに作ってはいけない）
  *
  * ⚠ **持たずに開くたび引き直すと、画面を閉じて開き直すだけで品揃えが変わる。**
- *   引き直せる品揃えは品揃えではないので、上限10種類も上限10個も意味を失う
- *   （欲しい品が出るまで開き直し、10個ずつ何度でも買える）。
+ *   引き直せる品揃えは品揃えではないので、**上限10種類も1品あたりの数も意味を失う**
+ *   （欲しい品が出るまで開き直し、何度でも買える）。
  *   **だから日ごとに1度だけ引き、買ったぶんを減らし、セーブに載せる。**
  *
  * ## 歯止め（#9 の必須要件）
  *
- *   1. **10種類・各10個まで**（`PEDDLER_MAX_KINDS` / `PEDDLER_MAX_PER_KIND`）
+ *   1. **1日10種類まで**（`PEDDLER_MAX_KINDS`）。
+ *      ⚠ **各10個の上限は 100 に替わった**（PO 指示 2026-09-13）。`PEDDLER_MAX_PER_KIND` の注記
  *   2. **産地が次の寄港地の品は積まない**（`stockedByPeddler`。島を巡る動機を削らないため）
  *   3. **解禁は島の商人と同じ U1・U2**（行商人だけの解禁を作らない）
  *   4. **島の商人より高い**（`PEDDLER_MARKUP`）
@@ -176,12 +185,13 @@ export class PeddlerStock {
 }
 
 /**
- * 候補から**10種類まで**引き、それぞれ **1〜10個**積む。
+ * 候補から**10種類まで**引き、それぞれ **`PEDDLER_MAX_PER_KIND` 個**積む。
  *
- * ⚠ **個数を一律10個にしない。**#34 でペルソナ5人が付けた歯止めは
- *   「**9個を10個にはできるが、0個を10個にはできない**」。
- *   毎日10個あると「0個を10個に」が常に成立し、**計画の代わりになってしまう。**
- * ⚠ **仮置き（#61 の表へ）。**「1〜10 の一様分布」以上の根拠は無い。
+ * ⚠ **個数は乱数にしない**（PO 指示 2026-09-13「初期数量が乱数になっている。100に統一する」）。
+ *   以前は 1〜10 の一様分布で、#34 の「**9個を10個にはできるが、0個を10個にはできない**」を
+ *   個数のばらつきで作っていた。**いまその役を負っているのは種類のほう**
+ *   （1日10種類まで ／ 次の寄港地の産は積まない）。
+ * ⚠ **乱数は種類を選ぶところにだけ残っている。**`rand` を消さないこと。
  */
 function pick(candidates: readonly ItemDef[], rand: () => number): PeddlerEntry[] {
   const pool = [...candidates]
@@ -191,8 +201,7 @@ function pick(candidates: readonly ItemDef[], rand: () => number): PeddlerEntry[
     // 部分フィッシャー–イェーツ。**同じ品を2行出さない**
     const j = i + Math.min(pool.length - i - 1, Math.floor(rand() * (pool.length - i)))
     ;[pool[i], pool[j]] = [pool[j], pool[i]]
-    const qty = 1 + Math.min(PEDDLER_MAX_PER_KIND - 1, Math.floor(rand() * PEDDLER_MAX_PER_KIND))
-    out.push({ itemId: pool[i].id, remaining: qty })
+    out.push({ itemId: pool[i].id, remaining: PEDDLER_MAX_PER_KIND })
   }
   return out
 }

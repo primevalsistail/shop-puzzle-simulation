@@ -205,8 +205,6 @@ export class GameScene extends Phaser.Scene {
       this.recipeUnlocks,
       this.placeFrame,
       () => this.world.getIsland(),
-      () => this.upgrades.marginMultiplier(),
-      () => this.upgrades.skill(),
       () => this.onCraftMenuClosed(),
     )
     this.purchaseMenu = new PurchaseMenu(
@@ -877,13 +875,14 @@ export class GameScene extends Phaser.Scene {
     })
 
     EventBus.on(GameEvents.CRAFTING_COMPLETED, (payload: unknown) => {
-      const { recipeId, times, quantity, minutes, businessMinutes } = payload as CraftResult
+      const { recipeId, times, quantity, minutes } = payload as CraftResult
       const recipe = this.registry_.getRecipe(recipeId)
       // ⚠ **払った額を後からも言う**（#53）。`recipe.durationMinutes × times` は
-      //   手際を掛ける前の素の値なので使わない。**営業を削ったならその分数まで言う**
-      //   ——削ったことに気づけないと、売上が落ちた理由が加工だと結びつかない。
+      //   手際を掛ける前の素の値なので使わない。
+      // ⚠ **`（営業◯分）` は出さない**（PO 指示 2026-09-14「消せ」）。工房の表と同じ語なので、
+      //   **片方だけ残さない。**営業を削ったことをどこで知らせ直すかは #109。
       this.messageLog.addMessage(
-        `${recipe.display.name} ×${times}回 完了！ ${quantity}個入手（${craftTimeLabel(minutes, businessMinutes)}）`,
+        `${recipe.display.name} ×${times}回 完了！ ${quantity}個入手（${craftTimeLabel(minutes)}）`,
         'event',
       )
       // 在庫上限（段4-7）。**買う側は押せなくして防げるが、加工は出来上がってから溢れる。**

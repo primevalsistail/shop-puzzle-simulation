@@ -1,21 +1,34 @@
+/// <reference types="vite/client" />
 import { describe, it, expect } from 'vitest'
+import purchaseSource from './PurchaseMenu.ts?raw'
+import messageWindowSource from './MessageWindow.ts?raw'
+import craftSource from './CraftMenu.ts?raw'
 import {
   SCREEN_W, SCREEN_H,
   HUD_PANEL_W, HUD_MONEY_FONT_PX, estTextWidth,
   BUY_W, BUY_BTN_W, BUY_TOTAL_W, BUY_TOTAL_FONT_PX, BUY_FONT_PX, BUY_LABEL,
   BUY_REASON_FUNDS, buyReasonCap, QTY_REASON_EMPTY, QTY_REASON_NOT_INT,
   INFO_MAX_W, INFO_FONT_PX,
-  ROW_NAME_X, ROW_NEED_R,
+  ROW_NAME_X, ROW_NEED_R, ROW_INPUT_L, ROW_INPUT_W, ROW_PLUS_L, ROW_MINUS_L, ROW_STEP_W,
+  LIST_SEARCH_W, LIST_SEARCH_H,
   UPCOMING_FONT_PX, upcomingLabel, PRESET_TEXT_FONT_PX, PRESET_SUB_FONT_PX,
   PRESET_COLS, PRESET_GAP_X, PRESET_CELL_W, PRESET_TEXT_L_OFFSET, PRESET_TEXT_W,
   PRESET_NAME_INPUT_W, PRESET_NAME_INPUT_H,
-  CRAFT_TEXT_MAX_W, CRAFT_ROUTE_FONT_PX, craftTimeLabel,
+  craftTimeLabel,
+  CRAFT_HEAD_Y, CRAFT_ROWS_TOP, CRAFT_ROW_H, CRAFT_COLS,
+  CRAFT_NAME_L, CRAFT_NAME_W, CRAFT_NAME_FONT_PX, CRAFT_CELL_FONT_PX,
+  CRAFT_MADE_R, CRAFT_STOCK_R, CRAFT_TIME_L, CRAFT_TIME_W,
+  CRAFT_DEMAND_L, CRAFT_DEMAND_W, CRAFT_DEMAND_SEP,
+  CRAFT_BTN_W, CRAFT_BTN_L, CRAFT_BTN_FONT_PX, CRAFT_BTN_LABEL,
+  CRAFT_REASON_INGREDIENTS, CRAFT_REASON_STOCK, CRAFT_REASON_TIME,
+  CRAFT_REASON_EMPTY, CRAFT_REASON_NOT_INT,
+  CRAFT_QTY_L, CRAFT_QTY_W, CRAFT_INPUT_W, CRAFT_STEP_XS, CRAFT_STEP_LABELS, CRAFT_STEP_FONT_PX,
   LEFT_PANEL_R, STRIP_L, STRIP_W, RIGHT_PANEL_L, LOG_T,
   PLACE_L, PLACE_R, PLACE_T, PLACE_B, PLACE_W, PLACE_H, PLACE_CX, PLACE_CY,
   CONTENT_L, CONTENT_R,
   TITLE_Y, SUBTITLE_Y, FILTER_Y, ROWS_TOP, PAGER_Y, ROWS_BOTTOM,
   rowsThatFit, TITLE_RULE_Y, FILTER_BAND_H, FILTER_Y_NO_SUBTITLE, ROWS_TOP_NO_SUBTITLE,
-  peddlerRemainText, peddlerSubtitleText, PEDDLER_REMAIN_FONT_PX, PEDDLER_TITLE,
+  peddlerRemainText, PEDDLER_REMAIN_FONT_PX, PEDDLER_TITLE,
   CHAR_ART_T, CHAR_ART_B, CHAR_ART_H, BTN_Y_ICON, BTN_ICON_H, BTN_Y_ADVANCE, BTN_ACTION_H,
   HUD_PANEL_B, HUD_ROW_MONEY_Y, HUD_ROW_TIME_Y, HUD_ROW_PLACE_Y,
   BTN_PANEL_L, BTN_PANEL_W, BTN_ICON_W, BTN_Y_TRADE,
@@ -34,7 +47,7 @@ import {
   DELIVERY_DISCARD_L, DELIVERY_DISCARD_W,
   TAB_ROW_TITLE_FONT_PX,
   MSG_WIN_L, MSG_WIN_R, MSG_WIN_T, MSG_WIN_B, MSG_WIN_PAD, MSG_TEXT_MAX_W,
-  MSG_WIN_W, MSG_WIN_CX,
+  MSG_WIN_W, MSG_WIN_CX, MSG_WIN_CY, MSG_SCRIM_ALPHA,
   MSG_SPEAKER_FONT_PX, MSG_SPEAKER_Y, MSG_TEXT_FONT_PX, MSG_TEXT_TOP, MSG_LINE_H,
   MSG_LINES_MAX, MSG_CHOICE_W, MSG_CHOICE_H, MSG_CHOICE_GAP, MSG_CHOICE_FONT_PX,
   MSG_CHOICE_CY, msgChoiceCx,
@@ -403,36 +416,144 @@ describe('金額の文字が枠に収まる', () => {
   })
 
   /**
-   * 工房の「転売 → 作る → 材料も作る」の行（#23）。
-   *
-   * ⚠ **`…` で切れたら意味が消える行である。**3つ並んで初めて比べられる。
-   *   最悪値は**全レシピ × その日に回せる最大回数**を当たって出したもので、
-   *   `転売+10,464レン → 作る+15,120レン → 材料も作る+25,776レン（計14064分）`。
-   *   ここでは**さらに余裕を見て7桁**の形で見る。
+   * ⚠ **`（営業◯分）` を出さない**（PO 指示 2026-09-14「**とか不要です。消せ**」）。
+   *   #53 で足したものだが、**画面から消したのは知らせだけで、仕組みは変わっていない**
+   *   （加工中は客が来ないので、営業に食い込んだ分だけ売上が消える）。
+   *   **どこで知らせ直すかは #109。**
    */
-  it('3ルートの行が、7桁でも `…` に切られない', () => {
-    const line = '転売+1,234,567レン → 作る+2,345,678レン → 材料も作る+3,456,789レン（計14064分）'
-    expect(estTextWidth(line, CRAFT_ROUTE_FONT_PX)).toBeLessThanOrEqual(CRAFT_TEXT_MAX_W)
+  it('`時間` は所要分だけを出す（`（営業◯分）` を足さない）', () => {
+    expect(craftTimeLabel(90)).toBe('90分')
+    expect(craftTimeLabel(90)).not.toContain('営業')
+    expect(craftTimeLabel(480)).toBe('480分')
+  })
+})
+
+/**
+ * 工房の表（**PO 赤入れ 2026-09-13**「↓のように表示して」）。
+ *
+ * **商品 ／ 作成数 ／ 在庫 ／ 時間 ／ 需要 ／ 数量 ／ 作る。**
+ * ⚠ **表にした時点で、はみ出す先は隣の列になった。**
+ *   3段組みのときは左半分ぜんぶが文字の領域だったので、ここが測られていなかった。
+ */
+describe('工房の表', () => {
+  it('列が左から右へ、重ならずに並ぶ', () => {
+    expect(CRAFT_NAME_L + CRAFT_NAME_W).toBeLessThan(CRAFT_MADE_R)
+    expect(CRAFT_MADE_R).toBeLessThan(CRAFT_STOCK_R)
+    expect(CRAFT_STOCK_R).toBeLessThan(CRAFT_TIME_L)
+    expect(CRAFT_TIME_L + CRAFT_TIME_W).toBeLessThanOrEqual(CRAFT_DEMAND_L)
+    expect(CRAFT_DEMAND_L + CRAFT_DEMAND_W).toBeLessThanOrEqual(CRAFT_QTY_L)
+    expect(CRAFT_QTY_L + CRAFT_QTY_W).toBeLessThanOrEqual(CRAFT_BTN_L)
+    expect(CRAFT_BTN_L + CRAFT_BTN_W).toBeLessThanOrEqual(CONTENT_R)
+    expect(CRAFT_NAME_L).toBeGreaterThanOrEqual(CONTENT_L)
+  })
+
+  it('見出しの字が7つある（列と同じ数）', () => {
+    expect(CRAFT_COLS).toEqual(['商品', '作成数', '在庫', '時間', '需要', '数量', '作る'])
+  })
+
+  it('見出しの行と、1件目の行が重ならない', () => {
+    expect(CRAFT_HEAD_Y).toBeLessThan(CRAFT_ROWS_TOP)
+    expect(CRAFT_ROWS_TOP).toBeGreaterThan(ROWS_TOP_NO_SUBTITLE)
+  })
+
+  /** ⚠ **行数は決め打ちしない**（`rowsThatFit`）。3段組み（84px）のときは5行だった */
+  it('11行入り、最後の行がページ送りに食い込まない', () => {
+    const rows = rowsThatFit(CRAFT_ROW_H, CRAFT_ROWS_TOP)
+    expect(rows).toBe(11)
+    expect(CRAFT_ROWS_TOP + rows * CRAFT_ROW_H).toBeLessThanOrEqual(ROWS_BOTTOM)
+  })
+
+  it('いちばん長い品名が `作成数` の列に届かない', () => {
+    const longest = ALL_ITEMS.reduce(
+      (a, i) => estTextWidth(i.display.name, CRAFT_NAME_FONT_PX) > estTextWidth(a, CRAFT_NAME_FONT_PX)
+        ? i.display.name : a, '')
+    expect(estTextWidth(longest, CRAFT_NAME_FONT_PX)).toBeLessThanOrEqual(CRAFT_NAME_W)
+  })
+
+  it('4桁の作成数・在庫が、左隣の列に食い込まない', () => {
+    const w = estTextWidth('9999', CRAFT_CELL_FONT_PX)
+    expect(CRAFT_MADE_R - w).toBeGreaterThan(CRAFT_NAME_L + CRAFT_NAME_W)
+    expect(CRAFT_STOCK_R - w).toBeGreaterThan(CRAFT_MADE_R)
   })
 
   /**
-   * 1行目の「完成品×個数(在庫)　所要分（営業分）」（#53）。
-   *
-   * ⚠ **`…` で切れると、払う額が消える行である。**営業◯分こそが加工の値段なので、
-   *   ここが落ちると #53 で足した意味そのものが無くなる。
+   * ⚠ **1日は 1440分**なので、作れる回数のあいだは所要分が4桁を超えない。
+   *   それ以上を手で打つと `…` に詰まるが、そのときは `作る` が押せない。
    */
-  it('所要分に「営業◯分」を足しても、1行目が `…` に切られない', () => {
-    // 最悪値 — いちばん長い品名 × 4桁の個数・在庫 × 5桁の分数
-    const longest = [...ALL_ITEMS].sort(
-      (a, b) => b.display.name.length - a.display.name.length)[0].display.name
-    const line = `${longest}×9999(999)　${craftTimeLabel(14064, 9999)}`
-    expect(estTextWidth(line, 14)).toBeLessThanOrEqual(CRAFT_TEXT_MAX_W)
+  it('`9999分` が `時間` の列に収まる', () => {
+    expect(estTextWidth(craftTimeLabel(9999), CRAFT_CELL_FONT_PX))
+      .toBeLessThanOrEqual(CRAFT_TIME_W)
   })
 
-  it('営業を削らないときは「（営業0分）」を足さない（削る行だけが目立つように）', () => {
-    expect(craftTimeLabel(90, 0)).toBe('90分')
-    expect(craftTimeLabel(90, 0)).not.toContain('営業')
-    expect(craftTimeLabel(90, 30)).toContain('営業30分')
+  /**
+   * `需要` の列 —— **いまの島では手に入らない材料の産地。**
+   *
+   * ⚠ **2島までを収める。**3島になる組み合わせは（レシピ×島）424組中2組しかないので、
+   *   そこは `…` に詰まってよい。**2島は 60組ある。**
+   */
+  it('2島ぶんの産地が `需要` の列に収まる', () => {
+    const names = ISLANDS.map(i => i.name)
+    const worst = [...names].sort(
+      (a, b) => estTextWidth(b, CRAFT_CELL_FONT_PX) - estTextWidth(a, CRAFT_CELL_FONT_PX))
+      .slice(0, 2).join(CRAFT_DEMAND_SEP)
+    expect(estTextWidth(worst, CRAFT_CELL_FONT_PX)).toBeLessThanOrEqual(CRAFT_DEMAND_W)
+  })
+
+  /**
+   * ⚠ **作れない理由は `作る` ボタンの字になる**（商人タブと同じ作り）。
+   *   **1行になった時点で、理由を置く段が無くなった。**
+   */
+  it('いちばん長い理由が `作る` ボタンに収まる', () => {
+    const labels = [
+      CRAFT_BTN_LABEL, CRAFT_REASON_INGREDIENTS, CRAFT_REASON_STOCK,
+      CRAFT_REASON_TIME, CRAFT_REASON_EMPTY, CRAFT_REASON_NOT_INT,
+    ]
+    for (const label of labels) {
+      expect(estTextWidth(label, CRAFT_BTN_FONT_PX)).toBeLessThanOrEqual(CRAFT_BTN_W)
+    }
+  })
+
+  /** ⚠ **理由に数を足さないこと**（`在庫が上限 400` はボタンから出る） */
+  it('理由の字に数が入っていない', () => {
+    for (const r of [CRAFT_REASON_INGREDIENTS, CRAFT_REASON_STOCK, CRAFT_REASON_TIME]) {
+      expect(r).not.toMatch(/[0-9]/)
+    }
+  })
+
+  it('数量の6つが、順番どおり重ならずに並ぶ', () => {
+    const xs = CRAFT_STEP_XS
+    expect(xs.minusTen).toBe(CRAFT_QTY_L)
+    expect(xs.minusTen).toBeLessThan(xs.minusOne)
+    expect(xs.minusOne).toBeLessThan(xs.input)
+    expect(xs.input).toBeLessThan(xs.plusOne)
+    expect(xs.plusOne).toBeLessThan(xs.plusTen)
+    expect(xs.plusTen).toBeLessThan(xs.max)
+    expect(xs.max).toBeLessThan(CRAFT_BTN_L)
+    for (const label of Object.values(CRAFT_STEP_LABELS)) {
+      expect(estTextWidth(label, CRAFT_STEP_FONT_PX)).toBeLessThanOrEqual(CRAFT_INPUT_W)
+    }
+  })
+
+  /** ⚠ **`回` の字は図に無い**（数量の列に入った） */
+  it('数量の段が `-10` `-1` `+1` `+10` `最大` である', () => {
+    expect(CRAFT_STEP_LABELS).toEqual({
+      minusTen: '-10', minusOne: '-1', plusOne: '+1', plusTen: '+10', max: '最大',
+    })
+  })
+
+  /** ⚠ **写しを作らないこと。**`CraftMenu.ts` は `layout.ts` を読むだけで、自分の数を持たない */
+  it('`CraftMenu.ts` が自分で行の高さや列の位置を持っていない', () => {
+    expect(craftSource).toContain('CRAFT_NAME_L')
+    expect(craftSource).toContain('CRAFT_ROW_H')
+    expect(craftSource).not.toContain('const ROW_H')
+    expect(craftSource).not.toContain('const CONTROLS_L')
+    expect(craftSource).not.toContain('const TEXT_MAX_W')
+  })
+
+  /** ⚠ **3段組みに戻っていない**（材料の一覧と3ルートは #107 ／ #108 へ） */
+  it('行に儲け方の3ルートが出ていない', () => {
+    expect(craftSource).not.toContain('routeValues')
+    expect(craftSource).not.toContain('転売')
   })
 })
 
@@ -457,6 +578,43 @@ describe('見出しの下に1行が無い場所（工房）', () => {
 
   it('⚠ 詰めても、他の3画面より上にある（＝空白が減っている）', () => {
     expect(ROWS_TOP_NO_SUBTITLE).toBeLessThan(ROWS_TOP)
+  })
+})
+
+/**
+ * 画面に載せた `<input>`（#55 の検索 ／ 仕入れの個数）の置き場所。
+ *
+ * ⚠ **`<input>` は HTML なので、ずれても Phaser 側のテストには何も出ない。**
+ *   2026-09-13 の赤入れ2件（「UIがずれている」）はどちらもこれで、
+ *   **検索欄が枠を 70px 突き抜けて右の HUD に被り、個数欄が `＋` に重なっていた。**
+ *   原因は `domInput.ts` の注記（隠れた要素を測ると 0×0 になり中心合わせが効かない）。
+ *   **左上基点で置くようにしたので、ここから場所を測れる。**
+ */
+describe('画面に載せた `<input>` が、隣のものに重ならない', () => {
+  /** 検索欄は絞り込みの行の右端。**右そろえ**なので、枠（`CONTENT_R`）を越えない */
+  it('「名前で探す」欄が枠の右端を越えない', () => {
+    const searchR = (CONTENT_R - LIST_SEARCH_W / 2) + LIST_SEARCH_W / 2
+    expect(searchR).toBeLessThanOrEqual(CONTENT_R)
+  })
+
+  /**
+   * ⚠ **主種類のボタン（`KIND_BUTTONS`）は同じ行の真ん中に並ぶ。**
+   *   `PurchaseMenu` / `CraftMenu` とも 64px ×4個、隙間 8px。
+   */
+  it('「名前で探す」欄が、主種類のボタンに重ならない', () => {
+    const groupR = PLACE_CX + (4 * 64 + 3 * 8) / 2
+    expect(CONTENT_R - LIST_SEARCH_W).toBeGreaterThan(groupR)
+  })
+
+  /** 高さは絞り込みの行に収まる（`FILTER_BAND_H` がいちばん高いものの高さ） */
+  it('「名前で探す」欄の高さが、絞り込みの行に収まる', () => {
+    expect(LIST_SEARCH_H).toBeLessThanOrEqual(FILTER_BAND_H)
+  })
+
+  /** 個数欄は `−` と `＋` のあいだ。**左上基点で置くので、幅ぶんそのまま場所を取る** */
+  it('仕入れの個数欄が、`−` と `＋` のあいだに収まる', () => {
+    expect(ROW_MINUS_L + ROW_STEP_W).toBeLessThanOrEqual(ROW_INPUT_L)
+    expect(ROW_INPUT_L + ROW_INPUT_W).toBeLessThanOrEqual(ROW_PLUS_L)
   })
 })
 
@@ -506,24 +664,13 @@ describe('行商人バレンのところ（#9）', () => {
     expect(needL, longest.display.name).toBeGreaterThan(nameR)
   })
 
-  it('`N品に要る` だけの行は、いちばん長い品名（全品）にも重ならない', () => {
-    const longest = ALL_ITEMS.reduce(
-      (a, b) => (b.display.name.length > a.display.name.length ? b : a))
-    const nameR = NAME_X + estTextWidth(longest.display.name, 15)
-    expect(NEED_R - estTextWidth('106品に要る', 12), longest.display.name)
-      .toBeGreaterThan(nameR)
-  })
-
-  it('見出しの下の1行が、枠の内側に収まる', () => {
-    expect(estTextWidth(peddlerSubtitleText(), 15)).toBeLessThanOrEqual(CONTENT_R - CONTENT_L)
-  })
-
   /**
-   * ⚠ **`所持金` は画面の右上（HUD）だけ**（PO 指示 2026-09-13「右上にあるから統一で消した」）。
-   *   **商人・改装・行商人の3箇所とも落としてある。**戻すとまた写しになる。
+   * ⚠ **素の `N品に要る` はもう出さない**（PO 指示 2026-09-13「不要」）。
+   *   **どの行にも出るので、行が字で埋まっていた。**
+   *   ⚠ **`ROW_NEED_R` は捨てない。**橙の `⚠ 切らしている（N品に要る）` が同じ場所を使う。
    */
-  it('⚠ 行商人の1行に `所持金` が入っていない', () => {
-    expect(peddlerSubtitleText()).not.toContain('所持金')
+  it('⚠ 素の `N品に要る` を画面に戻していない', () => {
+    expect(purchaseSource).not.toMatch(/`\$\{need\.recipes\}品に要る`/)
   })
 
   /**
@@ -651,13 +798,21 @@ describe('できごとの窓（#24）', () => {
   })
 
   /**
-   * ⚠ **そろえるのは中心であって左右ではない**（PO 2026-09-13「大きすぎる」）。
-   *   **帯の幅（748px）にそろえる限り、横の余白は消しようがない** ——
-   *   本文は5文字、ボタン2つで 332px しか要らない。
-   *   **中心が同じなら、幅が違っても軸は1本のまま。**
+   * ⚠ **画面の中央**（PO 2026-09-14「なんか前に出てる感ないよね。ダイアログにして」）。
+   *   **この作りのダイアログは `Tutorial` と `SaveLoadMenu` の2つで、どちらも画面の中央。**
+   *   **3つ目の置き方を作らない。**
+   *
+   * ⚠ **以前の「納品の帯と中心をそろえる」は捨てた**（PO 2026-09-13 の規則）。
+   *   **あれは窓が帯のすぐ上にあったときの話。**捨てたのは**そろえる相手**だけで、
+   *   **「被らない」ほうは下の検査で全部そのまま見ている。**
    */
-  it('納品の帯と中心がそろい、帯より狭い', () => {
-    expect(MSG_WIN_CX).toBe((ORDER_BAR_L + ORDER_BAR_R) / 2)
+  it('画面の中央にある（他のダイアログと同じ中心）', () => {
+    expect(MSG_WIN_CX).toBe(SCREEN_W / 2)
+    expect(MSG_WIN_CY).toBe(SCREEN_H / 2)
+  })
+
+  /** 幅は帯より狭いまま（帯と並べても軸が2本に見えない） */
+  it('納品の帯より狭い', () => {
     expect(MSG_WIN_W).toBeLessThan(ORDER_BAR_R - ORDER_BAR_L)
   })
 
@@ -687,12 +842,41 @@ describe('できごとの窓（#24）', () => {
   /**
    * ⚠ **窓が盤面をまるごと覆わないこと。**覆うなら `PlaceFrame` と変わらず、
    *   「棚を消さない」（#24 の既決2）が形だけになる。
+   *
+   * ⚠ **暗幕は「消す」ではなく「沈める」。**全画面にかかるが**後ろは見えている**ので、
+   *   ここで見るのは**面（窓そのもの）が盤面を覆っていないか**である。
    */
-  it('盤面をまるごとは覆わない（上に棚が残る）', () => {
+  it('盤面をまるごとは覆わない（上下に棚が残る）', () => {
     const gridB = GRID_ORIGIN_Y + 10 * CELL_SIZE   // いちばん広いとき（13×10）の下端
     expect(MSG_WIN_T).toBeGreaterThan(GRID_ORIGIN_Y)
-    // 盤面の上半分より下から始まる
-    expect(MSG_WIN_T).toBeGreaterThan((GRID_ORIGIN_Y + gridB) / 2)
+    expect(MSG_WIN_B).toBeLessThan(gridB)
+  })
+
+  /** ⚠ **暗幕は透ける。**不透明にすると `PlaceFrame` と同じ「消す」になる */
+  it('暗幕は透ける（後ろが見えている）', () => {
+    expect(MSG_SCRIM_ALPHA).toBeGreaterThan(0)
+    expect(MSG_SCRIM_ALPHA).toBeLessThan(1)
+  })
+
+  /**
+   * **`MessageWindow` は Phaser を読むのでここから import できない**ので、
+   * **ソースとして縛る**（`domInput.test.ts` / `PresetMenu.test.ts` と同じやり方）。
+   *
+   * ⚠ **3つ揃って初めて「前に出ている」になる** ——
+   *   **全画面の暗幕 ／ 下を押させない ／ 不透明な面。**
+   *   **どれか1つ欠けると背景に沈む**（PO 2026-09-14 の指摘そのもの）。
+   */
+  it('⚠ 全画面の暗幕を敷き、下を押させず、面は不透明', () => {
+    // ⚠ **注記を先に落とす。**コメントの中の `setInteractive()` まで数えてしまう
+    const src = messageWindowSource
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/[^\n]*/g, '')
+    // 暗幕は画面いっぱい
+    expect(src).toContain('SCREEN_W, SCREEN_H, 0x000000, MSG_SCRIM_ALPHA')
+    // 下を押させない面が2つ（暗幕と窓）
+    expect(src.match(/setInteractive\(\)/g)).toHaveLength(2)
+    // 窓の面に alpha を渡していない ＝ 不透明
+    expect(src).toContain('MSG_WIN_W, MSG_WIN_H, 0x16213e)')
   })
 
   it('中の行が上から下へ重ならずに並んでいる', () => {
