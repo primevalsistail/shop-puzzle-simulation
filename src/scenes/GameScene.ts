@@ -1484,6 +1484,9 @@ export class GameScene extends Phaser.Scene {
     this.world.beginFreeSailing()
     this.refreshNextPort()
     this.timeManager.stopAdvancing()
+    // ⚠ **取引の画面を閉じてから出す**（PO 指示 2026-09-15「取引を閉じる」）。
+    //   **閉じないと、改装の一覧の上にエンディング画面が重なって出る。**
+    if (this.tradeMenu.isVisible()) this.tradeMenu.close()
     this.showGoalComplete()
     this.messageLog.addMessage('次の寄港地を選べるようになった', 'event')
   }

@@ -181,3 +181,54 @@ describe('目標額に届いても幕は出ない（#97 受入条件2）', () =>
     expect(scene).toContain('EventBus.on(GameEvents.PROGRESS_GAME_OVER')
   })
 })
+
+/**
+ * **PO 指示 2026-09-15**「**取引を閉じる**」。
+ *
+ * ⚠ **閉じないと、改装の一覧の上にエンディング画面が重なって出る。**
+ *   買ったのは改装タブの中なので、取引の画面は開いたままになっている。
+ */
+describe('エンディング画面を出す前に、取引の画面を閉じる（PO 2026-09-15）', () => {
+  it('`buyShip()` が取引を閉じてから幕を出す', () => {
+    const body = methodBody(scene, 'private buyShip()')
+    const close = body.indexOf('tradeMenu.close()')
+    const curtain = body.indexOf('showGoalComplete()')
+    expect(close, '取引を閉じていない').toBeGreaterThanOrEqual(0)
+    expect(curtain).toBeGreaterThanOrEqual(0)
+    // ⚠ **順序が要点。**幕の後で閉じると、閉じる動きが幕の裏で起きる
+    expect(close).toBeLessThan(curtain)
+  })
+})
+
+/**
+ * **商船を買ったあと、「目標」を指す1行を出さない**（2026-09-15）。
+ *
+ * ⚠ **買った時点で目標は無くなる**ので、「目標が遠のく」も「目標まで我慢する」も
+ *   指す先が消えている。⚠ **文言そのものは仮のまま**（PO が指示するもの）。
+ */
+describe('買ったあとは、目標を指す1行を出さない（2026-09-15）', () => {
+  it('その1行が `shipBought()` で囲われている', () => {
+    const body = methodBody(menu, 'private build')
+    const note = body.indexOf('払えば目標が遠のく')
+    expect(note, 'その1行が無い').toBeGreaterThanOrEqual(0)
+    // ⚠ **その1行を出すかどうかの判定に `shipBought()` が入っていること**
+    const guard = body.lastIndexOf('!this.shipBought()', note)
+    expect(guard, '買ったあとも出てしまう').toBeGreaterThanOrEqual(0)
+  })
+})
+
+/**
+ * ⚠ **買ったあとに一覧を建て直さないこと**（2026-09-15）。
+ *
+ * `onShipBought()` の中で取引の画面が閉じ、`leave()` が一覧を捨てる。
+ * **そのあとで `rebuild()` すると、閉じたはずの一覧が店の上に残る。**
+ * **実際にブラウザで踏んだ** —— 棚が戻っているのに改装の行が描かれたままだった。
+ */
+describe('買ったあと、閉じた一覧を建て直さない（2026-09-15）', () => {
+  it('`buyShip()` の `rebuild()` が `isOpen` で囲われている', () => {
+    const body = methodBody(menu, 'private buyShip()')
+    expect(body).toContain('this.onShipBought()')
+    // ⚠ **裸の `rebuild()` を置かない。**`isOpen` を見てから
+    expect(body).toMatch(/if\s*\(this\.isOpen\)\s*this\.rebuild\(\)/)
+  })
+})

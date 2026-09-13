@@ -105,7 +105,9 @@ export class UpgradeMenu {
     //   つまり**ここで払うとバーが実際に縮む。**この文字とバーの動きは、いま初めて一致している
     // ⚠ **1つも買えないときは出さない。**買える段が無いなら「いま買うか」という選択自体が無く、
     //   問いだけが出ることになる（束M・ペルソナ2巡目 ⑮）
-    if (UPGRADE_KINDS.some(k => {
+    // ⚠ **商船を買ったあとも出さない**（2026-09-15）。**買った時点で目標は無くなる**ので、
+    //   「目標が遠のく」も「目標まで我慢する」も、指す先が消えている
+    if (!this.shipBought() && UPGRADE_KINDS.some(k => {
       const c = this.upgrades.nextCost(k)
       return c !== null && this.economy.canAfford(c)
     })) {
@@ -276,7 +278,11 @@ export class UpgradeMenu {
     if (this.shipBought()) return
     if (!this.economy.spend(SHIP_COST)) return
     this.onShipBought()
-    this.rebuild()
+    // ⚠ **閉じられていたら建て直さないこと。**`onShipBought()` の中で取引の画面が閉じる
+    //   （PO 指示 2026-09-15「取引を閉じる」）ので、**`leave()` が一覧を捨てたあとになる。**
+    //   **ここで建て直すと、閉じたはずの一覧が店の上に残る。**
+    //   ⚠ **`onShipBought()` が閉じるかどうかを、こちらが決めつけない。**`isOpen` を見る
+    if (this.isOpen) this.rebuild()
   }
 
   private buy(kind: UpgradeKind, cost: number): void {
