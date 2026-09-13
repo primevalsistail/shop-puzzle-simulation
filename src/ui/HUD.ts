@@ -1,9 +1,13 @@
 import Phaser from 'phaser'
 import { phaseOf } from '../components/core/TimeManager.js'
 import type { Location } from '../components/progress/WorldState.js'
+import type { IslandName } from '../taxonomy/islands.js'
 import { money } from './money.js'
 import { goalRatio, goalBarLabel } from './goal.js'
-import { HUD_PANEL_W, HUD_MONEY_FONT_PX } from './layout.js'
+import {
+  HUD_PANEL_W, HUD_MONEY_FONT_PX, HUD_BAR_W,
+  HUD_NEXT_PORT_FONT_PX, HUD_NEXT_PORT_H, nextPortLabel,
+} from './layout.js'
 
 /** panel width（右パネル 190px - 余白 16px）。⚠ **値は `layout.ts` にある**（テストが見ている） */
 const PW = HUD_PANEL_W
@@ -17,6 +21,10 @@ export class HUD {
   private barBg!: Phaser.GameObjects.Rectangle
   private barFill!: Phaser.GameObjects.Rectangle
   private barLabel!: Phaser.GameObjects.Text
+  /** 次の寄港地を選ぶところ（#7）。⚠ **クリア後にだけ出す** */
+  private nextPortBg!: Phaser.GameObjects.Rectangle
+  private nextPortText!: Phaser.GameObjects.Text
+  private onNextPortClick: (() => void) | null = null
   private panelX!: number
   private panelY!: number
 
@@ -67,7 +75,7 @@ export class HUD {
     }).setOrigin(0.5, 0.5).setDepth(5)
 
     // Row 4 — 目標までの進み（#73。**所持金 ÷ 目標額**。累計売上ではない）
-    const barW = PW - 24
+    const barW = HUD_BAR_W
     const barH = 8
     const barY = py + 40
     this.barBg = this.scene.add.rectangle(px, barY, barW, barH, 0x223344)
@@ -77,6 +85,41 @@ export class HUD {
     this.barLabel = this.scene.add.text(px + PW / 2 - 8, barY + 12, goalBarLabel(0), {
       fontSize: '11px', color: '#556677',
     }).setOrigin(1, 0.5).setDepth(5)
+
+    // Row 4'（#7）— 次の寄港地。**目標が無くなったら、この場所がここに変わる**
+    // ⚠ **バーと入れ替える。**行を増やすと枠が下へ伸び、キャラ絵の枠（`CHAR_ART_T`）が縮む
+    const npY = barY + 6
+    this.nextPortBg = this.scene.add.rectangle(px, npY, barW, HUD_NEXT_PORT_H, 0x2a2a4a)
+      .setStrokeStyle(1, 0x5566aa).setDepth(5).setVisible(false)
+      .setInteractive({ useHandCursor: true })
+    this.nextPortBg.on('pointerover', () => this.nextPortBg.setFillStyle(0x3a3a6a))
+    this.nextPortBg.on('pointerout', () => this.nextPortBg.setFillStyle(0x2a2a4a))
+    this.nextPortBg.on('pointerdown', () => this.onNextPortClick?.())
+    this.nextPortText = this.scene.add.text(px, npY, '', {
+      fontSize: `${HUD_NEXT_PORT_FONT_PX}px`, color: '#ffdd88',
+    }).setOrigin(0.5, 0.5).setDepth(6).setVisible(false)
+  }
+
+  /** 次の寄港地のところを押したとき。**押すたびに次の候補へ回す**（`GameScene`） */
+  onNextPort(cb: () => void): void {
+    this.onNextPortClick = cb
+  }
+
+  /**
+   * 次の寄港地の表示（#7・自由航行）。
+   *
+   * ⚠ **`null` のあいだ（クリア前）は何も出さない。**出すと、選べないものが選べるように見える。
+   * ⚠ **出すときは目標のバーを消す。**目標に届いたあとのバーは満杯で止まったままで、
+   *   読む意味が無い（`∞ endless` も同じ）。**同じ場所を使うので、枠は広がらない。**
+   */
+  updateNextPort(next: IslandName | null): void {
+    const on = next !== null
+    this.barBg.setVisible(!on)
+    this.barFill.setVisible(!on)
+    this.barLabel.setVisible(!on)
+    this.nextPortBg.setVisible(on)
+    this.nextPortText.setVisible(on)
+    if (on) this.nextPortText.setText(nextPortLabel(next))
   }
 
   updateMoney(amount: number): void {

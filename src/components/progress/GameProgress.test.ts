@@ -59,6 +59,43 @@ describe('GameProgress', () => {
     expect(loaded!.isEndlessMode).toBe(true)
   })
 
+  /** ⚠ 積まないと、ロードで**選んだ島が順どおりの島へ巻き戻る**（#7） */
+  it('自由航行の航路がセーブに載り、読み直すと戻る', () => {
+    const store: Record<string, string> = {}
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store[k] ?? null,
+      setItem: (k: string, v: string) => { store[k] = v },
+    })
+    const eco = new EconomyManager()
+    const inv = new Inventory()
+    const reg = new ItemRegistry(ALL_ITEMS)
+    const grid = new FloorGrid({ width: 6, height: 5 }, reg)
+    const world = new WorldState()
+    world.setDay(1)
+    world.beginFreeSailing()
+    world.chooseNextPort('ミフユリア')
+
+    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), world, new Upgrades(), new ShelfPresets(), new DeliveryOrders(inv, eco), new PeddlerStock())
+    gp.save(0)
+
+    const restored = new WorldState()
+    restored.setDay(1)
+    restored.restoreVoyage(gp.load(0)!.voyage)
+    expect(restored.getLocation().next).toBe('ミフユリア')
+    restored.setDay(11)
+    expect(restored.getIsland()).toBe('ミフユリア')
+    vi.unstubAllGlobals()
+  })
+
+  /** ⚠ 航路が入る前のセーブがすでに手元にある。読めなくなってはいけない（`orders` と同じ） */
+  it('航路の無い古いセーブも読める', () => {
+    const world = new WorldState()
+    world.setDay(23)
+    world.restoreVoyage(undefined)
+    expect(world.isFreeSailing()).toBe(false)
+    expect(world.getIsland()).toBe('ノアキータ')
+  })
+
   it('save/loadがLocalStorageを使う (モック)', () => {
     const storageMock: Record<string, string> = {}
     vi.stubGlobal('localStorage', {

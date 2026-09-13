@@ -281,6 +281,11 @@ export class GameScene extends Phaser.Scene {
           this.gameService.enterEndlessMode()
           this.progress.setEndlessMode(true)
         }
+        // ⚠ **自由航行の航路を戻す**（#7）。**無いセーブは空で来る**（クリア前 ／ #7 より前）。
+        //   空なら日付からの導出へ戻り、**クリア済みなのに空**なら今日の島から始める。
+        //   戻さないと、**選んだ島がロードで順どおりの島へ巻き戻る。**
+        this.world.restoreVoyage(data.voyage ?? null)
+        if (data.isEndlessMode && !this.world.isFreeSailing()) this.world.beginFreeSailing()
         this.applyShelfSize()
         this.timeManager.setTime(data.currentTime)
         // 解禁が無かった頃のセーブは空で来る。枠は日付から出るのでここで追いつく（#48）
@@ -291,6 +296,7 @@ export class GameScene extends Phaser.Scene {
         this.hud.updateGoal(data.money, this.gameService.isInEndlessMode())
         this.hud.updateTime(data.currentTime.day, data.currentTime.hour, data.currentTime.minute)
         this.hud.updateLocation(this.world.getLocation())
+        this.refreshNextPort()
         // ⚠ **注文が無かった頃のセーブは空で来る。**寄港中は必ず1件ある状態なので、
         //   空なら**その寄港ぶんを出し直す**（出し直さないと、次の島へ着くまで納品が消える）
         if (!this.deliveryOrders.getActive()) this.issueOrder()
@@ -316,6 +322,9 @@ export class GameScene extends Phaser.Scene {
     this.hud.updateLocation(this.world.getLocation())
     this.hud.updateMoney(this.economy.getMoney())
     this.hud.updateGoal(this.economy.getMoney(), false)
+    // 次の寄港地（#7）。**クリア前は出ない**（`refreshNextPort` が `null` を渡す）
+    this.hud.onNextPort(() => this.cycleNextPort())
+    this.refreshNextPort()
     // 初日ぶんの注文。**寄港したら必ず1件ある**（#28）
     this.issueOrder()
     // 初日ぶんの行商人と、その日のできごと（#24・#90）
@@ -833,6 +842,8 @@ export class GameScene extends Phaser.Scene {
     this.world.setDay(day)
     const after = this.world.getLocation()
     this.hud.updateLocation(after)
+    // ⚠ **島が変わると次の候補も変わる。**出し直さないと、もう居ない島が「次」に残る
+    this.refreshNextPort()
 
     // 島が変われば商人の品揃えも需要も変わるので、開いているメニューは閉じる
     if (before.island !== after.island) {
@@ -1277,6 +1288,17 @@ export class GameScene extends Phaser.Scene {
    * ⚠ **果たせなくても罰は無い**（PO 判断 Q4=A）。注文が流れるだけ。
    */
   private settleDelivery(island: IslandName): void {
+    // ⚠ **自由航行では、注文の宛先と着いた島が食い違いうる**（#7）。
+    //   `settleArrival` は宛先が違えば何も返さないので、ここで流れたことを出す。
+    //   出さないと、**続く `issueOrder()` が黙って上書きし、注文が消えたことに気づけない。**
+    const pending = this.deliveryOrders.getActive()
+    if (pending && pending.island !== island) {
+      const missed = this.registry_.getItem(pending.itemId)
+      this.messageLog.addMessage(
+        `${missed.display.name} ×${pending.quantity} の注文は流れた`, 'event',
+      )
+      return
+    }
     const result = this.deliveryOrders.settleArrival(island)
     if (!result) return
     const item = this.registry_.getItem(result.order.itemId)
@@ -1311,14 +1333,40 @@ export class GameScene extends Phaser.Scene {
     })
   }
 
+  /**
+   * 次の寄港地の表示を出し直す（#7）。
+   *
+   * ⚠ **クリア前は `null` を渡す。**渡さないと、選べないものが選べるように見える。
+   */
+  private refreshNextPort(): void {
+    this.hud.updateNextPort(this.world.isFreeSailing() ? this.world.getLocation().next : null)
+  }
+
+  /**
+   * 次の寄港地を1つ送る（#7）。**滞在中いつでも押せ、何度でも変えられる。**
+   *
+   * ⚠ **窓を出さない**（計画「決めたこと 4」／ 既決 #24）。
+   *   10日ごとに必ず出る選択の窓は「飛ばせない会話を周期的に発生させない」に当たる。
+   * ⚠ **候補の先頭は順どおりの次**（`nextPortCandidates`）なので、
+   *   **一度も押さなければ今までどおりの順**で進む。
+   */
+  private cycleNextPort(): void {
+    const candidates = this.world.availableNextPorts()
+    if (candidates.length === 0) return
+    const current = this.world.getLocation().next
+    const i = candidates.indexOf(current)
+    this.world.chooseNextPort(candidates[(i + 1) % candidates.length])
+    this.refreshNextPort()
+  }
+
   private showGoalComplete(): void {
     const { width, height } = this.scale
     const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setDepth(200)
-    this.add.text(width / 2, height / 2 - 80, '🎉 目標達成！', {
+    const title = this.add.text(width / 2, height / 2 - 80, '🎉 目標達成！', {
       fontSize: '52px', color: '#ffdd44', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(201)
     // ⚠ **クリア条件と同じものを出す**（#73）。届いたのは所持金なので、出すのも所持金
-    this.add.text(width / 2, height / 2, goalReachedLine(this.economy.getMoney()), {
+    const line = this.add.text(width / 2, height / 2, goalReachedLine(this.economy.getMoney()), {
       fontSize: '26px', color: '#ffffff',
     }).setOrigin(0.5).setDepth(201)
 
@@ -1326,13 +1374,20 @@ export class GameScene extends Phaser.Scene {
       fontSize: '22px', color: '#ffffff', backgroundColor: '#4a4a8a', padding: { x: 24, y: 12 },
     }).setOrigin(0.5).setDepth(201).setInteractive({ useHandCursor: true })
     endlessBtn.on('pointerdown', () => {
-      overlay.destroy(); endlessBtn.destroy()
+      // ⚠ **幕の文字も一緒に消すこと。**下地だけ消すと `🎉 目標達成！` が店の上に残る
+      //   （#7 で気づいた。自由航行に入っても幕の文字が居座っていた）
+      overlay.destroy(); endlessBtn.destroy(); title.destroy(); line.destroy()
       this.gameService.enterEndlessMode()
       this.progress.setEndlessMode(true)
       // ⚠ **その場でバーを ∞ に切り替える**（#73）。所持金が動くまで待つと、
       //   目標を越えたあとも「目標 100%」がしばらく残る
       this.hud.updateGoal(this.economy.getMoney(), true)
+      // ⚠ **ここから航路を自分で決められる**（#7）。目標のバーがあった場所が
+      //   「次の寄港地」に変わる（`HUD.updateNextPort`）
+      this.world.beginFreeSailing()
+      this.refreshNextPort()
       this.updateStatus('エンドレスモード開始！')
+      this.messageLog.addMessage('次の寄港地を選べるようになった', 'event')
     })
   }
 

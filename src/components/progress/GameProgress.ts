@@ -50,6 +50,8 @@ export class GameProgress {
       shelfPresets: this.presets.toRecord(),
       orders: this.orders.toRecord(),
       peddler: this.peddler.toRecord(),
+      // 自由航行の航路（#7）。⚠ **積まないとロードで順どおりの島へ戻る**
+      voyage: this.world.voyageRecord(),
       unlockedRecipes: Array.from(this.unlockedRecipes),
       currentTime: this.timeManager.getCurrentTime(),
       isEndlessMode: this.isEndlessMode,

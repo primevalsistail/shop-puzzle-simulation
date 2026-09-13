@@ -160,6 +160,42 @@ export const HUD_PANEL_W = SCREEN_W - RIGHT_PANEL_L - 16
  */
 export const HUD_MONEY_FONT_PX = 20
 
+/**
+ * 目標の進みのバーの幅。**右パネルの枠から左右 12px ずつ引いたもの。**
+ *
+ * ⚠ **`HUD.ts` と `layout.test.ts` の両方が使う。**以前は `HUD.ts` に式が直書きで、
+ *   ここに置くものが収まるかを node のテストから測れなかった。
+ */
+export const HUD_BAR_W = HUD_PANEL_W - 24
+
+/**
+ * 自由航行（#7）で、**次の寄港地を選ぶところ**に出す1行。
+ *
+ * ⚠ **クリア後にしか出ない。**クリア前は同じ場所に目標の進みのバーが出ている
+ *   （目標が無くなったあとのバーは満杯で止まったままで、読む意味が無い）。
+ * ⚠ **ここに置いてあるのは、幅を測るため**（`upcomingLabel` と同じ理由）。
+ *   `HUD.ts` は Phaser を読むので node の単体テストから import できない。
+ * ⚠ **末尾の `▶` は「押すと変わる」ことの印。**取ると、ただの表示に見えて押されない。
+ * ⚠ **言い回しは仮置き。**画面に出す文言は PO が決める（#79）。
+ */
+export function nextPortLabel(island: string): string {
+  return `次 ${island}島 ▶`
+}
+
+/**
+ * その文字の大きさ。⚠ **いちばん長い `次 ミフユリア島 ▶` が `HUD_BAR_W` に収まること**
+ *   （`layout.test.ts` が見ている）。現在地の行（13px）と同じ大きさにしてある。
+ */
+export const HUD_NEXT_PORT_FONT_PX = 13
+
+/**
+ * 次の寄港地を選ぶところの高さ。**押せる的の高さ**でもある。
+ *
+ * ⚠ **バーの行と「目標 N%」の行、2行ぶんを使う。**片方だけだと的が 11px しかなく、押しにくい。
+ *   ⚠ **枠（右パネルの HUD）は広げない。**広げるとキャラ絵の枠（`CHAR_ART_T`）が下がる。
+ */
+export const HUD_NEXT_PORT_H = 26
+
 /** 仕入れの「買う」ボタンの幅。**隣の「最大」「＋」「−」と並んでいるので広げられない** */
 export const BUY_W = 118
 

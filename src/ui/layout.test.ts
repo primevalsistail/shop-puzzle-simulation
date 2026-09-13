@@ -20,6 +20,7 @@ import {
   MSG_LINES_MAX, MSG_CHOICE_W, MSG_CHOICE_H, MSG_CHOICE_GAP, MSG_CHOICE_FONT_PX,
   MSG_CHOICE_CY, msgChoiceCx,
   ORDER_BAR_T, ORDER_BAR_L, ORDER_BAR_R, GRID_ORIGIN_Y, CELL_SIZE,
+  HUD_BAR_W, HUD_NEXT_PORT_FONT_PX, HUD_NEXT_PORT_H, nextPortLabel,
 } from './layout.js'
 import { STORY_EVENTS } from '../components/progress/StoryEvents.js'
 import { ALL_ITEMS } from '../taxonomy/items.js'
@@ -447,6 +448,24 @@ describe('行商人バレンのところ（#9）', () => {
   })
 })
 
+describe('次の寄港地（#7・自由航行）', () => {
+  /** ⚠ **いちばん長い島名で測る。**はみ出すと右パネルの枠から字が出る */
+  it('どの島名でも、目標のバーと同じ幅に収まる', () => {
+    for (const island of ROUTE) {
+      expect(estTextWidth(nextPortLabel(island), HUD_NEXT_PORT_FONT_PX))
+        .toBeLessThanOrEqual(HUD_BAR_W)
+    }
+  })
+
+  /** ⚠ **HUD の枠（上端8・高さ126）から出ないこと。**出るとキャラ絵の枠に被る */
+  it('押せるところが HUD の枠に収まり、キャラ絵の枠に被らない', () => {
+    // `HUD.ts` の置き場所: パネル中心 y = 126/2 + 8、そこから +40（バー）+6
+    const cy = 126 / 2 + 8 + 46
+    expect(cy + HUD_NEXT_PORT_H / 2).toBeLessThanOrEqual(126 + 8)
+    expect(cy + HUD_NEXT_PORT_H / 2).toBeLessThanOrEqual(CHAR_ART_T)
+  })
+})
+
 describe('右パネルのボタン列とキャラ絵の枠（#9 で行を1つ足した）', () => {
   /**
    * ⚠ **行を足すと列が上へ伸びる。**キャラ絵の枠の下端を決め打ちにしていたら
@@ -457,6 +476,16 @@ describe('右パネルのボタン列とキャラ絵の枠（#9 で行を1つ足
     expect(CHAR_ART_B).toBeGreaterThan(CHAR_ART_T)
     // 枠として意味がある高さは残っている（#21・#15 のキャラ絵が入る）
     expect(CHAR_ART_H).toBeGreaterThanOrEqual(120)
+  })
+
+  /**
+   * ⚠ **縮めないこと。**#9 で行を足したときに 200 → 155px になり、#24 で外して 202px に戻った。
+   *   **#15 の絵はこの大きさで入る**ので、ここを下回る変更は絵が入らなくなるという意味になる。
+   *   ⚠ **#7（自由航行）は行を足さずに済ませてある** —— 次の寄港地は
+   *   HUD の中で目標の進みのバーと入れ替わるので、ボタン列も HUD の枠も伸びない。
+   */
+  it('キャラ絵の枠が 202px から縮んでいない（#24 で戻した大きさ）', () => {
+    expect(CHAR_ART_H).toBeGreaterThanOrEqual(202)
   })
 
   it('ボタン列がメッセージ欄に食い込まない', () => {
