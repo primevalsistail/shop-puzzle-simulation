@@ -146,14 +146,14 @@ describe('領域の内側の座標', () => {
 
 describe('rowsThatFit — 行数は高さから出す', () => {
   it('入れた行がページ送りへ食い込まない', () => {
-    for (const rowH of [24, 40, 52, 72, 84, 120]) {
+    for (const rowH of [36, 60, 78, 108, 126, 180]) {
       const n = rowsThatFit(rowH)
       expect(ROWS_TOP + n * rowH).toBeLessThanOrEqual(ROWS_BOTTOM)
     }
   })
 
   it('あと1行は入らない（詰められるだけ詰めている）', () => {
-    for (const rowH of [24, 40, 52, 72, 84, 120]) {
+    for (const rowH of [36, 60, 78, 108, 126, 180]) {
       const n = rowsThatFit(rowH)
       expect(ROWS_TOP + (n + 1) * rowH).toBeGreaterThan(ROWS_BOTTOM)
     }
@@ -168,13 +168,13 @@ describe('rowsThatFit — 行数は高さから出す', () => {
    *   「大きく見やすくする」（#58）のが目的なので、行数が減ったら作り直しの意味がない。
    */
   it('ダイアログの頃より行数が減っていない', () => {
-    expect(rowsThatFit(52)).toBeGreaterThanOrEqual(6)  // 仕入れ（420×480 で6行）
-    expect(rowsThatFit(84)).toBeGreaterThanOrEqual(5)  // クラフト（560×560 で5行）
+    expect(rowsThatFit(78)).toBeGreaterThanOrEqual(6)  // 仕入れ（420×480 で6行）
+    expect(rowsThatFit(126)).toBeGreaterThanOrEqual(5)  // クラフト（560×560 で5行）
   })
 
   it('ダイアログの頃より広い', () => {
-    expect(PLACE_W).toBeGreaterThan(560)  // クラフト（いちばん広かった）
-    expect(PLACE_H).toBeGreaterThan(560)
+    expect(PLACE_W).toBeGreaterThan(840)  // クラフト（いちばん広かった）
+    expect(PLACE_H).toBeGreaterThan(840)
   })
 })
 
@@ -194,13 +194,13 @@ describe('マイセットが1画面に入る（2列 × 5行）', () => {
     expect(PRESET_COUNT % COLS).toBe(0)
   })
 
-  it('升の高さが、縮小図とボタンの2段ぶん（56px）を下回らない', () => {
-    expect(cellH).toBeGreaterThanOrEqual(56)
+  it('升の高さが、縮小図とボタンの2段ぶん（84px）を下回らない', () => {
+    expect(cellH).toBeGreaterThanOrEqual(84)
   })
 
   /** 縮小図70 ＋ ボタン3つ（76×3 ＋ 隙間7×2）＋ 余白 */
   it('升の幅に、縮小図とボタン3つが入る', () => {
-    expect(cellW).toBeGreaterThanOrEqual(10 + 70 + 12 + 76 * 3 + 7 * 2 + 10)
+    expect(cellW).toBeGreaterThanOrEqual(15 + 105 + 18 + 114 * 3 + 10.5 * 2 + 15)
   })
 
   it('全部の升が一覧の範囲に収まる', () => {
@@ -243,7 +243,7 @@ describe('マイセットが1画面に入る（2列 × 5行）', () => {
 
   /** ⚠ **ボタン3つの行と同じ升に入る。**文字の行が伸びてもボタンの列は動かない */
   it('文字欄は、ボタン3つの列より広い', () => {
-    expect(presetTextW).toBeGreaterThanOrEqual(76 * 3 + 7 * 2)
+    expect(presetTextW).toBeGreaterThanOrEqual(114 * 3 + 10.5 * 2)
   })
 
   it('升の幅の式が、`layout.ts` と一致している', () => {
@@ -284,11 +284,11 @@ describe('マイセットが1画面に入る（2列 × 5行）', () => {
    *   文字の行は升の上端から 15px（`PresetMenu.cellBox`）、ボタンは下端から 18px。
    */
   it('名前の入力欄が、升の上端とボタン列のあいだに収まる', () => {
-    const h = cellH - 8              // GAP_Y
-    const nameCy = -h / 2 + 15       // 升の中心から見た入力欄の中心
-    const btnCy = h / 2 - 18
+    const h = cellH - 12              // GAP_Y
+    const nameCy = -h / 2 + 22.5       // 升の中心から見た入力欄の中心
+    const btnCy = h / 2 - 27
     expect(nameCy - PRESET_NAME_INPUT_H / 2).toBeGreaterThanOrEqual(-h / 2)
-    expect(nameCy + PRESET_NAME_INPUT_H / 2).toBeLessThanOrEqual(btnCy - 24 / 2)
+    expect(nameCy + PRESET_NAME_INPUT_H / 2).toBeLessThanOrEqual(btnCy - 36 / 2)
   })
 })
 
@@ -327,8 +327,8 @@ describe('金額の文字が枠に収まる', () => {
   })
 
   /** ⚠ **下げすぎない。**所持金は右パネルの主要な情報である */
-  it('所持金の文字を 20px より小さくしない', () => {
-    expect(HUD_MONEY_FONT_PX).toBeGreaterThanOrEqual(20)
+  it('所持金の文字を 30px より小さくしない', () => {
+    expect(HUD_MONEY_FONT_PX).toBeGreaterThanOrEqual(30)
   })
 
   /**
@@ -353,8 +353,8 @@ describe('金額の文字が枠に収まる', () => {
   })
 
   /** ⚠ **隣の「最大」「＋」「−」が 12px。**主たるボタンだけ小さいのはおかしい */
-  it('「買う」の文字を、隣のボタン（12px）より小さくしない', () => {
-    expect(BUY_FONT_PX).toBeGreaterThanOrEqual(12)
+  it('「買う」の文字を、隣のボタン（18px）より小さくしない', () => {
+    expect(BUY_FONT_PX).toBeGreaterThanOrEqual(18)
   })
 
   /**
@@ -647,7 +647,7 @@ describe('見出しの下に1行が無い場所（工房）', () => {
 
   it('絞り込みの行が店に戻る印のボタンに重ならない', () => {
     // ボタンは TITLE_Y 中心・高さ30
-    const backBottom = TITLE_Y + 15
+    const backBottom = TITLE_Y + 22.5
     const bandTop = FILTER_Y_NO_SUBTITLE - FILTER_BAND_H / 2
     expect(bandTop).toBeGreaterThan(backBottom)
   })
@@ -682,7 +682,7 @@ describe('画面に載せた `<input>` が、隣のものに重ならない', ()
    *   `PurchaseMenu` / `CraftMenu` とも 64px ×4個、隙間 8px。
    */
   it('「名前で探す」欄が、主種類のボタンに重ならない', () => {
-    const groupR = PLACE_CX + (4 * 64 + 3 * 8) / 2
+    const groupR = PLACE_CX + (4 * 96 + 3 * 12) / 2
     expect(CONTENT_R - LIST_SEARCH_W).toBeGreaterThan(groupR)
   })
 
@@ -719,7 +719,7 @@ describe('行商人バレンのところ（#9）', () => {
     const longest = ALL_ITEMS.reduce(
       (a, b) => (b.display.name.length > a.display.name.length ? b : a))
     // 品名は 15px（`PurchaseMenu.buildRow`）。右に 8px 空けて置く
-    const tagL = NAME_X + estTextWidth(longest.display.name, 15) + 8
+    const tagL = NAME_X + estTextWidth(longest.display.name, 22.5) + 12
     const tagR = tagL + estTextWidth(peddlerRemainText(PEDDLER_MAX_PER_KIND), PEDDLER_REMAIN_FONT_PX)
     expect(tagR, longest.display.name).toBeLessThanOrEqual(INFO_L)
   })
@@ -748,13 +748,13 @@ describe('行商人バレンのところ（#9）', () => {
   })
 
   it('見出しが枠の内側に収まる', () => {
-    expect(estTextWidth(PEDDLER_TITLE, 24)).toBeLessThanOrEqual(CONTENT_R - CONTENT_L)
+    expect(estTextWidth(PEDDLER_TITLE, 36)).toBeLessThanOrEqual(CONTENT_R - CONTENT_L)
   })
 
   /** ⚠ 行商人の買値も「買う」ボタンに収まること（`レン` は全角2文字） */
   it('行商人の買値 × 999個 でも「買う」ボタンからはみ出さない', () => {
     const worst = ALL_ITEMS.reduce((a, i) => Math.max(a, peddlerPrice(i.id)), 0) * 999
-    expect(estTextWidth(`${money(worst)} 買う`, 12)).toBeLessThanOrEqual(118)
+    expect(estTextWidth(`${money(worst)} 買う`, 18)).toBeLessThanOrEqual(177)
   })
 })
 
@@ -784,15 +784,15 @@ describe('次の寄港地（#7・自由航行）', () => {
   /** ⚠ **枠は所持金の行で終わる。**下に空の帯を作らない */
   it('HUD の枠は、いちばん下の行（所持金）のすぐ下で終わる', () => {
     // 所持金は HUD_MONEY_FONT_PX。行の下端から枠の下端までは余白1つぶん
-    expect(HUD_PANEL_B - (HUD_ROW_MONEY_Y + HUD_MONEY_FONT_PX / 2)).toBeLessThanOrEqual(14)
+    expect(HUD_PANEL_B - (HUD_ROW_MONEY_Y + HUD_MONEY_FONT_PX / 2)).toBeLessThanOrEqual(21)
     expect(HUD_PANEL_B).toBeGreaterThan(HUD_ROW_MONEY_Y + HUD_MONEY_FONT_PX / 2)
   })
 
   /** ⚠ **行が詰まりすぎないこと**（PO 指示 2026-09-14「詰まりすぎ。調整」） */
   it('時刻の行と現在地の行が、字の高さぶん離れている', () => {
-    const timeBottom = HUD_ROW_TIME_Y + 26 / 2      // 時刻は 26px
-    const placeTop = HUD_ROW_PLACE_Y - 13 / 2       // 現在地は 13px
-    expect(placeTop - timeBottom).toBeGreaterThanOrEqual(6)
+    const timeBottom = HUD_ROW_TIME_Y + 39 / 2      // 時刻は 26px
+    const placeTop = HUD_ROW_PLACE_Y - 19.5 / 2       // 現在地は 13px
+    expect(placeTop - timeBottom).toBeGreaterThanOrEqual(9)
   })
 })
 
@@ -805,7 +805,7 @@ describe('右パネルのボタン列とキャラ絵の枠（#9 で行を1つ足
     expect(CHAR_ART_B).toBeLessThan(BTN_Y_ICON - BTN_ICON_H / 2)
     expect(CHAR_ART_B).toBeGreaterThan(CHAR_ART_T)
     // 枠として意味がある高さは残っている（#21・#15 のキャラ絵が入る）
-    expect(CHAR_ART_H).toBeGreaterThanOrEqual(120)
+    expect(CHAR_ART_H).toBeGreaterThanOrEqual(180)
   })
 
   /**
@@ -817,8 +817,8 @@ describe('右パネルのボタン列とキャラ絵の枠（#9 で行を1つ足
    *   ⚠ **#7（自由航行）は行を足さずに済ませてある** —— 次の寄港地は
    *   HUD の中で目標の進みのバーと入れ替わるので、ボタン列も HUD の枠も伸びない。
    */
-  it('キャラ絵の枠が 265px から縮んでいない', () => {
-    expect(CHAR_ART_H).toBeGreaterThanOrEqual(265)
+  it('キャラ絵の枠が 397.5px から縮んでいない', () => {
+    expect(CHAR_ART_H).toBeGreaterThanOrEqual(397.5)
   })
 
   it('ボタン列がメッセージ欄に食い込まない', () => {
@@ -1035,7 +1035,7 @@ describe('できごとの文字が窓に収まる', () => {
     for (const def of STORY_EVENTS) {
       for (const choice of def.choices) {
         expect(estTextWidth(choice.label, MSG_CHOICE_FONT_PX), `${def.id}: ${choice.label}`)
-          .toBeLessThanOrEqual(MSG_CHOICE_W - 16)
+          .toBeLessThanOrEqual(MSG_CHOICE_W - 24)
       }
     }
   })
@@ -1062,7 +1062,7 @@ describe('「取引」の3タブ（#96）', () => {
 
   it('タブの名がタブの枠に収まる', () => {
     for (const label of TRADE_TABS) {
-      expect(estTextWidth(label, TAB_FONT_PX), label).toBeLessThanOrEqual(TAB_W - 8)
+      expect(estTextWidth(label, TAB_FONT_PX), label).toBeLessThanOrEqual(TAB_W - 12)
     }
   })
 
@@ -1085,7 +1085,7 @@ describe('「取引」の3タブ（#96）', () => {
    *   タブを足すために品が1つ見えなくなるのは割に合わない（`layout.ts` の注記）。
    */
   it('タブを足しても仕入れの一覧の行数が減っていない', () => {
-    expect(rowsThatFit(56)).toBe(8)
+    expect(rowsThatFit(84)).toBe(8)
   })
 })
 
@@ -1175,7 +1175,7 @@ describe('改装タブの行（PO 赤入れ 2026-09-13）', () => {
 
   it('ボタンの字も、買えないときの理由も、ボタンに収まる', () => {
     for (const label of [UPGRADE_LABEL, UPGRADE_REASON_FUNDS]) {
-      expect(estTextWidth(label, BUY_FONT_PX), label).toBeLessThanOrEqual(UPGRADE_BTN_W - 8)
+      expect(estTextWidth(label, BUY_FONT_PX), label).toBeLessThanOrEqual(UPGRADE_BTN_W - 12)
     }
     // 最大まで買った行はボタンを出さず、右端に字だけ出る
     expect(estTextWidth(UPGRADE_MAXED, TAB_ROW_SUB_FONT_PX)).toBeLessThanOrEqual(UPGRADE_BTN_W)
@@ -1245,13 +1245,13 @@ describe('納品タブの表（#98 ／ PO 赤入れ 2026-09-13）', () => {
       const w = estTextWidth(item.display.name, TAB_ROW_TITLE_FONT_PX)
       if (w > worst.w) worst = { w, name: item.display.name }
     }
-    expect(worst.w, worst.name).toBeLessThanOrEqual(DELIVERY_NAME_W - 8)
+    expect(worst.w, worst.name).toBeLessThanOrEqual(DELIVERY_NAME_W - 12)
   })
 
   it('依頼者4人の名が数量の列に届かない', () => {
     for (const island of ISLANDS) {
       expect(estTextWidth(island.merchant, TAB_ROW_SUB_FONT_PX), island.merchant)
-        .toBeLessThanOrEqual(DELIVERY_CLIENT_W - 8)
+        .toBeLessThanOrEqual(DELIVERY_CLIENT_W - 12)
     }
   })
 
@@ -1278,9 +1278,9 @@ describe('納品タブの表（#98 ／ PO 赤入れ 2026-09-13）', () => {
    */
   it('納品ボタンの字がボタンに収まる（字は1通り）', () => {
     expect(estTextWidth(DELIVERY_BTN_LABEL, DELIVERY_BTN_FONT_PX))
-      .toBeLessThanOrEqual(DELIVERY_BTN_W - 8)
+      .toBeLessThanOrEqual(DELIVERY_BTN_W - 12)
     expect(estTextWidth(DISCARD_BTN_LABEL, DELIVERY_BTN_FONT_PX))
-      .toBeLessThanOrEqual(DELIVERY_DISCARD_W - 8)
+      .toBeLessThanOrEqual(DELIVERY_DISCARD_W - 12)
     // 手持ちの数はボタンではなく列に出る
     expect(deliveryTabSource).toContain('DELIVERY_QTY_R, y, deliveryShortLabel(held, order.quantity)')
   })
@@ -1312,7 +1312,7 @@ describe('納品タブの表（#98 ／ PO 赤入れ 2026-09-13）', () => {
   })
 
   it('行の高さにボタンが収まる', () => {
-    expect(DELIVERY_BTN_H).toBeLessThanOrEqual(DELIVERY_ROW_H - 6)
+    expect(DELIVERY_BTN_H).toBeLessThanOrEqual(DELIVERY_ROW_H - 9)
   })
 
   it('1件も無いときの1行が枠に収まる', () => {
@@ -1378,7 +1378,7 @@ describe('確認のダイアログ（廃棄。PO 指示 2026-09-14）', () => {
   it('ボタンの字が、どちらもボタンに収まる', () => {
     for (const label of [DISCARD_BTN_LABEL, CONFIRM_CANCEL_LABEL]) {
       expect(estTextWidth(label, CONFIRM_BTN_FONT_PX), label)
-        .toBeLessThanOrEqual(CONFIRM_BTN_W - 8)
+        .toBeLessThanOrEqual(CONFIRM_BTN_W - 12)
     }
   })
 

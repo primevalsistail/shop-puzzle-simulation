@@ -57,7 +57,7 @@ import { becameBuyable, merchantListing } from '../taxonomy/evaluate.js'
 const INITIAL_GRID = { width: 6, height: 5 }
 
 /** これ以上動かしたら「掴んだ」とみなす（押して離すだけなら補充） */
-const DRAG_THRESHOLD = 6
+const DRAG_THRESHOLD = 9
 
 /**
  * 新しく始めたときの在庫。**伯母から預かったぶん**という想定で、3品を15個ずつ。
@@ -474,15 +474,15 @@ export class GameScene extends Phaser.Scene {
     this.resizeGridBackdrop(INITIAL_GRID)
     // 右パネル
     this.add.rectangle((RIGHT_PANEL_L + SCREEN_W) / 2, LOG_T / 2, SCREEN_W - RIGHT_PANEL_L, LOG_T, 0x13122a)
-      .setStrokeStyle(1, 0x2a2a4a)
+      .setStrokeStyle(1.5, 0x2a2a4a)
     // キャラ絵プレースホルダー（HUD の下〜ボタン列の上）。
     // ⚠ **高さを直書きしないこと。**ボタン列に行を足すと列が上へ伸びる（`layout.ts` の注記）
     this.add.rectangle(CHAR_ART_CX, CHAR_ART_CY, CHAR_ART_W, CHAR_ART_H, 0x0d1530)
-      .setStrokeStyle(1, 0x223355).setDepth(1)
+      .setStrokeStyle(1.5, 0x223355).setDepth(1)
     // メッセージウィンドウ区切り（グリッド+キャラ+右パネルのみ。左パネルはアイテムリストが続く）
     const divGfx = this.add.graphics()
-    divGfx.lineStyle(1, 0x334455, 0.6)
-    divGfx.lineBetween(LEFT_PANEL_R, LOG_T - 1, SCREEN_W, LOG_T - 1)
+    divGfx.lineStyle(1.5, 0x334455, 0.6)
+    divGfx.lineBetween(LEFT_PANEL_R, LOG_T - 1.5, SCREEN_W, LOG_T - 1.5)
   }
 
   /** グリッドの下地を盤面の大きさに合わせる */
@@ -491,7 +491,7 @@ export class GameScene extends Phaser.Scene {
     const gh = size.height * CELL_SIZE
     this.gridBackdrop
       .setPosition(GRID_ORIGIN_X + gw / 2, GRID_ORIGIN_Y + gh / 2)
-      .setSize(gw + 10, gh + 4)
+      .setSize(gw + 15, gh + 6)
   }
 
   private setupUI(): void {
@@ -516,15 +516,15 @@ export class GameScene extends Phaser.Scene {
 
     // ── Tooltip ──────────────────────────────────────
     this.tooltip = this.add.text(0, 0, '', {
-      fontSize: '12px', color: '#dddddd',
+      fontSize: '18px', color: '#dddddd',
       backgroundColor: '#111133',
-      padding: { x: 8, y: 5 },
+      padding: { x: 12, y: 7.5 },
     }).setDepth(DEPTH + 1).setVisible(false)
 
     const showTip = (x: number, y: number, text: string) => {
       this.tooltip.setText(text)
-      const tx = Phaser.Math.Clamp(x - this.tooltip.width / 2, 4, 1280 - this.tooltip.width - 4)
-      this.tooltip.setPosition(tx, y - IH / 2 - this.tooltip.height - 6)
+      const tx = Phaser.Math.Clamp(x - this.tooltip.width / 2, 6, 1920 - this.tooltip.width - 6)
+      this.tooltip.setPosition(tx, y - IH / 2 - this.tooltip.height - 9)
       this.tooltip.setVisible(true)
     }
     const hideTip = () => this.tooltip.setVisible(false)
@@ -540,8 +540,8 @@ export class GameScene extends Phaser.Scene {
     iconDefs.forEach(({ emoji, tip, action }, i) => {
       const cx = L + IW / 2 + i * (IW + iconGap)
       const bg = this.add.rectangle(cx, yIcon, IW, IH, 0x2a2a4a)
-        .setStrokeStyle(1, 0x555577).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
-      this.add.text(cx, yIcon, emoji, { fontSize: '16px' }).setOrigin(0.5).setDepth(DEPTH)
+        .setStrokeStyle(1.5, 0x555577).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
+      this.add.text(cx, yIcon, emoji, { fontSize: '24px' }).setOrigin(0.5).setDepth(DEPTH)
       bg.on('pointerdown', action)
       bg.on('pointerover', () => { bg.setFillStyle(0x4a4a6a); showTip(cx, yIcon, tip) })
       bg.on('pointerout',  () => { bg.setFillStyle(0x2a2a4a); hideTip() })
@@ -556,8 +556,8 @@ export class GameScene extends Phaser.Scene {
       action: () => void,
     ) => {
       const bg = this.add.rectangle(acx, cy, PW, AH, normal)
-        .setStrokeStyle(1, 0x666688).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
-      this.add.text(acx, cy, `${icon}  ${label}`, { fontSize: '17px', color: '#ffffff' })
+        .setStrokeStyle(1.5, 0x666688).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
+      this.add.text(acx, cy, `${icon}  ${label}`, { fontSize: '25.5px', color: '#ffffff' })
         .setOrigin(0.5).setDepth(DEPTH)
       bg.on('pointerdown', action)
       bg.on('pointerover', () => bg.setFillStyle(hover))
@@ -576,18 +576,18 @@ export class GameScene extends Phaser.Scene {
 
     // 速度切り替え。⚠ 飛ばすのではなく速くする（飛ばすと売れた実感が消える）。
     //   **「進める」ボタンの上に独立した行として置く。**ボタンの中に入れると文字が重なる
-    const speedBg = this.add.rectangle(acx, ySpeed, PW, 16, 0x2a2a4a)
-      .setStrokeStyle(1, 0x555577).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
+    const speedBg = this.add.rectangle(acx, ySpeed, PW, 24, 0x2a2a4a)
+      .setStrokeStyle(1.5, 0x555577).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
     this.speedLabel = this.add.text(acx, ySpeed, `速さ ×${this.timeManager.getSpeed()}`, {
-      fontSize: '11px', color: '#ccddff',
+      fontSize: '16.5px', color: '#ccddff',
     }).setOrigin(0.5).setDepth(DEPTH)
     speedBg.on('pointerdown', () => {
       this.speedLabel.setText(`速さ ×${this.timeManager.cycleSpeed()}`)
     })
 
     this.advanceBtnBg = this.add.rectangle(acx, yAdv, PW, AH, 0x4a4a8a)
-      .setStrokeStyle(1, 0x6666aa).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
-    this.advanceBtnLabel = this.add.text(acx, yAdv, '▶  進める', { fontSize: '17px', color: '#ffffff' })
+      .setStrokeStyle(1.5, 0x6666aa).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
+    this.advanceBtnLabel = this.add.text(acx, yAdv, '▶  進める', { fontSize: '25.5px', color: '#ffffff' })
       .setOrigin(0.5).setDepth(DEPTH)
     this.advanceBtnBg.on('pointerdown', () => this.onAdvancePressed())
     this.advanceBtnBg.on('pointerover', () => {
@@ -1384,13 +1384,13 @@ export class GameScene extends Phaser.Scene {
     const px = GRID_ORIGIN_X + (slot.position.x + cx + 0.5) * CELL_SIZE
     const py = GRID_ORIGIN_Y + (slot.position.y + cy) * CELL_SIZE
     const popup = this.add.text(px, py, `+${money(revenue)}`, {
-      fontSize: '14px', color: '#ffee44',
-      stroke: '#000000', strokeThickness: 3,
+      fontSize: '21px', color: '#ffee44',
+      stroke: '#000000', strokeThickness: 4.5,
       fontStyle: 'bold',
     }).setOrigin(0.5, 1).setDepth(100)
     this.tweens.add({
       targets: popup,
-      y: py - 36,
+      y: py - 54,
       alpha: 0,
       duration: 900,
       ease: 'Cubic.Out',
@@ -1428,16 +1428,16 @@ export class GameScene extends Phaser.Scene {
     const { width, height } = this.scale
     this.curtainShown = true
     const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setDepth(200)
-    const title = this.add.text(width / 2, height / 2 - 80, '🎉 目標達成！', {
-      fontSize: '52px', color: '#ffdd44', fontStyle: 'bold',
+    const title = this.add.text(width / 2, height / 2 - 120, '🎉 目標達成！', {
+      fontSize: '78px', color: '#ffdd44', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(201)
     // ⚠ **クリア条件と同じものを出す**（#73）。届いたのは所持金なので、出すのも所持金
     const line = this.add.text(width / 2, height / 2, goalReachedLine(this.economy.getMoney()), {
-      fontSize: '26px', color: '#ffffff',
+      fontSize: '39px', color: '#ffffff',
     }).setOrigin(0.5).setDepth(201)
 
-    const endlessBtn = this.add.text(width / 2, height / 2 + 90, 'エンドレスモードへ', {
-      fontSize: '22px', color: '#ffffff', backgroundColor: '#4a4a8a', padding: { x: 24, y: 12 },
+    const endlessBtn = this.add.text(width / 2, height / 2 + 135, 'エンドレスモードへ', {
+      fontSize: '33px', color: '#ffffff', backgroundColor: '#4a4a8a', padding: { x: 36, y: 18 },
     }).setOrigin(0.5).setDepth(201).setInteractive({ useHandCursor: true })
     endlessBtn.on('pointerdown', () => {
       // ⚠ **幕の文字も一緒に消すこと。**下地だけ消すと `🎉 目標達成！` が店の上に残る
@@ -1460,11 +1460,11 @@ export class GameScene extends Phaser.Scene {
     const { width, height } = this.scale
     this.curtainShown = true
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.85).setDepth(200)
-    this.add.text(width / 2, height / 2 - 40, 'GAME OVER', {
-      fontSize: '52px', color: '#ff4444', fontStyle: 'bold',
+    this.add.text(width / 2, height / 2 - 60, 'GAME OVER', {
+      fontSize: '78px', color: '#ff4444', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(201)
-    this.add.text(width / 2, height / 2 + 30, '資金が尽きました', {
-      fontSize: '22px', color: '#cccccc',
+    this.add.text(width / 2, height / 2 + 45, '資金が尽きました', {
+      fontSize: '33px', color: '#cccccc',
     }).setOrigin(0.5).setDepth(201)
   }
 

@@ -68,7 +68,7 @@ export class PlaceFrame {
     const bg = this.scene.add
       // ⚠ 全体背景（0x1a1a2e）と近い色にしないこと。**棚が消えただけに見える**
       .rectangle(PLACE_CX, PLACE_CY, PLACE_W, PLACE_H, 0x232338)
-      .setStrokeStyle(2, 0x6a6aaa)
+      .setStrokeStyle(3, 0x6a6aaa)
       .setInteractive()
       .setDepth(FRAME_DEPTH)
 
@@ -77,14 +77,14 @@ export class PlaceFrame {
     }).setOrigin(0, 0.5).setDepth(FRAME_DEPTH)
 
     const backBg = this.scene.add
-      .rectangle(CONTENT_R - BACK_BTN_W / 2, TITLE_Y, BACK_BTN_W, 30, 0x2a2a4a)
-      .setStrokeStyle(1, 0x6666aa)
+      .rectangle(CONTENT_R - BACK_BTN_W / 2, TITLE_Y, BACK_BTN_W, 45, 0x2a2a4a)
+      .setStrokeStyle(1.5, 0x6666aa)
       .setInteractive({ useHandCursor: true })
       .setDepth(FRAME_DEPTH)
     // ⚠ **字は入れない**（PO 指示 2026-09-13）。**家の印だけ。**
     //   出口は ESC と合わせて1つで、**どの場所でも同じ位置・同じ印**にする
     const backLabel = this.scene.add.text(CONTENT_R - BACK_BTN_W / 2, TITLE_Y, '🏠', {
-      fontSize: '18px',
+      fontSize: '27px',
     }).setOrigin(0.5).setDepth(FRAME_DEPTH)
     backBg.on('pointerdown', () => this.requestBack())
     backBg.on('pointerover', () => backBg.setFillStyle(0x4a4a7a))
@@ -92,8 +92,8 @@ export class PlaceFrame {
 
     // 見出しと中身の区切り
     const rule = this.scene.add.graphics().setDepth(FRAME_DEPTH)
-    rule.lineStyle(1, 0x3a3a5a, 0.9)
-    rule.lineBetween(PLACE_L + 12, TITLE_RULE_Y, PLACE_L + PLACE_W - 12, TITLE_RULE_Y)
+    rule.lineStyle(1.5, 0x3a3a5a, 0.9)
+    rule.lineBetween(PLACE_L + 18, TITLE_RULE_Y, PLACE_L + PLACE_W - 18, TITLE_RULE_Y)
 
     this.objects = [bg, heading, backBg, backLabel, rule]
     this.back = onBack
@@ -112,7 +112,7 @@ export class PlaceFrame {
     tabs.labels.forEach((label, i) => {
       const cx = tabCx(i, tabs.labels.length)
       const bg = this.scene.add.rectangle(cx, TITLE_Y, TAB_W, TAB_H, 0x2a2a4a)
-        .setStrokeStyle(1, 0x6666aa)
+        .setStrokeStyle(1.5, 0x6666aa)
         .setInteractive({ useHandCursor: true })
         .setDepth(FRAME_DEPTH)
       const text = this.scene.add.text(cx, TITLE_Y, label, {
@@ -136,7 +136,7 @@ export class PlaceFrame {
     this.tabBgs.forEach((bg, i) => {
       const on = i === this.activeTab
       bg.setFillStyle(on ? 0x4a4a7a : 0x2a2a4a)
-      bg.setStrokeStyle(on ? 2 : 1, on ? 0xffdd88 : 0x6666aa)
+      bg.setStrokeStyle(on ? 3 : 1.5, on ? 0xffdd88 : 0x6666aa)
       this.tabLabels[i].setColor(on ? '#ffffff' : '#99aacc')
     })
   }

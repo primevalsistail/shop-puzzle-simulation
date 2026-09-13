@@ -150,13 +150,13 @@ describe('MessageLog — ログ欄の中で遡る（行く場所にしない）'
     const { log, wheels } = make()
     for (let i = 0; i < 30; i++) log.addMessage(`売れた${i}`, 'sale')
     const wheel = wheels[0]!
-    wheel({ x: 600, y: 650 }, null, 0, -1)   // ログ欄の上・上へ回す
+    wheel({ x: 900, y: 975 }, null, 0, -1)   // ログ欄の上・上へ回す
     expect(log.getScroll()).toBe(1)
-    wheel({ x: 600, y: 650 }, null, 0, 1)    // 下へ回す
+    wheel({ x: 900, y: 975 }, null, 0, 1)    // 下へ回す
     expect(log.getScroll()).toBe(0)
-    wheel({ x: 600, y: 300 }, null, 0, -1)   // 盤面の上（ログ欄の外）
+    wheel({ x: 900, y: 450 }, null, 0, -1)   // 盤面の上（ログ欄の外）
     expect(log.getScroll()).toBe(0)
-    wheel({ x: 100, y: 650 }, null, 0, -1)   // 左パネルの上
+    wheel({ x: 150, y: 975 }, null, 0, -1)   // 左パネルの上
     expect(log.getScroll()).toBe(0)
   })
 })

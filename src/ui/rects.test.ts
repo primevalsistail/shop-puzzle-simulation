@@ -78,9 +78,9 @@ describe('破棄ゾーンと盤面（この不具合の再発を止める）', (
 
   it('盤面の外の上端は、破棄ゾーンのまま残る', () => {
     const parts = subtractRect(topBand, gridRect(6, 5))
-    expect(parts.some(r => contains(r, 10, 10))).toBe(true)            // 左パネルの上
-    expect(parts.some(r => contains(r, SCREEN_W - 10, 10))).toBe(true) // 右パネルの上
-    expect(parts.some(r => contains(r, GRID_ORIGIN_X + 10, 2))).toBe(true) // 盤面の真上の細い帯
+    expect(parts.some(r => contains(r, 15, 15))).toBe(true)            // 左パネルの上
+    expect(parts.some(r => contains(r, SCREEN_W - 15, 15))).toBe(true) // 右パネルの上
+    expect(parts.some(r => contains(r, GRID_ORIGIN_X + 15, 3))).toBe(true) // 盤面の真上の細い帯
   })
 
   it('左・右・下の帯は盤面と重ならない（重なったら同じ不具合が起きる）', () => {

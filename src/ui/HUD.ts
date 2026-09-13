@@ -36,7 +36,7 @@ export class HUD {
    */
   create(): void {
     const { width } = this.scene.scale
-    this.panelX = width - PW / 2 - 8
+    this.panelX = width - PW / 2 - 12
     this.panelY = HUD_PANEL_T + PH / 2
 
     const px = this.panelX
@@ -44,28 +44,28 @@ export class HUD {
 
     // Background panel
     this.scene.add.rectangle(px, py, PW, PH, 0x0a0a22, 0.85)
-      .setStrokeStyle(1, 0x334477).setDepth(5)
+      .setStrokeStyle(1.5, 0x334477).setDepth(5)
 
     // Row 1 — 区分（左・小）＋ 時刻（右・大）
     // ⚠ **この行に長い文字を足さないこと。**時刻が 26px で右寄せなので、
     //   左の文字と重なる（幅は 174px しかない）
-    this.phaseText = this.scene.add.text(px - PW / 2 + 10, HUD_ROW_TIME_Y, `D1 ${phaseLabel('作業')}`, {
-      fontSize: '12px', color: '#7788aa',
+    this.phaseText = this.scene.add.text(px - PW / 2 + 15, HUD_ROW_TIME_Y, `D1 ${phaseLabel('作業')}`, {
+      fontSize: '18px', color: '#7788aa',
     }).setOrigin(0, 0.5).setDepth(5)
 
-    this.timeText = this.scene.add.text(px + PW / 2 - 12, HUD_ROW_TIME_Y, '06:00', {
-      fontSize: '26px', color: '#55ddff', fontStyle: 'bold',
+    this.timeText = this.scene.add.text(px + PW / 2 - 18, HUD_ROW_TIME_Y, '06:00', {
+      fontSize: '39px', color: '#55ddff', fontStyle: 'bold',
     }).setOrigin(1, 0.5).setDepth(5)
 
     // Row 2 — 現在地（#44）。島名は正式名のみ。**季節名は出さない**（#2 の確定事項）
-    this.placeText = this.scene.add.text(px - PW / 2 + 12, HUD_ROW_PLACE_Y, '', {
-      fontSize: '13px', color: '#88bbdd',
+    this.placeText = this.scene.add.text(px - PW / 2 + 18, HUD_ROW_PLACE_Y, '', {
+      fontSize: '19.5px', color: '#88bbdd',
     }).setOrigin(0, 0.5).setDepth(5)
 
     // Divider line
     const lineGfx = this.scene.add.graphics().setDepth(5)
-    lineGfx.lineStyle(1, 0x334477, 0.7)
-    lineGfx.lineBetween(px - PW / 2 + 8, HUD_RULE_Y, px + PW / 2 - 8, HUD_RULE_Y)
+    lineGfx.lineStyle(1.5, 0x334477, 0.7)
+    lineGfx.lineBetween(px - PW / 2 + 12, HUD_RULE_Y, px + PW / 2 - 12, HUD_RULE_Y)
 
     // Row 3 — Money (center, big)
     // ⚠ **大きさは `layout.ts` の `HUD_MONEY_FONT_PX`。**`10,000,000レン`（クリア条件の額）が
@@ -78,15 +78,15 @@ export class HUD {
     // ⚠ **現在地の行の右に置く**（PO 指示 2026-09-14）。
     //   **クリア後は `あと N日` が消えて島名だけになる**ので、そこが空く。
     // ⚠ **キャラ絵の枠は動かない。**枠の外に行を足すと、絵の置き場所が変わる
-    const npW = 72
+    const npW = 108
     const npY = HUD_ROW_PLACE_Y
-    this.nextPortBg = this.scene.add.rectangle(px + PW / 2 - 8 - npW / 2, npY, npW, HUD_NEXT_PORT_H, 0x2a2a4a)
-      .setStrokeStyle(1, 0x5566aa).setDepth(5).setVisible(false)
+    this.nextPortBg = this.scene.add.rectangle(px + PW / 2 - 12 - npW / 2, npY, npW, HUD_NEXT_PORT_H, 0x2a2a4a)
+      .setStrokeStyle(1.5, 0x5566aa).setDepth(5).setVisible(false)
       .setInteractive({ useHandCursor: true })
     this.nextPortBg.on('pointerover', () => this.nextPortBg.setFillStyle(0x3a3a6a))
     this.nextPortBg.on('pointerout', () => this.nextPortBg.setFillStyle(0x2a2a4a))
     this.nextPortBg.on('pointerdown', () => this.onNextPortClick?.())
-    this.nextPortText = this.scene.add.text(px + PW / 2 - 8 - npW / 2, npY, '', {
+    this.nextPortText = this.scene.add.text(px + PW / 2 - 12 - npW / 2, npY, '', {
       fontSize: `${HUD_NEXT_PORT_FONT_PX}px`, color: '#ffdd88',
     }).setOrigin(0.5, 0.5).setDepth(6).setVisible(false)
   }

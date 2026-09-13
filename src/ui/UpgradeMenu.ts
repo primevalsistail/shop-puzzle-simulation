@@ -132,8 +132,8 @@ export class UpgradeMenu {
     const afford = !maxed && this.economy.canAfford(cost)
 
     objs.push(
-      this.scene.add.rectangle(PLACE_CX, y, UPGRADE_ROW_W, UPGRADE_ROW_H - 12,
-        maxed ? 0x2a2a3a : 0x232344).setStrokeStyle(1, 0x445577),
+      this.scene.add.rectangle(PLACE_CX, y, UPGRADE_ROW_W, UPGRADE_ROW_H - 18,
+        maxed ? 0x2a2a3a : 0x232344).setStrokeStyle(1.5, 0x445577),
       this.scene.add.text(UPGRADE_NAME_X, y + UPGRADE_TITLE_DY, kind, {
         fontSize: `${TAB_ROW_TITLE_FONT_PX}px`, color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0, 0.5),
@@ -179,7 +179,7 @@ export class UpgradeMenu {
     // ⚠ **ボタンは `改装` とだけ書く。**買えないときだけ理由に差し替わる（商人タブと同じ作り）
     const bg = this.scene.add.rectangle(UPGRADE_BTN_L + UPGRADE_BTN_W / 2, y,
       UPGRADE_BTN_W, UPGRADE_BTN_H, afford ? 0x3a5a8a : 0x3a3a3a)
-      .setStrokeStyle(1, afford ? 0x5a7aaa : 0x4a4a4a)
+      .setStrokeStyle(1.5, afford ? 0x5a7aaa : 0x4a4a4a)
     const label = this.scene.add.text(UPGRADE_BTN_L + UPGRADE_BTN_W / 2, y,
       afford ? UPGRADE_LABEL : UPGRADE_REASON_FUNDS, {
       fontSize: `${BUY_FONT_PX}px`, color: afford ? '#ffffff' : '#998877',

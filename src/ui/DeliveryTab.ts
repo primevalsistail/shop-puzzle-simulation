@@ -105,7 +105,7 @@ export class DeliveryTab {
     if (rows.length === 0) {
       // ⚠ **まっさらにしない。**タブは自分で開いて来る場所なので、空だと壊れて見える（#48）
       objs.push(
-        this.scene.add.text(PLACE_CX, ROWS_TOP + 60, DELIVERY_TAB_EMPTY, {
+        this.scene.add.text(PLACE_CX, ROWS_TOP + 90, DELIVERY_TAB_EMPTY, {
           fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: '#889999',
         }).setOrigin(0.5),
       )
@@ -140,9 +140,9 @@ export class DeliveryTab {
     const ready = held >= order.quantity
 
     objs.push(
-      this.scene.add.rectangle(PLACE_CX, y, ROW_W, DELIVERY_ROW_H - 6,
+      this.scene.add.rectangle(PLACE_CX, y, ROW_W, DELIVERY_ROW_H - 9,
         ready ? ROW_BG_READY : ROW_BG)
-        .setStrokeStyle(1, ready ? 0x558855 : 0x555555),
+        .setStrokeStyle(1.5, ready ? 0x558855 : 0x555555),
     )
 
     objs.push(
@@ -167,7 +167,7 @@ export class DeliveryTab {
     const btn = this.scene.add.rectangle(
       DELIVERY_BTN_L + DELIVERY_BTN_W / 2, y, DELIVERY_BTN_W, DELIVERY_BTN_H,
       ready ? 0x6a5a2a : 0x3a3a3a,
-    ).setStrokeStyle(1, ready ? 0x8a7a3a : 0x4a4a4a)
+    ).setStrokeStyle(1.5, ready ? 0x8a7a3a : 0x4a4a4a)
     objs.push(btn, this.scene.add.text(
       DELIVERY_BTN_L + DELIVERY_BTN_W / 2, y, DELIVERY_BTN_LABEL, {
         fontSize: `${DELIVERY_BTN_FONT_PX}px`, color: ready ? '#ffffff' : '#998877',
@@ -183,7 +183,7 @@ export class DeliveryTab {
     //   ⚠ **押した場では実行しない。**確認を出す（PO 指示 2026-09-14「ダイアログ形式で」）
     const discard = this.scene.add.rectangle(
       DELIVERY_DISCARD_L + DELIVERY_DISCARD_W / 2, y, DELIVERY_DISCARD_W, DELIVERY_BTN_H, 0x3a2a2a,
-    ).setStrokeStyle(1, 0x6a4a4a).setInteractive({ useHandCursor: true })
+    ).setStrokeStyle(1.5, 0x6a4a4a).setInteractive({ useHandCursor: true })
     discard.on('pointerdown', () => this.askDiscard(row))
     objs.push(discard, this.scene.add.text(
       DELIVERY_DISCARD_L + DELIVERY_DISCARD_W / 2, y, DISCARD_BTN_LABEL, {

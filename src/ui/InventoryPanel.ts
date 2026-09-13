@@ -4,16 +4,16 @@ import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
 import { SearchBox } from './SearchBox.js'
 import { money } from './money.js'
 
-const PANEL_X = 20
-const PANEL_WIDTH = 200
-const ITEM_RIGHT_MARGIN = 12             // アイテム右端の余白
+const PANEL_X = 30
+const PANEL_WIDTH = 300
+const ITEM_RIGHT_MARGIN = 18             // アイテム右端の余白
 const ITEM_WIDTH = PANEL_WIDTH - PANEL_X - ITEM_RIGHT_MARGIN  // = 168
-const ITEM_HEIGHT = 70
-const ITEM_START_Y = 150  // ページ送り(108)の下端から余白をとる
-const LIST_BOTTOM = 716   // 左パネルはy=720まで
+const ITEM_HEIGHT = 105
+const ITEM_START_Y = 225  // ページ送り(108)の下端から余白をとる
+const LIST_BOTTOM = 1074   // 左パネルはy=720まで
 const VISIBLE_COUNT = Math.floor((LIST_BOTTOM - ITEM_START_Y) / ITEM_HEIGHT)  // = 8
-const PREVIEW_CELL = 13
-const PREVIEW_CX = PANEL_X + 27
+const PREVIEW_CELL = 19.5
+const PREVIEW_CX = PANEL_X + 40.5
 
 /**
  * 絞り込みは **`主種類`**（軸1）で行う。決まりは `ListPaging` を参照
@@ -22,7 +22,7 @@ const PREVIEW_CX = PANEL_X + 27
  * ⚠ **素材かどうかで絞らない。**素材かどうかは `tier` から出る**導出値**なので、
  *   軸（主種類）と混ぜて1列に並べない。
  */
-const PAGER_Y = 108
+const PAGER_Y = 162
 
 /**
  * 検索の入力欄（#55）。**見出しの行に置く。**
@@ -31,9 +31,9 @@ const PAGER_Y = 108
  *   間に1行入れると **8行 → 7行に減る。**「アイテム」という見出しの語は無くても分かる。
  */
 const SEARCH_X = PANEL_X
-const SEARCH_W = 110
-const SEARCH_H = 20
-const HEAD_Y = 52
+const SEARCH_W = 165
+const SEARCH_H = 30
+const HEAD_Y = 78
 
 export class InventoryPanel {
   private allObjects: Phaser.GameObjects.GameObject[] = []
@@ -129,7 +129,7 @@ export class InventoryPanel {
   }
 
   private isOverList(x: number, y: number): boolean {
-    return x >= PANEL_X && x <= PANEL_X + PANEL_WIDTH && y >= PAGER_Y - 12
+    return x >= PANEL_X && x <= PANEL_X + PANEL_WIDTH && y >= PAGER_Y - 18
   }
 
   private turnPage(delta: number): void {
@@ -159,14 +159,14 @@ export class InventoryPanel {
     )
     this.filterObjects.push(
       this.scene.add.text(PANEL_X + ITEM_WIDTH, HEAD_Y, this.paging.rangeLabel(total), {
-        fontSize: '11px', color: '#aabbcc',
+        fontSize: '16.5px', color: '#aabbcc',
       }).setOrigin(1, 0.5),
     )
 
     // 絞り込み（1行 × 4種類、横幅をアイテムに揃える）
     // ITEM_WIDTH=168: (168 - 3*gap) / 4 = 39px @ gap=4 → total=4*39+3*4=168 ✓
-    const btnW = 39, btnH = 18, gap = 4
-    const rowY = 76
+    const btnW = 58.5, btnH = 27, gap = 6
+    const rowY = 114
 
     KIND_BUTTONS.forEach((cat, i) => {
       const bx = PANEL_X + i * (btnW + gap) + btnW / 2
@@ -174,18 +174,18 @@ export class InventoryPanel {
       const on = this.paging.isKindActive(cat.id)
 
       const bg = this.scene.add.rectangle(bx, by, btnW, btnH, on ? 0x336699 : 0x222233)
-        .setStrokeStyle(1, on ? 0x5599cc : 0x444455)
+        .setStrokeStyle(1.5, on ? 0x5599cc : 0x444455)
         .setInteractive({ useHandCursor: true })
       const label = this.scene.add.text(bx, by, cat.label, {
-        fontSize: '10px', color: on ? '#aaddff' : '#667788',
+        fontSize: '15px', color: on ? '#aaddff' : '#667788',
       }).setOrigin(0.5)
 
       bg.on('pointerdown', () => {
         this.paging.toggleKind(cat.id)
         this.redraw()
       })
-      bg.on('pointerover', () => bg.setStrokeStyle(2, 0x7fbfff))
-      bg.on('pointerout',  () => bg.setStrokeStyle(1, this.paging.isKindActive(cat.id) ? 0x5599cc : 0x444455))
+      bg.on('pointerover', () => bg.setStrokeStyle(3, 0x7fbfff))
+      bg.on('pointerout',  () => bg.setStrokeStyle(1.5, this.paging.isKindActive(cat.id) ? 0x5599cc : 0x444455))
 
       this.filterObjects.push(bg, label)
     })
@@ -195,7 +195,7 @@ export class InventoryPanel {
     const cur = this.paging.currentPage(total)
     const arrow = (x: number, text: string, delta: number, enabled: boolean) => {
       const t = this.scene.add.text(x, PAGER_Y, text, {
-        fontSize: '14px', color: enabled ? '#aaccee' : '#445566',
+        fontSize: '21px', color: enabled ? '#aaccee' : '#445566',
       }).setOrigin(0.5)
       if (enabled) {
         t.setInteractive({ useHandCursor: true })
@@ -205,13 +205,13 @@ export class InventoryPanel {
       }
       this.filterObjects.push(t)
     }
-    arrow(PANEL_X + 12, '◀', -1, cur > 0)
+    arrow(PANEL_X + 18, '◀', -1, cur > 0)
     this.filterObjects.push(
       this.scene.add.text(cx, PAGER_Y, this.paging.pageLabel(total), {
-        fontSize: '12px', color: '#8899aa',
+        fontSize: '18px', color: '#8899aa',
       }).setOrigin(0.5),
     )
-    arrow(PANEL_X + ITEM_WIDTH - 12, '▶', 1, cur < pages - 1)
+    arrow(PANEL_X + ITEM_WIDTH - 18, '▶', 1, cur < pages - 1)
   }
 
   private renderItems(items: ItemDef[]): void {
@@ -225,8 +225,8 @@ export class InventoryPanel {
       const y = ITEM_START_Y + i * ITEM_HEIGHT
       const itemCX = PANEL_X + ITEM_WIDTH / 2  // = 20 + 84 = 104
       const bg = this.scene.add.rectangle(
-        itemCX, y, ITEM_WIDTH, ITEM_HEIGHT - 6, 0x333333,
-      ).setStrokeStyle(2, 0x555555).setInteractive({ useHandCursor: true })
+        itemCX, y, ITEM_WIDTH, ITEM_HEIGHT - 9, 0x333333,
+      ).setStrokeStyle(3, 0x555555).setInteractive({ useHandCursor: true })
       this.allObjects.push(bg)
       this.bgRects.set(item.id, bg)
 
@@ -234,13 +234,13 @@ export class InventoryPanel {
       this.drawShapePreview(shapeGfx, item, y)
       this.allObjects.push(shapeGfx)
 
-      const nameText = this.scene.add.text(PANEL_X + 54, y - 20, item.display.name, {
-        fontSize: '13px', color: '#ffffff',
+      const nameText = this.scene.add.text(PANEL_X + 81, y - 30, item.display.name, {
+        fontSize: '19.5px', color: '#ffffff',
       })
       // ⚠ **個数と売値は同じ行**（PO 指示 2026-09-14）。行は**品名と、この1行の2行だけ。**
       //   個数は左、売値は右端にそろえる
-      const qtyText = this.scene.add.text(PANEL_X + 54, y + 2, this.countLabel(item.id), {
-        fontSize: '11px', color: this.storedOnShelf.has(item.id) ? '#88bbaa' : '#aaaaaa',
+      const qtyText = this.scene.add.text(PANEL_X + 81, y + 3, this.countLabel(item.id), {
+        fontSize: '16.5px', color: this.storedOnShelf.has(item.id) ? '#88bbaa' : '#aaaaaa',
       })
       // 値段は持ち物ではなく導出値。表示のたびに出す（ItemRegistry の注記を参照）
       // ⚠ **売値だけ。**仕入れ値と産地は「買う判断」で、棚に出す判断には効かない（束M）。
@@ -257,9 +257,9 @@ export class InventoryPanel {
       //   `finalPrice` はもとから倍率を受け取る形なので、掛ける関数は1本も増やしていない
       // ⚠ **`売` の字は付けない**（PO 指示 2026-09-14）。この一覧に出る額は売値しか無い
       const priceText = this.scene.add.text(
-        PANEL_X + 54 + ITEM_WIDTH - 66, y + 2,
+        PANEL_X + 81 + ITEM_WIDTH - 99, y + 3,
         money(this.registry.finalPriceOf(item.id, this.marginOf())), {
-        fontSize: '11px', color: '#778899',
+        fontSize: '16.5px', color: '#778899',
       }).setOrigin(1, 0)
       this.allObjects.push(nameText, qtyText, priceText)
       this.quantityTexts.set(item.id, qtyText)
@@ -291,9 +291,9 @@ export class InventoryPanel {
           const px = startX + c * PREVIEW_CELL
           const py = startY + r * PREVIEW_CELL
           gfx.fillStyle(item.display.color, 1.0)
-          gfx.fillRect(px + 1, py + 1, PREVIEW_CELL - 2, PREVIEW_CELL - 2)
-          gfx.lineStyle(1, 0xffffff, 0.45)
-          gfx.strokeRect(px + 1, py + 1, PREVIEW_CELL - 2, PREVIEW_CELL - 2)
+          gfx.fillRect(px + 1.5, py + 1.5, PREVIEW_CELL - 3, PREVIEW_CELL - 3)
+          gfx.lineStyle(1.5, 0xffffff, 0.45)
+          gfx.strokeRect(px + 1.5, py + 1.5, PREVIEW_CELL - 3, PREVIEW_CELL - 3)
         }
       }
     }

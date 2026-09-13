@@ -13,8 +13,8 @@ const SLOT_COUNT = 3
  *   目標達成・ゲームオーバーの幕（200）よりは下。
  */
 const DEPTH = 150
-const MW = 480  // menu width
-const MH = 310  // menu height
+const MW = 720  // menu width
+const MH = 465  // menu height
 /**
  * 確認の面。**枠の一覧（480×310）を使い回さない**（PO 指示 2026-09-13「大きすぎる」）。
  * ⚠ **入るのは見出し1行と、ボタンの列だけ。**枠が3つ並ぶ高さは要らない。
@@ -86,14 +86,14 @@ export class SaveLoadMenu {
     const mh = confirming ? CONFIRM_MH : MH
     push(
       this.scene.add.rectangle(cx, cy, mw, mh, 0x16213e)
-        .setStrokeStyle(2, 0x5566cc).setDepth(DEPTH),
+        .setStrokeStyle(3, 0x5566cc).setDepth(DEPTH),
     )
 
     // Title
     const title = this.mode === 'save' ? 'セーブ' : 'ロード'
     push(
-      this.scene.add.text(cx, cy - mh / 2 + 26, title, {
-        fontSize: '20px', color: '#ffffff', fontStyle: 'bold',
+      this.scene.add.text(cx, cy - mh / 2 + 39, title, {
+        fontSize: '30px', color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(DEPTH),
     )
 
@@ -103,10 +103,10 @@ export class SaveLoadMenu {
 
   /** 枠の一覧 */
   private buildSlots(cx: number, cy: number, push: Push): void {
-    const slotW = MW - 40
-    const slotH = 52
-    const firstSlotY = cy - MH / 2 + 74
-    const slotGap = slotH + 8
+    const slotW = MW - 60
+    const slotH = 78
+    const firstSlotY = cy - MH / 2 + 111
+    const slotGap = slotH + 12
 
     for (let i = 0; i < SLOT_COUNT; i++) {
       const sy = firstSlotY + i * slotGap
@@ -119,21 +119,21 @@ export class SaveLoadMenu {
       const strokeCol  = disabled ? 0x333344 : isEmpty ? 0x5566aa : 0x44aa44
 
       const bg = this.scene.add.rectangle(cx, sy, slotW, slotH, fillNormal)
-        .setStrokeStyle(1, strokeCol).setDepth(DEPTH)
+        .setStrokeStyle(1.5, strokeCol).setDepth(DEPTH)
       push(bg)
 
       // Slot number (left)
       push(
-        this.scene.add.text(cx - slotW / 2 + 14, sy - 10, `スロット ${i + 1}`, {
-          fontSize: '12px', color: disabled ? '#555566' : '#7799ff', fontStyle: 'bold',
+        this.scene.add.text(cx - slotW / 2 + 21, sy - 15, `スロット ${i + 1}`, {
+          fontSize: '18px', color: disabled ? '#555566' : '#7799ff', fontStyle: 'bold',
         }).setOrigin(0, 0.5).setDepth(DEPTH),
       )
 
       // Slot info (center-left)
       const info = meta ? this.formatMeta(meta) : '--- 空スロット ---'
       push(
-        this.scene.add.text(cx - slotW / 2 + 14, sy + 10, info, {
-          fontSize: '12px', color: disabled ? '#444455' : meta ? '#cccccc' : '#777788',
+        this.scene.add.text(cx - slotW / 2 + 21, sy + 15, info, {
+          fontSize: '18px', color: disabled ? '#444455' : meta ? '#cccccc' : '#777788',
         }).setOrigin(0, 0.5).setDepth(DEPTH),
       )
 
@@ -172,14 +172,14 @@ export class SaveLoadMenu {
       ? `スロット ${slot + 1} に上書きします`
       : `スロット ${slot + 1} を読み込みます`
     push(
-      this.scene.add.text(cx, cy - 8, head, {
-        fontSize: '16px', color: '#ffffff',
+      this.scene.add.text(cx, cy - 12, head, {
+        fontSize: '24px', color: '#ffffff',
       }).setOrigin(0.5).setDepth(DEPTH),
     )
 
     // ⚠ **閉じてから呼ぶこと。**先に呼ぶと、結末が別の画面を開いたときに
     //   確認の面がその上に残る（`MessageWindow.show()` と同じ順）。
-    const by = cy + CONFIRM_MH / 2 - 30
+    const by = cy + CONFIRM_MH / 2 - 45
     if (saving) {
       this.button(push, confirmBtnCx(0, 2), by, '上書きする', 0x6a3a3a, 0x8a4a4a, () => {
         this.close()
@@ -202,7 +202,7 @@ export class SaveLoadMenu {
     fill: number, hover: number, onClick: () => void,
   ): void {
     const bg = this.scene.add.rectangle(x, y, CONFIRM_BTN_W, CONFIRM_BTN_H, fill)
-      .setStrokeStyle(1, 0x666677).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
+      .setStrokeStyle(1.5, 0x666677).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
     push(
       bg,
       this.scene.add.text(x, y, label, {

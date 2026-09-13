@@ -76,7 +76,7 @@ export class ConfirmDialog {
     this.objects.push(
       this.scene.add
         .rectangle(MSG_WIN_CX, MSG_WIN_CY, CONFIRM_MW, CONFIRM_MH, 0x16213e)
-        .setStrokeStyle(2, 0x5566cc)
+        .setStrokeStyle(3, 0x5566cc)
         .setInteractive()
         .setDepth(DEPTH + 1),
     )
@@ -108,7 +108,7 @@ export class ConfirmDialog {
   ): void {
     const bg = this.scene.add
       .rectangle(x, CONFIRM_BTN_CY, CONFIRM_BTN_W, CONFIRM_BTN_H, fill)
-      .setStrokeStyle(1, 0x666677)
+      .setStrokeStyle(1.5, 0x666677)
       .setInteractive({ useHandCursor: true })
       .setDepth(DEPTH + 2)
     bg.on('pointerover', () => bg.setFillStyle(hover))

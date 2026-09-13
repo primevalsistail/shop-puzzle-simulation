@@ -190,8 +190,8 @@ export class CraftMenu {
       const message = this.unlocks.unlockedRecipes().length === 0
         ? '材料を手に入れると、作れるものが増えていく'
         : '当てはまるレシピがありません'
-      objs.push(this.scene.add.text(PLACE_CX, CRAFT_ROWS_TOP + 40, message, {
-        fontSize: '14px', color: '#889999',
+      objs.push(this.scene.add.text(PLACE_CX, CRAFT_ROWS_TOP + 60, message, {
+        fontSize: '21px', color: '#889999',
       }).setOrigin(0.5))
     }
     this.buildPager(shown.length, objs)
@@ -226,7 +226,7 @@ export class CraftMenu {
 
   /** 絞り込み — 主種類4つ ＋「作れる」 */
   private buildFilterBar(objs: Phaser.GameObjects.GameObject[]): void {
-    const btnW = 64, btnH = 22, gap = 8
+    const btnW = 96, btnH = 33, gap = 12
     const buttons = [
       ...KIND_BUTTONS.map(k => ({
         label: k.label,
@@ -247,10 +247,10 @@ export class CraftMenu {
     buttons.forEach((b, i) => {
       const bx = PLACE_CX - groupW / 2 + btnW / 2 + i * (btnW + gap)
       const bg = this.scene.add.rectangle(bx, FILTER_Y, btnW, btnH, b.on ? 0x4a6a3a : 0x232338)
-        .setStrokeStyle(1, b.on ? 0x7abb5a : 0x444455)
+        .setStrokeStyle(1.5, b.on ? 0x7abb5a : 0x444455)
         .setInteractive({ useHandCursor: true })
       const label = this.scene.add.text(bx, FILTER_Y, b.label, {
-        fontSize: '12px', color: b.on ? '#ccffaa' : '#778899',
+        fontSize: '18px', color: b.on ? '#ccffaa' : '#778899',
       }).setOrigin(0.5)
       bg.on('pointerdown', b.press)
       objs.push(bg, label)
@@ -262,7 +262,7 @@ export class CraftMenu {
     const cur = this.paging.currentPage(total)
     const arrow = (x: number, text: string, delta: number, enabled: boolean) => {
       const t = this.scene.add.text(x, PAGER_Y, text, {
-        fontSize: '18px', color: enabled ? '#aaccee' : '#445566',
+        fontSize: '27px', color: enabled ? '#aaccee' : '#445566',
       }).setOrigin(0.5)
       if (enabled) {
         t.setInteractive({ useHandCursor: true })
@@ -270,14 +270,14 @@ export class CraftMenu {
       }
       objs.push(t)
     }
-    arrow(PLACE_CX - 60, '◀', -1, cur > 0)
+    arrow(PLACE_CX - 90, '◀', -1, cur > 0)
     objs.push(this.scene.add.text(PLACE_CX, PAGER_Y, this.paging.pageLabel(total), {
-      fontSize: '13px', color: '#8899aa',
+      fontSize: '19.5px', color: '#8899aa',
     }).setOrigin(0.5))
-    arrow(PLACE_CX + 60, '▶', 1, cur < pages - 1)
+    arrow(PLACE_CX + 90, '▶', 1, cur < pages - 1)
     // 件数はページ送りと同じ行。仕入れの画面と揃える
     objs.push(this.scene.add.text(CONTENT_R, PAGER_Y, this.paging.rangeLabel(total), {
-      fontSize: '13px', color: '#8899aa',
+      fontSize: '19.5px', color: '#8899aa',
     }).setOrigin(1, 0.5))
   }
 
@@ -294,8 +294,8 @@ export class CraftMenu {
     const focused = recipe.id === this.focusId
     objs.push(
       this.scene.add
-        .rectangle(PLACE_CX, cy, CONTENT_R - CONTENT_L, CRAFT_ROW_H - 6, max > 0 ? 0x2a3a2a : 0x3a2a2a)
-        .setStrokeStyle(focused ? 2 : 1, focused ? 0xffdd88 : 0x555555),
+        .rectangle(PLACE_CX, cy, CONTENT_R - CONTENT_L, CRAFT_ROW_H - 9, max > 0 ? 0x2a3a2a : 0x3a2a2a)
+        .setStrokeStyle(focused ? 3 : 1.5, focused ? 0xffdd88 : 0x555555),
     )
 
     // ── 商品 ／ 在庫 ／ 需要 —— **回数で変わらない列。**ここで1度だけ書く ──
@@ -319,7 +319,7 @@ export class CraftMenu {
     // ── 作る ── ⚠ **作れないときは字が理由に変わる**（商人タブと同じ作り）
     const craftBg = this.scene.add
       .rectangle(CRAFT_BTN_L + CRAFT_BTN_W / 2, cy, CRAFT_BTN_W, CRAFT_BTN_H, 0x4a4a8a)
-      .setStrokeStyle(1, 0x6a6ab0)
+      .setStrokeStyle(1.5, 0x6a6ab0)
       .setInteractive({ useHandCursor: true })
     const craftLabel = this.scene.add.text(CRAFT_BTN_L + CRAFT_BTN_W / 2, cy, CRAFT_BTN_LABEL, {
       fontSize: `${CRAFT_BTN_FONT_PX}px`, color: '#ffffff',
@@ -343,10 +343,10 @@ export class CraftMenu {
         this.scene.add
           .rectangle(CRAFT_STEP_XS.input + CRAFT_INPUT_W / 2, cy, CRAFT_INPUT_W, CRAFT_INPUT_H,
             0x15152a)
-          .setStrokeStyle(1, 0x4a4a8a),
+          .setStrokeStyle(1.5, 0x4a4a8a),
       )
       row.valueText = this.scene.add.text(
-        CRAFT_STEP_XS.input + CRAFT_INPUT_W - 6, cy, input.value, {
+        CRAFT_STEP_XS.input + CRAFT_INPUT_W - 9, cy, input.value, {
           fontSize: `${CRAFT_STEP_FONT_PX}px`, color: '#ffffff',
         }).setOrigin(1, 0.5)
       objs.push(row.valueText)
@@ -514,14 +514,14 @@ export class CraftMenu {
   ): void {
     const cx = left + w / 2
     const bg = this.scene.add.rectangle(cx, cy, w, h, fill)
-      .setStrokeStyle(1, 0x6a6ab0)
+      .setStrokeStyle(1.5, 0x6a6ab0)
       .setInteractive({ useHandCursor: true })
     bg.on('pointerdown', onClick)
     bg.on('pointerover', () => bg.setFillStyle(0x5a5ab0))
     bg.on('pointerout', () => bg.setFillStyle(fill))
     objs.push(
       bg,
-      this.scene.add.text(cx, cy, label, { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5),
+      this.scene.add.text(cx, cy, label, { fontSize: '18px', color: '#ffffff' }).setOrigin(0.5),
     )
   }
 }

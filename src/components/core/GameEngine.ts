@@ -15,10 +15,16 @@ export class GameEngine {
       backgroundColor: '#2d2d44',
       scene: [BootScene, GameScene],
       physics: { default: 'arcade' },
-      // pixelArt: true は antialias=false + roundPixels=true に加え
-      // canvas に image-rendering: pixelated CSS を付与する。
-      // Scale.FIT でキャンバスが CSS 拡大される際のにじみを防ぐ唯一確実な方法。
-      pixelArt: true,
+      // ⚠ **`pixelArt: true` をここに戻さないこと**（#10。2026-09-14）。
+      //   あれは antialias=false ＋ roundPixels=true ＋ canvas の `image-rendering: pixelated` で、
+      //   **1280×720 を CSS で引き伸ばしたときのにじみを、ドットを立てて隠していた。**
+      //   内部座標を 1920×1080 にした（`layout.ts` の `SCREEN_W` / `SCREEN_H`）いま、
+      //   **文字も線も焼く時点で細かいので、隠す必要がない。**滑らかに描くほうが読める。
+      antialias: true,
+      // ⚠ **`roundPixels` は明示的に false。**`pixelArt` が暗黙に true にしていた。
+      //   **寸法は旧値の正確に 1.5倍**で、`16.5px` や `1.5px` のような端数を持つ（#10）。
+      //   整数へ丸められると**その相似が崩れ、見た目が変わる。**
+      roundPixels: false,
       // クラフトメニューの回数入力に HTML の <input> を使う（Phaser の DOM コンテナ）。
       // Scale.FIT でキャンバスが拡縮されても、この器が同じ変形を受けるので位置がずれない。
       //

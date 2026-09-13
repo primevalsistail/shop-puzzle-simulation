@@ -100,12 +100,12 @@ export function createInput(scene: Phaser.Scene, opts: InputOptions): HTMLInputE
     'box-sizing: border-box',
     `width: ${opts.width}px`,
     `height: ${opts.height}px`,
-    'padding: 0 4px',
-    'font-size: 12px',
+    'padding: 0 6px',
+    'font-size: 18px',
     'font-family: sans-serif',
     'color: #ffffff',
     'background: #15152a',
-    'border: 1px solid #4a4a8a',
+    'border: 1.5px solid #4a4a8a',
     opts.numeric ? 'text-align: right' : 'text-align: left',
     // DOM コンテナ自体は pointer-events: none（クリックをゲームへ通す）なので、
     // この入力だけ受け取れるようにする

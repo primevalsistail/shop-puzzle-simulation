@@ -3,6 +3,14 @@
  *
  * ⚠ **区画の値をここ以外に書かないこと。**写しを持つと、片方を動かしても
  *   もう片方が気づかず、**重なっていることをテストが見逃す**（受入条件2）。
+ *
+ * ⚠ **以下のコメントに出てくる px は、断りが無ければ 1280×720 の頃の数**（#10 より前）。
+ *   **2026-09-14 に内部座標を 1280×720 → 1920×1080 にし、寸法をすべて正確に 1.5倍した。**
+ *   **コードの数は 1.5倍済み、コメントの数は倍率を掛ける前**である。
+ *   ⚠ **コメントの数を機械的に 1.5倍しないこと。**
+ *   **多くは「`10,000,000レン` は 183.2px になり、枠 174px からはみ出した」のような
+ *   Chromium での実測値**で、**掛けた数は誰も測っていない。**
+ *   **読むときは倍率だけ足して読む。**→ **書き直しは #117**
  */
 
 /**
@@ -11,11 +19,11 @@
  */
 import type { UpgradeKind } from '../components/progress/Upgrades.js'
 
-export const SCREEN_W = 1280
-export const SCREEN_H = 720
+export const SCREEN_W = 1920
+export const SCREEN_H = 1080
 
 /** 左パネル（船倉の中身）の右端 */
-export const LEFT_PANEL_R = 220
+export const LEFT_PANEL_R = 330
 /**
  * キャラ帯（店番・来店客）。⚠ **#21・#15 の置き場所。**
  *
@@ -23,20 +31,20 @@ export const LEFT_PANEL_R = 220
  *   「店番」「来店客」の枠が出ているのは、**そこに居ないのだからおかしい**（PO 2026-09-12）。
  *   場所へ行っている間は隠し、**その領域も場所の画面が使う。**
  */
-export const STRIP_L = 980
-export const STRIP_W = 110
-export const STRIP_H = 610
+export const STRIP_L = 1470
+export const STRIP_W = 165
+export const STRIP_H = 915
 /** 右パネル（HUD・ボタン列）の左端 */
-export const RIGHT_PANEL_L = 1090
+export const RIGHT_PANEL_L = 1635
 /** メッセージ欄の上端 */
-export const LOG_T = 610
+export const LOG_T = 915
 
 // ─── 盤面（売り場） ──────────────────────────────────────────
 /** 1升の大きさ。13×10 の最終盤面から逆算: min(floor(760/13), floor(610/10)) = 58 */
-export const CELL_SIZE = 58
+export const CELL_SIZE = 87
 /** 盤面の左上。左パネルの右端から 8px、画面の上端から 8px */
-export const GRID_ORIGIN_X = LEFT_PANEL_R + 8
-export const GRID_ORIGIN_Y = 8
+export const GRID_ORIGIN_X = LEFT_PANEL_R + 12
+export const GRID_ORIGIN_Y = 12
 
 /**
  * 画面の外周のうち、ここで離すと**棚から下ろす**帯の幅。
@@ -45,7 +53,7 @@ export const GRID_ORIGIN_Y = 8
  *   1行目の **82%** が帯の中に入るので、**盤面をくり抜かないと
  *   「一番上の行へ動かそうとすると棚から外れる」**（`rects.ts` / `subtractRect`）。
  */
-export const DISCARD_MARGIN = 56
+export const DISCARD_MARGIN = 84
 
 // ─── 場所（中央の領域） ────────────────────────────────────────
 /**
@@ -59,10 +67,10 @@ export const DISCARD_MARGIN = 56
  * ⚠ **この領域はキャラ帯（980〜1090）に重なる。**
  *   だから場所へ行っている間は**キャラ帯を必ず隠すこと**（`GameScene.setShopVisible`）。
  */
-export const PLACE_L = LEFT_PANEL_R + 4
-export const PLACE_R = RIGHT_PANEL_L - 4
-export const PLACE_T = 6
-export const PLACE_B = LOG_T - 6
+export const PLACE_L = LEFT_PANEL_R + 6
+export const PLACE_R = RIGHT_PANEL_L - 6
+export const PLACE_T = 9
+export const PLACE_B = LOG_T - 9
 
 export const PLACE_W = PLACE_R - PLACE_L
 export const PLACE_H = PLACE_B - PLACE_T
@@ -70,16 +78,16 @@ export const PLACE_CX = (PLACE_L + PLACE_R) / 2
 export const PLACE_CY = (PLACE_T + PLACE_B) / 2
 
 /** 枠の内側。文字もボタンもこの左右に収める */
-const PAD = 24
+const PAD = 36
 export const CONTENT_L = PLACE_L + PAD
 export const CONTENT_R = PLACE_R - PAD
 
 /** 見出しと、店に戻る印（🏠）の行 */
-export const TITLE_Y = PLACE_T + 28
+export const TITLE_Y = PLACE_T + 42
 /** 見出しの下の1行（所持金など、場所ごとの但し書き） */
-export const SUBTITLE_Y = PLACE_T + 56
+export const SUBTITLE_Y = PLACE_T + 84
 /** 絞り込みの行 */
-export const FILTER_Y = PLACE_T + 84
+export const FILTER_Y = PLACE_T + 126
 /**
  * 絞り込みの行の右端に置く「名前で探す」欄（#55）。**仕入れと工房で同じ大きさ。**
  *
@@ -88,21 +96,21 @@ export const FILTER_Y = PLACE_T + 84
  *   （`index.html` の `box-sizing: border-box` と `createInput` の食い違い。2026-09-13）。
  *   **`layout.test.ts` が枠からはみ出さないことを見るには、出どころが1つで要る。**
  */
-export const LIST_SEARCH_W = 160
-export const LIST_SEARCH_H = 24
+export const LIST_SEARCH_W = 240
+export const LIST_SEARCH_H = 36
 /** 一覧の上端（ここから下へ1行ずつ積む） */
-export const ROWS_TOP = PLACE_T + 104
+export const ROWS_TOP = PLACE_T + 156
 /** ページ送りの行 */
-export const PAGER_Y = PLACE_B - 22
+export const PAGER_Y = PLACE_B - 33
 /** 一覧に使える下端。ページ送りの行に食い込まない */
-export const ROWS_BOTTOM = PAGER_Y - 18
+export const ROWS_BOTTOM = PAGER_Y - 27
 
 /** 見出しの下に引く横線。`PlaceFrame` が引く。⚠ **ここより上へ物を置かない** */
-export const TITLE_RULE_Y = TITLE_Y + 20
+export const TITLE_RULE_Y = TITLE_Y + 30
 /** 絞り込みの行でいちばん高いもの（検索の入力欄）の高さ */
-export const FILTER_BAND_H = 24
+export const FILTER_BAND_H = 36
 /** 横線と、その下に置くものとのあいだに残す余白 */
-const RULE_GAP = 6
+const RULE_GAP = 9
 
 /**
  * 見出しの下の1行が**無い**場所の、絞り込みの行と一覧の上端。
@@ -133,7 +141,7 @@ export function phaseLabel(phase: '作業' | '営業' | '睡眠'): string {
 
 // ─── 見出しの行に並ぶもの（`PlaceFrame` が置く） ─────────────────
 /** 見出しの文字の大きさ。**太字** */
-export const TITLE_FONT_PX = 24
+export const TITLE_FONT_PX = 36
 /**
  * **店に戻る印（🏠）のボタンの幅**。**見出しの行の右端に置く**。
  *
@@ -141,7 +149,7 @@ export const TITLE_FONT_PX = 24
  *   印だけなので**正方形に近い**。120 だった頃の余白は**タブの取り分**になる
  *   （`layout.test.ts` の「タブは店に戻る印に届かない」）。
  */
-export const BACK_BTN_W = 40
+export const BACK_BTN_W = 60
 
 /**
  * 「取引」の中の3タブ（#96）。**`商人` → `改装` → `納品`**（#96 本文の順）。
@@ -155,10 +163,10 @@ export const TRADE_TITLE = '取引'
 export const TRADE_TABS = ['商人', '改装', '納品'] as const
 export type TradeTabName = typeof TRADE_TABS[number]
 
-export const TAB_W = 84
-export const TAB_H = 26
-export const TAB_GAP = 6
-export const TAB_FONT_PX = 14
+export const TAB_W = 126
+export const TAB_H = 39
+export const TAB_GAP = 9
+export const TAB_FONT_PX = 21
 
 /** `count` 個のタブを中央ぞろえで並べたときの、`index` 番目の中心 x */
 export function tabCx(index: number, count: number): number {
@@ -179,13 +187,13 @@ export function tabCx(index: number, count: number): number {
  *   **小さくするぶんには安全。**
  */
 /** 行の主見出し（品名 ／ 改装の系統名 ／ 納品の1行目） */
-export const TAB_ROW_TITLE_FONT_PX = 15
+export const TAB_ROW_TITLE_FONT_PX = 22.5
 /** 行の補足（何品に要る ／ 改装の説明 ／ 納品の手持ち・報酬） */
-export const TAB_ROW_SUB_FONT_PX = 12
+export const TAB_ROW_SUB_FONT_PX = 18
 /** 見出しの下の1行（所持金 …） */
-export const TAB_SUBTITLE_FONT_PX = 15
+export const TAB_SUBTITLE_FONT_PX = 22.5
 /** 見出しの下の行の、右に出る注記 */
-export const TAB_NOTE_FONT_PX = 12
+export const TAB_NOTE_FONT_PX = 18
 
 /**
  * 納品タブ（#96 → **#98 で表になった**）。
@@ -248,7 +256,7 @@ export function estTextWidth(text: string, fontPx: number, bold = false): number
  *
  * ⚠ **広げないこと。**右パネルにはこの下にボタン列が並んでいる。
  */
-export const HUD_PANEL_W = SCREEN_W - RIGHT_PANEL_L - 16
+export const HUD_PANEL_W = SCREEN_W - RIGHT_PANEL_L - 24
 
 /**
  * 所持金の文字の大きさ。**22 から下げた**（束M）。
@@ -258,7 +266,7 @@ export const HUD_PANEL_W = SCREEN_W - RIGHT_PANEL_L - 16
  * ⚠ **これ以上下げないこと。**所持金は右パネルの主要な情報である。
  *   収まるかは `layout.test.ts` が見ている。
  */
-export const HUD_MONEY_FONT_PX = 20
+export const HUD_MONEY_FONT_PX = 30
 
 /**
  * 目標の進みのバーの幅。**右パネルの枠から左右 12px ずつ引いたもの。**
@@ -266,7 +274,7 @@ export const HUD_MONEY_FONT_PX = 20
  * ⚠ **`HUD.ts` と `layout.test.ts` の両方が使う。**以前は `HUD.ts` に式が直書きで、
  *   ここに置くものが収まるかを node のテストから測れなかった。
  */
-export const HUD_BAR_W = HUD_PANEL_W - 24
+export const HUD_BAR_W = HUD_PANEL_W - 36
 
 /**
  * 自由航行（#7）で、**次の寄港地を選ぶところ**に出す1行。
@@ -288,7 +296,7 @@ export function nextPortLabel(island: string): string {
 /**
  * その文字の大きさ。⚠ **現在地（13px）と並べて枠に収まること**（`layout.test.ts` が見ている）。
  */
-export const HUD_NEXT_PORT_FONT_PX = 11
+export const HUD_NEXT_PORT_FONT_PX = 16.5
 
 /**
  * 次の寄港地を選ぶところの高さ。**押せる的の高さ**でもある。
@@ -296,7 +304,7 @@ export const HUD_NEXT_PORT_FONT_PX = 11
  * ⚠ **バーの行と「目標 N%」の行、2行ぶんを使う。**片方だけだと的が 11px しかなく、押しにくい。
  *   ⚠ **枠（右パネルの HUD）は広げない。**広げるとキャラ絵の枠（`CHAR_ART_T`）が下がる。
  */
-export const HUD_NEXT_PORT_H = 18
+export const HUD_NEXT_PORT_H = 27
 
 /**
  * 仕入れの行の右端 ——「**総額**」と「**買う**」の2つぶんの幅（**footprint**）。
@@ -309,11 +317,11 @@ export const HUD_NEXT_PORT_H = 18
  * ⚠ **これ以上広げないこと。**広げると列全体が左へ寄り、
  *   **行商人の `残り N個` が仕入れ値に重なる**（`ROW_INFO_L`。`layout.test.ts` が見ている）。
  */
-export const BUY_BTN_W = 52
+export const BUY_BTN_W = 78
 /** 総額を置く幅。**右そろえ。**⚠ 7桁（`3,237,759レン`）が `BUY_TOTAL_FONT_PX` で収まること */
-export const BUY_TOTAL_W = 80
+export const BUY_TOTAL_W = 120
 /** 総額とボタンのあいだ。**離すこと自体が指摘の中身**なので詰めない */
-export const BUY_GAP = 6
+export const BUY_GAP = 9
 /** 総額とボタンを合わせた幅。**「もうすぐ買える」の1行はこの幅に収める**（#66） */
 export const BUY_W = BUY_TOTAL_W + BUY_GAP + BUY_BTN_W
 
@@ -323,7 +331,7 @@ export const BUY_W = BUY_TOTAL_W + BUY_GAP + BUY_BTN_W
  * ⚠ **ボタンではないので、隣のボタンと揃える必要が無い**（`INFO_FONT_PX` と同じ理由）。
  *   12px にすると7桁の総額が **85.9px** になり、`BUY_TOTAL_W`（80）から出る。
  */
-export const BUY_TOTAL_FONT_PX = 11
+export const BUY_TOTAL_FONT_PX = 16.5
 
 /**
  * 「買う」ボタンの文字の大きさ。**13 から下げた**（束M）。
@@ -334,7 +342,7 @@ export const BUY_TOTAL_FONT_PX = 11
  *   主たるボタンだけ小さいのはおかしい。
  *   **下げる代わりに助詞の「で」を落とし**、**のちに金額そのものをボタンの外へ出した**（`BUY_LABEL`）。
  */
-export const BUY_FONT_PX = 12
+export const BUY_FONT_PX = 18
 
 /**
  * 「買う」ボタンの字。**金額はもう入っていない**（PO 指示 2026-09-13「総額と買うは分ける」）。
@@ -375,8 +383,8 @@ export const QTY_REASON_NOT_INT = '1以上の整数'
  *   間隔 160px を超えて左隣の字に重なった（`¥1234/個…` の頃は 143.9px で収まっていた）。
  *   **ボタンではないので、隣と大きさを揃える必要がない。**11px へ下げてある。
  */
-export const INFO_MAX_W = 160
-export const INFO_FONT_PX = 11
+export const INFO_MAX_W = 240
+export const INFO_FONT_PX = 16.5
 
 // ─── 仕入れの行の列 ────────────────────────────────────────────
 /**
@@ -387,24 +395,24 @@ export const INFO_FONT_PX = 11
  *   `layout.test.ts` が**同じ式を書き写して**追っていた。
  *   **写しがあると、片方だけ動かしても重なりをテストが見逃す。**
  */
-export const ROW_INPUT_W = 52
-export const ROW_INPUT_H = 22
-export const ROW_STEP_W = 26
-export const ROW_MAX_W = 40
+export const ROW_INPUT_W = 78
+export const ROW_INPUT_H = 33
+export const ROW_STEP_W = 39
+export const ROW_MAX_W = 60
 /** 品名の左端 */
-export const ROW_NAME_X = CONTENT_L + 16
+export const ROW_NAME_X = CONTENT_L + 24
 /** 「買う」ボタンの左端 */
-export const ROW_BUY_BTN_L = CONTENT_R - 8 - BUY_BTN_W
+export const ROW_BUY_BTN_L = CONTENT_R - 12 - BUY_BTN_W
 /** 総額の右端（右そろえ） */
 export const ROW_TOTAL_R = ROW_BUY_BTN_L - BUY_GAP
 /** 総額とボタンを合わせた footprint の左端。**「もうすぐ買える」の1行もここから置く** */
 export const ROW_BUY_L = ROW_TOTAL_R - BUY_TOTAL_W
-export const ROW_MAX_L = ROW_BUY_L - 6 - ROW_MAX_W
-export const ROW_PLUS_L = ROW_MAX_L - 6 - ROW_STEP_W
-export const ROW_INPUT_L = ROW_PLUS_L - 4 - ROW_INPUT_W
-export const ROW_MINUS_L = ROW_INPUT_L - 4 - ROW_STEP_W
+export const ROW_MAX_L = ROW_BUY_L - 9 - ROW_MAX_W
+export const ROW_PLUS_L = ROW_MAX_L - 9 - ROW_STEP_W
+export const ROW_INPUT_L = ROW_PLUS_L - 6 - ROW_INPUT_W
+export const ROW_MINUS_L = ROW_INPUT_L - 6 - ROW_STEP_W
 /** 「51レン/個　在庫 100/999」の右端（右そろえ） */
-export const ROW_INFO_R = ROW_MINUS_L - 14
+export const ROW_INFO_R = ROW_MINUS_L - 21
 /**
  * 「51レン/個　在庫 100/999」の**左端**（＝右そろえの右端から `INFO_MAX_W` ぶん左）。
  *
@@ -425,13 +433,13 @@ export const ROW_INFO_L = ROW_INFO_R - INFO_MAX_W
  *   **2つの部品が隣り合うと、重なりは目視では数px単位でしか出ない。**
  *   `layout.test.ts` が見られるように、寸法をここへ集めてある。
  */
-export const UPGRADE_ROW_H = 100
+export const UPGRADE_ROW_H = 150
 export const UPGRADE_ROW_W = CONTENT_R - CONTENT_L
 /** 系統名（`棚`）と、その下の説明の左端 */
-export const UPGRADE_NAME_X = CONTENT_L + 28
+export const UPGRADE_NAME_X = CONTENT_L + 42
 /** 行の中心からの上下。上が系統名、下が説明 */
-export const UPGRADE_TITLE_DY = -20
-export const UPGRADE_SUB_DY = 10
+export const UPGRADE_TITLE_DY = -30
+export const UPGRADE_SUB_DY = 15
 
 /**
  * 見出しの行（`現在値` `強化後` `強化費用`）。
@@ -442,21 +450,21 @@ export const UPGRADE_SUB_DY = 10
  *   取引は3タブが同じ枠を使うので、見出しの置き方まで揃えないとタブを切り替えるたびに跳ねる。
  */
 export const UPGRADE_COLS = ['現在値', '強化後', '強化費用'] as const
-export const UPGRADE_HEAD_Y = ROWS_TOP + 10
-export const UPGRADE_HEAD_FONT_PX = 12
+export const UPGRADE_HEAD_Y = ROWS_TOP + 15
+export const UPGRADE_HEAD_FONT_PX = 18
 /** 1行目の上端。⚠ **見出しの行と重ならないこと**（`layout.test.ts` が見ている） */
-export const UPGRADE_ROWS_TOP = ROWS_TOP + 30
+export const UPGRADE_ROWS_TOP = ROWS_TOP + 45
 
 /** 段の `●○` の中心と、その文字の大きさ */
-export const UPGRADE_STAGE_CX = PLACE_CX + 40
-export const UPGRADE_STAGE_FONT_PX = 20
+export const UPGRADE_STAGE_CX = PLACE_CX + 60
+export const UPGRADE_STAGE_FONT_PX = 30
 /**
  * `●○` が占める幅。⚠ **段数（`Upgrades.MAX_STAGE`）ぶんの丸が入ること。**
  *   段数を増やしたらここも広げる。**食い違えば `layout.test.ts` が落ちる**
  *   （`MAX_STAGE` をあちらから読んで測っている）。
  * ⚠ **`layout.ts` は実行時に何も import しない**ので、段数をここから読みには行かない。
  */
-export const UPGRADE_STAGE_W = 100
+export const UPGRADE_STAGE_W = 150
 export const UPGRADE_STAGE_L = UPGRADE_STAGE_CX - UPGRADE_STAGE_W / 2
 
 /**
@@ -467,10 +475,10 @@ export const UPGRADE_STAGE_L = UPGRADE_STAGE_CX - UPGRADE_STAGE_W / 2
  *   **説明の長さで `→` の位置が4行ともずれていた**（PO 赤入れ 2026-09-13「表にする」）。
  *   **列が固定されて初めて、見出しを一覧の上に1回だけ置ける。**
  */
-export const UPGRADE_VALUE_W = 64
-export const UPGRADE_ARROW_W = 20
+export const UPGRADE_VALUE_W = 96
+export const UPGRADE_ARROW_W = 30
 export const UPGRADE_ARROW = '→'
-export const UPGRADE_NEXT_R = UPGRADE_STAGE_L - 16
+export const UPGRADE_NEXT_R = UPGRADE_STAGE_L - 24
 export const UPGRADE_NEXT_L = UPGRADE_NEXT_R - UPGRADE_VALUE_W
 export const UPGRADE_NEXT_CX = (UPGRADE_NEXT_L + UPGRADE_NEXT_R) / 2
 export const UPGRADE_ARROW_CX = UPGRADE_NEXT_L - UPGRADE_ARROW_W / 2
@@ -478,14 +486,14 @@ export const UPGRADE_NOW_R = UPGRADE_NEXT_L - UPGRADE_ARROW_W
 export const UPGRADE_NOW_L = UPGRADE_NOW_R - UPGRADE_VALUE_W
 export const UPGRADE_NOW_CX = (UPGRADE_NOW_L + UPGRADE_NOW_R) / 2
 /** 値の文字の大きさ。⚠ **費用（`UPGRADE_COST_FONT_PX`）と揃える。**同じ表の中の数である */
-export const UPGRADE_VALUE_FONT_PX = 14
+export const UPGRADE_VALUE_FONT_PX = 21
 
 /**
  * 説明の一言（`売り場が広がる`）に使える幅。
  *
  * ⚠ **`現在値` の列に食い込ませないこと。**食い込むと、列で揃えた意味が消える。
  */
-export const UPGRADE_SUB_MAX_W = UPGRADE_NOW_L - UPGRADE_NAME_X - 12
+export const UPGRADE_SUB_MAX_W = UPGRADE_NOW_L - UPGRADE_NAME_X - 18
 
 /**
  * 行の右端 ——「**費用**」と「**改装**」の2つ。
@@ -494,27 +502,27 @@ export const UPGRADE_SUB_MAX_W = UPGRADE_NOW_L - UPGRADE_NAME_X - 12
  *   ボタンは `改装` とだけ書いてある。**商人タブの「総額 ＋ 買う」と同じ作り。**
  *   **隣り合う2タブで作りが違うと、同じ操作に見えない。**
  */
-export const UPGRADE_BTN_W = 64
-export const UPGRADE_BTN_H = 30
+export const UPGRADE_BTN_W = 96
+export const UPGRADE_BTN_H = 45
 /** ボタンの右端。**行の右の余白は 28px**（`UPGRADE_NAME_X` の左の余白と揃えてある） */
-export const UPGRADE_BTN_R = CONTENT_R - 28
+export const UPGRADE_BTN_R = CONTENT_R - 42
 export const UPGRADE_BTN_L = UPGRADE_BTN_R - UPGRADE_BTN_W
 /** 費用とボタンのあいだ。**離すこと自体が指摘の中身**なので詰めない */
-export const UPGRADE_GAP = 10
+export const UPGRADE_GAP = 15
 /** 費用の右端（右そろえ）と、そこから左へ取る幅 */
 export const UPGRADE_COST_R = UPGRADE_BTN_L - UPGRADE_GAP
 /**
  * ⚠ **いちばん高い段（`400,000レン`）で 86.5px。**84 では**はみ出していた**（実測 2026-09-13）。
  *   ここを縮めるときは `layout.test.ts` の検査を通すこと。
  */
-export const UPGRADE_COST_W = 92
+export const UPGRADE_COST_W = 138
 export const UPGRADE_COST_L = UPGRADE_COST_R - UPGRADE_COST_W
 /**
  * 費用の文字の大きさ。⚠ **ボタンではないので、ボタンと揃える必要がない**
  *   （商人タブの `BUY_TOTAL_FONT_PX` と同じ理由）。
  *   ⚠ いちばん高い段（`400,000レン`）が `UPGRADE_COST_W` に収まること。
  */
-export const UPGRADE_COST_FONT_PX = 14
+export const UPGRADE_COST_FONT_PX = 21
 
 /**
  * ボタンの字。**金額はもう入っていない**（PO 指示 2026-09-13）。
@@ -554,10 +562,10 @@ export const UPGRADE_WHAT_IT_DOES: Record<UpgradeKind, string> = {
  * ⚠ **写しを作らないこと。**`DeliveryTab.ts` はここを読むだけで、自分の数を持たない。
  */
 /** 見出しの行（`商品` `依頼者` …）の y */
-export const DELIVERY_HEAD_Y = ROWS_TOP + 10
-export const DELIVERY_HEAD_FONT_PX = 12
+export const DELIVERY_HEAD_Y = ROWS_TOP + 15
+export const DELIVERY_HEAD_FONT_PX = 18
 /** 1件目の行の上端。⚠ **見出しの行と重ならないこと**（`layout.test.ts` が見ている） */
-export const DELIVERY_ROWS_TOP = ROWS_TOP + 30
+export const DELIVERY_ROWS_TOP = ROWS_TOP + 45
 /**
  * 1行の高さ。
  *
@@ -565,7 +573,7 @@ export const DELIVERY_ROWS_TOP = ROWS_TOP + 30
  *   商人タブと違い、**この表にはページ送りが無い**（10件で打ち止めなので要らない）。
  *   `layout.test.ts` が `rowsThatFit` で見ている。
  */
-export const DELIVERY_ROW_H = 40
+export const DELIVERY_ROW_H = 60
 
 /**
  * ⚠ **左から順に決める。商人タブ（`ROW_*`）・改装タブ（`UPGRADE_*`）とは逆である。**
@@ -576,30 +584,30 @@ export const DELIVERY_ROW_H = 40
  * 右端に散らすと**読む目が横に飛ぶ。**⚠ **右に余白が残るのは、この表では正しい。**
  */
 /** `商品` の左端。⚠ **いちばん長い品名が `依頼者` に届かないこと**（`layout.test.ts`） */
-export const DELIVERY_NAME_L = CONTENT_L + 16
-export const DELIVERY_NAME_W = 190
+export const DELIVERY_NAME_L = CONTENT_L + 24
+export const DELIVERY_NAME_W = 285
 /**
  * `依頼者` の左端。⚠ **4人ぶんの名（`フィエラ` がいちばん長い）が
  *   `数量` の列に届かないこと**（`layout.test.ts` が見ている）。
  */
 export const DELIVERY_CLIENT_L = DELIVERY_NAME_L + DELIVERY_NAME_W
-export const DELIVERY_CLIENT_W = 110
+export const DELIVERY_CLIENT_W = 165
 /** `数量` の右端（右そろえ）。**必要な数**であって、手持ちではない */
-export const DELIVERY_QTY_W = 60
+export const DELIVERY_QTY_W = 90
 export const DELIVERY_QTY_R = DELIVERY_CLIENT_L + DELIVERY_CLIENT_W + DELIVERY_QTY_W
 /** `報酬` の右端（右そろえ）。⚠ **いちばん高い報酬が収まること**（`layout.test.ts`） */
-export const DELIVERY_REWARD_W = 110
-export const DELIVERY_REWARD_R = DELIVERY_QTY_R + 20 + DELIVERY_REWARD_W
+export const DELIVERY_REWARD_W = 165
+export const DELIVERY_REWARD_R = DELIVERY_QTY_R + 30 + DELIVERY_REWARD_W
 
-export const DELIVERY_BTN_H = 26
+export const DELIVERY_BTN_H = 39
 /** `納品` ボタン。⚠ **納められないとき `手持ち/必要` に変わる**ので、その幅も要る */
-export const DELIVERY_BTN_W = 72
-export const DELIVERY_BTN_L = DELIVERY_REWARD_R + 20
+export const DELIVERY_BTN_W = 108
+export const DELIVERY_BTN_L = DELIVERY_REWARD_R + 30
 /** `廃棄` ボタン。⚠ **`納品` から離すこと。**押し間違えると依頼が消える */
-export const DELIVERY_DISCARD_W = 56
-export const DELIVERY_DISCARD_L = DELIVERY_BTN_L + DELIVERY_BTN_W + 16
+export const DELIVERY_DISCARD_W = 84
+export const DELIVERY_DISCARD_L = DELIVERY_BTN_L + DELIVERY_BTN_W + 24
 /** ボタンの字の大きさ。⚠ **2つのボタンで揃える**（隣り合うので） */
-export const DELIVERY_BTN_FONT_PX = 13
+export const DELIVERY_BTN_FONT_PX = 19.5
 
 /**
  * 商人のところの「**もうすぐ買える**」行に出す文字（#66）。
@@ -626,7 +634,7 @@ export function upcomingLabel(salesLeft: number): string {
  *   **118px だった頃は 12px で 1px はみ出していた** —— 総額を分けて 138px になったので、
  *   いまは収まる。**それでも上げていないのは、揃える相手がボタンではないからである。**
  */
-export const UPCOMING_FONT_PX = 11
+export const UPCOMING_FONT_PX = 16.5
 
 /**
  * 行商人のところ（#9）に出す文字。
@@ -651,7 +659,7 @@ export function peddlerRemainText(remaining: number): string {
 }
 
 /** 行商人の行の `残り N個` の文字の大きさ。**行の補足の字**（`INFO_FONT_PX`）に合わせる */
-export const PEDDLER_REMAIN_FONT_PX = 11
+export const PEDDLER_REMAIN_FONT_PX = 16.5
 
 /**
  * 行商人の場所の見出し。
@@ -672,14 +680,14 @@ export const PEDDLER_TITLE = '行商人'
  *   いちばん長い既定値は `ミフユリア島` で **72px**（区画数を落とした 2026-09-13 以降）。
  *   ⚠ **古いセーブの `130区画` も通る。**収まるかは `layout.test.ts` が両方見ている。
  */
-export const PRESET_TEXT_FONT_PX = 12
+export const PRESET_TEXT_FONT_PX = 18
 
 /**
  * 型の升の**2行目**（島名）。**名前を付けたときだけ出る**（#83）。
  *
  * ⚠ **名前が1行目を占めるので、これが無いと島名が読めなくなる。**
  */
-export const PRESET_SUB_FONT_PX = 11
+export const PRESET_SUB_FONT_PX = 16.5
 
 /**
  * マイセットの升の**横の寸法**（`PresetMenu` が並べる 2列 × 5行 の升）。
@@ -689,13 +697,13 @@ export const PRESET_SUB_FONT_PX = 11
  * ⚠ **縦の寸法（升の高さ）はここに無い。**`PRESET_COUNT` から割るので `PresetMenu` に置いてある。
  */
 export const PRESET_COLS = 2
-export const PRESET_GAP_X = 14
+export const PRESET_GAP_X = 21
 export const PRESET_CELL_W =
   Math.floor((CONTENT_R - CONTENT_L - PRESET_GAP_X * (PRESET_COLS - 1)) / PRESET_COLS)
 /** 盤面の縮小図を置く枠の幅 */
-export const PRESET_PREVIEW_W = 70
+export const PRESET_PREVIEW_W = 105
 /** 升の左端から、文字（と名前の入力欄）の左端までの距離。左余白10 ＋ 縮小図 ＋ 間隔12 */
-export const PRESET_TEXT_L_OFFSET = 10 + PRESET_PREVIEW_W + 12
+export const PRESET_TEXT_L_OFFSET = 15 + PRESET_PREVIEW_W + 18
 /** 升の文字欄の幅（**308px**）。⚠ **名前もここに収まること**（`layout.test.ts` が見ている） */
 export const PRESET_TEXT_W = PRESET_CELL_W - PRESET_TEXT_L_OFFSET
 
@@ -705,8 +713,8 @@ export const PRESET_TEXT_W = PRESET_CELL_W - PRESET_TEXT_L_OFFSET
  * ⚠ **右端に 10px 残す。**升の縁にぴったり付けると枠線と重なって見える。
  * ⚠ **高さは 24。**升の文字行（升の上端から15px）と、その下のボタン列のあいだに収まる。
  */
-export const PRESET_NAME_INPUT_W = PRESET_TEXT_W - 10
-export const PRESET_NAME_INPUT_H = 24
+export const PRESET_NAME_INPUT_W = PRESET_TEXT_W - 15
+export const PRESET_NAME_INPUT_H = 36
 
 // ─── 右パネルのボタン列 ──────────────────────────────────
 /**
@@ -716,18 +724,18 @@ export const PRESET_NAME_INPUT_H = 24
  *   **行を1つ足したときにキャラ絵の枠と重なることに気づけなかった**（#9 で行商人を足した）。
  *   いまは `CHAR_ART_B` をこの列の上端から引いてあるので、`layout.test.ts` が重なりを見られる。
  */
-export const BTN_PANEL_R = 1278
-export const BTN_PANEL_W = 176
+export const BTN_PANEL_R = 1917
+export const BTN_PANEL_W = 264
 export const BTN_PANEL_L = BTN_PANEL_R - BTN_PANEL_W
 /** ⚠ **アイコンは5つ。**幅を広げると入らない（列は 176px しかない） */
-export const BTN_ICON_W = 33
-export const BTN_ICON_H = 38
-export const BTN_ACTION_H = 42
-export const BTN_GAP = 5
+export const BTN_ICON_W = 49.5
+export const BTN_ICON_H = 57
+export const BTN_ACTION_H = 63
+export const BTN_GAP = 7.5
 /** 速さの行。ボタンの中に入れると文字が重なる */
-export const BTN_SPEED_H = 16
+export const BTN_SPEED_H = 24
 /** 列の下端（メッセージ欄の上）と、そこから空ける余白 */
-const BTN_COLUMN_B = LOG_T - 1 - 16
+const BTN_COLUMN_B = LOG_T - 1.5 - 24
 
 export const BTN_Y_ADVANCE = BTN_COLUMN_B - BTN_ACTION_H / 2
 export const BTN_Y_SPEED   = BTN_Y_ADVANCE - BTN_ACTION_H / 2 - BTN_GAP - BTN_SPEED_H / 2
@@ -755,12 +763,12 @@ export const BTN_Y_ICON    = BTN_Y_TRADE - BTN_ACTION_H / 2 - BTN_GAP - BTN_ICON
  * ⚠ **枠は所持金の行で終わる**（PO 指示「ここの空白は不要」）。
  *   **目標の進みのバーを消したあと、下に空の帯が残っていた。**
  */
-export const HUD_PANEL_T = 8
-export const HUD_ROW_TIME_Y = HUD_PANEL_T + 22
-export const HUD_ROW_PLACE_Y = HUD_PANEL_T + 50
-export const HUD_RULE_Y = HUD_PANEL_T + 64
-export const HUD_ROW_MONEY_Y = HUD_PANEL_T + 84
-export const HUD_PANEL_H = 102
+export const HUD_PANEL_T = 12
+export const HUD_ROW_TIME_Y = HUD_PANEL_T + 33
+export const HUD_ROW_PLACE_Y = HUD_PANEL_T + 75
+export const HUD_RULE_Y = HUD_PANEL_T + 96
+export const HUD_ROW_MONEY_Y = HUD_PANEL_T + 126
+export const HUD_PANEL_H = 153
 export const HUD_PANEL_B = HUD_PANEL_T + HUD_PANEL_H
 
 /**
@@ -772,12 +780,12 @@ export const HUD_PANEL_B = HUD_PANEL_T + HUD_PANEL_H
  *   **枠の高さを変えたときに、ここが置き去りになると隙間か重なりになる。**
  * ⚠ **次の寄港地は現在地の行に置いてある**（#7）ので、**クリア後もここは動かない。**
  */
-export const CHAR_ART_T = HUD_PANEL_B + 9
-export const CHAR_ART_B = BTN_Y_ICON - BTN_ICON_H / 2 - 9
+export const CHAR_ART_T = HUD_PANEL_B + 13.5
+export const CHAR_ART_B = BTN_Y_ICON - BTN_ICON_H / 2 - 13.5
 export const CHAR_ART_CY = (CHAR_ART_T + CHAR_ART_B) / 2
 export const CHAR_ART_H = CHAR_ART_B - CHAR_ART_T
-export const CHAR_ART_CX = 1185
-export const CHAR_ART_W = 170
+export const CHAR_ART_CX = 1777.5
+export const CHAR_ART_W = 255
 
 // ─── 工房の表 ────────────────────────────────────────────────
 /**
@@ -796,16 +804,16 @@ export const CHAR_ART_W = 170
  * ⚠ **写しを作らないこと。**`CraftMenu.ts` はここを読むだけで、自分の数を持たない。
  */
 /** 見出しの行（`商品` `作成数` …）の y。⚠ **工房は見出しの下の1行が無い**ので上端が他より上 */
-export const CRAFT_HEAD_Y = ROWS_TOP_NO_SUBTITLE + 10
-export const CRAFT_HEAD_FONT_PX = 12
+export const CRAFT_HEAD_Y = ROWS_TOP_NO_SUBTITLE + 15
+export const CRAFT_HEAD_FONT_PX = 18
 /** 1件目の行の上端。⚠ **見出しの行と重ならないこと**（`layout.test.ts` が見ている） */
-export const CRAFT_ROWS_TOP = ROWS_TOP_NO_SUBTITLE + 30
+export const CRAFT_ROWS_TOP = ROWS_TOP_NO_SUBTITLE + 45
 /**
  * 1行の高さ。**3段組み（84px）をやめて1行にした。**
  *
  * ⚠ **行数は決め打ちしない**（`rowsThatFit`）。84px のときは5行、いまは11行入る。
  */
-export const CRAFT_ROW_H = 40
+export const CRAFT_ROW_H = 60
 
 /** 列の名。⚠ **見出しの字はここだけ。**`CraftMenu.ts` に書かない */
 export const CRAFT_COLS =
@@ -816,9 +824,9 @@ export const CRAFT_COLS =
  * ⚠ **`材料` 以外は「いちばん長い中身」ぴったりに詰めてある。**
  *   余らせると、そのぶん `材料` が短くなって `…` に詰まる行が増える。
  */
-export const CRAFT_COL_GAP = 8
+export const CRAFT_COL_GAP = 12
 /** 右そろえの数の列（`作成数` ／ `在庫`）の幅。**4桁 = 28.2px**（`CRAFT_CELL_FONT_PX`） */
-export const CRAFT_NUM_W = 30
+export const CRAFT_NUM_W = 45
 
 /**
  * `商品` の左端と幅。**出来上がる品の名前だけ**（`×3(400)` は `作成数` と `在庫` に割れた）。
@@ -826,13 +834,13 @@ export const CRAFT_NUM_W = 30
  * ⚠ **いちばん長い品名が `作成数` に届かないこと**（`layout.test.ts`）。
  *   **実測: `フェルト張りの氷入れ` が 10文字＝140px**（`CRAFT_NAME_FONT_PX`）。
  */
-export const CRAFT_NAME_L = CONTENT_L + 8
-export const CRAFT_NAME_W = 142
+export const CRAFT_NAME_L = CONTENT_L + 12
+export const CRAFT_NAME_W = 213
 /** ⚠ **納品タブ（15px）より1つ小さい。**列が7つあり、ここを 15px にすると `需要` が入らない */
-export const CRAFT_NAME_FONT_PX = 14
+export const CRAFT_NAME_FONT_PX = 21
 
 /** 行の中の数字と島名の大きさ */
-export const CRAFT_CELL_FONT_PX = 11
+export const CRAFT_CELL_FONT_PX = 16.5
 
 /**
  * `作成数` の右端（右そろえ）。**`出来高 × 回数`** であって、1回ぶんではない。
@@ -856,7 +864,7 @@ export const CRAFT_STOCK_R = CRAFT_MADE_R + CRAFT_COL_GAP + CRAFT_NUM_W
  *   ⚠ **ここを広げると、そのぶん `材料` が短くなる。**
  */
 export const CRAFT_TIME_L = CRAFT_STOCK_R + CRAFT_COL_GAP
-export const CRAFT_TIME_W = 42
+export const CRAFT_TIME_W = 63
 /**
  * `需要` の左端と幅。**中身は「その品が高く売れる島」**（PO 回答 2026-09-14。Q1）。
  *
@@ -868,7 +876,7 @@ export const CRAFT_TIME_W = 42
  * ⚠ **`向く土地: どこでも` の品は行が無いので空欄**（106レシピ中42本。PO 了承済み）。
  */
 export const CRAFT_DEMAND_L = CRAFT_TIME_L + CRAFT_TIME_W + CRAFT_COL_GAP
-export const CRAFT_DEMAND_W = 58
+export const CRAFT_DEMAND_W = 87
 
 /**
  * `作る` ボタン。**右端から決める。**
@@ -877,10 +885,10 @@ export const CRAFT_DEMAND_W = 58
  *   **1行になった時点で、理由を置く段が無くなった。**
  * ⚠ **いちばん長い理由がここに収まること**（`layout.test.ts`）。
  */
-export const CRAFT_BTN_W = 76
-export const CRAFT_BTN_H = 26
-export const CRAFT_BTN_L = CONTENT_R - 6 - CRAFT_BTN_W
-export const CRAFT_BTN_FONT_PX = 12
+export const CRAFT_BTN_W = 114
+export const CRAFT_BTN_H = 39
+export const CRAFT_BTN_L = CONTENT_R - 9 - CRAFT_BTN_W
+export const CRAFT_BTN_FONT_PX = 18
 export const CRAFT_BTN_LABEL = '作る'
 
 /**
@@ -903,13 +911,13 @@ export const CRAFT_REASON_NOT_INT = '1以上の整数'
  * ⚠ **`回` の字は出さない**（図に無い）。**別の段にあった `最大` もここへ入った。**
  * ⚠ **右端は `作る` ボタンから `CRAFT_QTY_GAP` 空ける。**
  */
-export const CRAFT_STEP_BIG_W = 28
-export const CRAFT_STEP_ONE_W = 22
-export const CRAFT_INPUT_W = 40
-export const CRAFT_INPUT_H = 22
-export const CRAFT_MAX_W = 34
-export const CRAFT_STEP_GAP = 3
-export const CRAFT_QTY_GAP = 10
+export const CRAFT_STEP_BIG_W = 42
+export const CRAFT_STEP_ONE_W = 33
+export const CRAFT_INPUT_W = 60
+export const CRAFT_INPUT_H = 33
+export const CRAFT_MAX_W = 51
+export const CRAFT_STEP_GAP = 4.5
+export const CRAFT_QTY_GAP = 15
 /** 数量の列の幅（6つぶんと隙間5つ） */
 export const CRAFT_QTY_W =
   CRAFT_STEP_BIG_W + CRAFT_STEP_ONE_W + CRAFT_INPUT_W
@@ -931,7 +939,7 @@ export const CRAFT_STEP_XS = {
 export const CRAFT_STEP_LABELS = {
   minusTen: '-10', minusOne: '-1', plusOne: '+1', plusTen: '+10', max: '最大',
 } as const
-export const CRAFT_STEP_FONT_PX = 11
+export const CRAFT_STEP_FONT_PX = 16.5
 
 /**
  * `材料` の列（**#107。PO 回答 2026-09-14「戻す」**）。
@@ -1009,15 +1017,15 @@ export function recipeUnlockedText(itemName: string): string {
  *   （`GRID_ORIGIN_Y + 10 * CELL_SIZE + 2`）。広げると盤面と重なる。
  * ⚠ **右は `STRIP_L` まで。**そこから先はキャラ帯（980〜1090）。
  */
-export const ORDER_BAR_T = GRID_ORIGIN_Y + 10 * CELL_SIZE + 2
-export const ORDER_BAR_B = LOG_T - 2
+export const ORDER_BAR_T = GRID_ORIGIN_Y + 10 * CELL_SIZE + 3
+export const ORDER_BAR_B = LOG_T - 3
 export const ORDER_BAR_L = GRID_ORIGIN_X
-export const ORDER_BAR_R = STRIP_L - 4
+export const ORDER_BAR_R = STRIP_L - 6
 export const ORDER_BAR_W = ORDER_BAR_R - ORDER_BAR_L
 export const ORDER_BAR_H = ORDER_BAR_B - ORDER_BAR_T
 export const ORDER_BAR_CY = (ORDER_BAR_T + ORDER_BAR_B) / 2
 /** 帯の内側の余白 */
-export const ORDER_BAR_PAD = 10
+export const ORDER_BAR_PAD = 15
 /**
  * 帯の文字に使える幅。
  *
@@ -1026,7 +1034,7 @@ export const ORDER_BAR_PAD = 10
  */
 export const ORDER_TEXT_MAX_W = ORDER_BAR_W - ORDER_BAR_PAD * 2
 /** 帯の文字の大きさ。⚠ 帯の高さが 18px しかないので、これ以上大きくしない */
-export const ORDER_BAR_FONT_PX = 12
+export const ORDER_BAR_FONT_PX = 18
 
 // ─── できごとのウィンドウ（#24） ──────────────────────────
 /**
@@ -1069,7 +1077,7 @@ export const MSG_SCRIM_ALPHA = 0.65
  *   **選択肢3つぶん（110×3 ＋ 隙間）＋内側の余白**でできていて、
  *   **それより1つぶん以上広いと `layout.test.ts` が落ちる**（PO 2026-09-13「余白が多すぎる」）。
  */
-export const MSG_WIN_W = 440
+export const MSG_WIN_W = 660
 /**
  * 窓の高さ。**中身（話し手1行・本文・ボタン1行）ぶんしか無い。**
  *
@@ -1078,7 +1086,7 @@ export const MSG_WIN_W = 440
  *   落ちたら、ここを `MSG_LINE_H` ぶん（22px）上げる。
  *   **黙って余らせておかない**（PO 2026-09-13「余白が多すぎる」）。
  */
-export const MSG_WIN_H = 120
+export const MSG_WIN_H = 180
 /** ⚠ **画面の中央。**`Tutorial` `SaveLoadMenu` と同じ中心（上の注記） */
 export const MSG_WIN_CX = SCREEN_W / 2
 export const MSG_WIN_CY = SCREEN_H / 2
@@ -1087,24 +1095,24 @@ export const MSG_WIN_R = MSG_WIN_CX + MSG_WIN_W / 2
 export const MSG_WIN_T = MSG_WIN_CY - MSG_WIN_H / 2
 export const MSG_WIN_B = MSG_WIN_CY + MSG_WIN_H / 2
 /** 窓の内側の余白 */
-export const MSG_WIN_PAD = 14
+export const MSG_WIN_PAD = 21
 /** 本文と名前に使える幅 */
 export const MSG_TEXT_MAX_W = MSG_WIN_W - MSG_WIN_PAD * 2
 
 /** 話し手の名前の行。⚠ **名前だけ出す**（絵は #21・#15 で後から入る） */
-export const MSG_SPEAKER_FONT_PX = 16
+export const MSG_SPEAKER_FONT_PX = 24
 export const MSG_SPEAKER_Y = MSG_WIN_T + MSG_WIN_PAD
 
 /** 本文。**1行ずつ置く**（自動で折り返さない ＝ node のテストから測れる） */
-export const MSG_TEXT_FONT_PX = 16
-export const MSG_LINE_H = 22
-export const MSG_TEXT_TOP = MSG_SPEAKER_Y + 26
+export const MSG_TEXT_FONT_PX = 24
+export const MSG_LINE_H = 33
+export const MSG_TEXT_TOP = MSG_SPEAKER_Y + 39
 
 /** 選択肢のボタン。**窓の下端に1行で並べる** */
-export const MSG_CHOICE_W = 110
-export const MSG_CHOICE_H = 30
-export const MSG_CHOICE_GAP = 12
-export const MSG_CHOICE_FONT_PX = 15
+export const MSG_CHOICE_W = 165
+export const MSG_CHOICE_H = 45
+export const MSG_CHOICE_GAP = 18
+export const MSG_CHOICE_FONT_PX = 22.5
 export const MSG_CHOICE_CY = MSG_WIN_B - MSG_WIN_PAD - MSG_CHOICE_H / 2
 
 /**
@@ -1115,7 +1123,7 @@ export const MSG_CHOICE_CY = MSG_WIN_B - MSG_WIN_PAD - MSG_CHOICE_H / 2
  */
 export const MSG_LINES_MAX = Math.max(
   0,
-  Math.floor((MSG_CHOICE_CY - MSG_CHOICE_H / 2 - 8 - MSG_TEXT_TOP) / MSG_LINE_H),
+  Math.floor((MSG_CHOICE_CY - MSG_CHOICE_H / 2 - 12 - MSG_TEXT_TOP) / MSG_LINE_H),
 )
 
 /**
@@ -1140,17 +1148,17 @@ export function msgChoiceCx(index: number, count: number): number {
  * ⚠ **大きさは `SaveLoadMenu` の確認から移したもの**（PO 指示 2026-09-13「大きすぎる」で
  *   枠の一覧 480×310 から切り離した値）。**写しを作らず、両方がここを読む。**
  */
-export const CONFIRM_MW = 360
-export const CONFIRM_MH = 150
+export const CONFIRM_MW = 540
+export const CONFIRM_MH = 225
 /** 確認のボタン。**2つ並べて面に収まる幅** */
-export const CONFIRM_BTN_W = 130
-export const CONFIRM_BTN_H = 36
-export const CONFIRM_BTN_GAP = 20
-export const CONFIRM_BTN_FONT_PX = 14
+export const CONFIRM_BTN_W = 195
+export const CONFIRM_BTN_H = 54
+export const CONFIRM_BTN_GAP = 30
+export const CONFIRM_BTN_FONT_PX = 21
 /** ボタンの列の中心 y。**面の下端から 30px** */
-export const CONFIRM_BTN_CY = MSG_WIN_CY + CONFIRM_MH / 2 - 30
+export const CONFIRM_BTN_CY = MSG_WIN_CY + CONFIRM_MH / 2 - 45
 /** 本文の1行目の中心 y。⚠ **行の高さは窓と同じ `MSG_LINE_H`**（別の刻みを作らない） */
-export const CONFIRM_TEXT_TOP = MSG_WIN_CY - CONFIRM_MH / 2 + 30
+export const CONFIRM_TEXT_TOP = MSG_WIN_CY - CONFIRM_MH / 2 + 45
 /** 本文に使える幅。⚠ **内側の余白は窓と同じ `MSG_WIN_PAD`** */
 export const CONFIRM_TEXT_MAX_W = CONFIRM_MW - MSG_WIN_PAD * 2
 /**
@@ -1160,7 +1168,7 @@ export const CONFIRM_TEXT_MAX_W = CONFIRM_MW - MSG_WIN_PAD * 2
  */
 export const CONFIRM_LINES_MAX = Math.max(
   0,
-  Math.floor((CONFIRM_BTN_CY - CONFIRM_BTN_H / 2 - 8 - CONFIRM_TEXT_TOP) / MSG_LINE_H),
+  Math.floor((CONFIRM_BTN_CY - CONFIRM_BTN_H / 2 - 12 - CONFIRM_TEXT_TOP) / MSG_LINE_H),
 )
 /**
  * 「やめる」側の字。⚠ **`SaveLoadMenu` の確認と同じ語**（同じ役目を2つの語で呼ばない）。

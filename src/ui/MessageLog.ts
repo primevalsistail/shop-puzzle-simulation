@@ -21,13 +21,13 @@ const MAX_MESSAGES = 5
  *   売れた・着いた・出たの合計が1日あたり数十行なので、200 で数日ぶん残る。
  */
 const MAX_HISTORY = 200
-const LINE_HEIGHT = 18
-const PADDING_X = 12
-const PADDING_Y = 8
+const LINE_HEIGHT = 27
+const PADDING_X = 18
+const PADDING_Y = 12
 const DEPTH = 8
 /** 遡れる量と、いまどこを見ているかを示す棒。⚠ **文字は足さない**（言い回しは PO が決める・#79） */
-const BAR_W = 4
-const BAR_MARGIN = 6
+const BAR_W = 6
+const BAR_MARGIN = 9
 
 const TYPE_COLORS: Record<MessageType, string> = {
   sale: '#ffee44',
@@ -67,18 +67,18 @@ export class MessageLog {
       LOG_HEIGHT,
       0x0d1117,
       0.92,
-    ).setDepth(DEPTH).setStrokeStyle(1, 0x223344)
+    ).setDepth(DEPTH).setStrokeStyle(1.5, 0x223344)
 
     // 上部区切り線
     const lineGfx = this.scene.add.graphics().setDepth(DEPTH)
-    lineGfx.lineStyle(1, 0x334455, 0.9)
+    lineGfx.lineStyle(1.5, 0x334455, 0.9)
     lineGfx.lineBetween(LOG_X, LOG_Y, LOG_X + LOG_WIDTH, LOG_Y)
 
     // テキスト行（固定数を事前生成して再利用）
     for (let i = 0; i < MAX_MESSAGES; i++) {
       const y = LOG_Y + PADDING_Y + i * LINE_HEIGHT
       const t = this.scene.add.text(LOG_X + PADDING_X, y, '', {
-        fontSize: '13px',
+        fontSize: '19.5px',
         color: '#aaaaaa',
         fontStyle: 'normal',
       }).setDepth(DEPTH + 1)
@@ -190,7 +190,7 @@ export class MessageLog {
     const trackH = LOG_HEIGHT - BAR_MARGIN * 2
     bar.fillStyle(0x223344, 0.9)
     bar.fillRect(x, top, BAR_W, trackH)
-    const thumbH = Math.max(10, Math.round((MAX_MESSAGES / total) * trackH))
+    const thumbH = Math.max(15, Math.round((MAX_MESSAGES / total) * trackH))
     // scroll が 0（最新）なら一番下
     const ratio = this.maxScroll() === 0 ? 0 : this.scroll / this.maxScroll()
     const thumbY = top + Math.round((1 - ratio) * (trackH - thumbH))

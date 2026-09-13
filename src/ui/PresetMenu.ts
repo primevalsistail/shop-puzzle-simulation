@@ -20,18 +20,18 @@ const ROWS = PRESET_COUNT / COLS
 
 /** ⚠ **横の寸法は `layout.ts`。**名前の入力欄が入るかを `layout.test.ts` が見るため */
 const GAP_X = PRESET_GAP_X
-const GAP_Y = 8
+const GAP_Y = 12
 const CELL_W = PRESET_CELL_W
 const CELL_H = Math.floor((ROWS_BOTTOM - ROWS_TOP) / ROWS)
 
 /** 盤面の縮小図を置く枠 */
 const PREVIEW_W = PRESET_PREVIEW_W
-const PREVIEW_H = CELL_H - 22
+const PREVIEW_H = CELL_H - 33
 
 /** セーブ ／ ロード ／ 削除 */
-const BTN_H = 24
-const BTN_W = 76
-const BTN_GAP = 7
+const BTN_H = 36
+const BTN_W = 114
+const BTN_GAP = 10.5
 
 /**
  * マイセット（#27）。**ダイアログではなく「行く場所」**（#58）。
@@ -199,10 +199,10 @@ export class PresetMenu {
     const top = ROWS_TOP + row * CELL_H
     const h = CELL_H - GAP_Y
     const cy = top + h / 2
-    const nameCy = cy - h / 2 + 15
+    const nameCy = cy - h / 2 + 22.5
     // ⚠ **2行目は「名前を付けたときだけ」出す**（下の `buildCell`）。
     //   名前が無いときは入力欄の `placeholder` が同じ文字を出しているので、二重になる
-    return { left, top, h, cy, textL: left + PRESET_TEXT_L_OFFSET, nameCy, subCy: nameCy + 17 }
+    return { left, top, h, cy, textL: left + PRESET_TEXT_L_OFFSET, nameCy, subCy: nameCy + 25.5 }
   }
 
   private build(): void {
@@ -221,11 +221,11 @@ export class PresetMenu {
 
     objs.push(
       this.scene.add.rectangle(left + CELL_W / 2, cy, CELL_W, h, filled ? 0x232344 : 0x25252f)
-        .setStrokeStyle(1, filled ? 0x445577 : 0x383848),
+        .setStrokeStyle(1.5, filled ? 0x445577 : 0x383848),
     )
 
     // ── 盤面の縮小図 ──
-    this.buildPreview(preset, left + 10, cy - PREVIEW_H / 2, objs)
+    this.buildPreview(preset, left + 15, cy - PREVIEW_H / 2, objs)
 
     // ── 1行目（名前） ──
     // ⚠ **入力欄が置けているなら、字はそれが出す。**両方出すと二重に重なる。
@@ -251,7 +251,7 @@ export class PresetMenu {
     }
 
     // ── セーブ ／ ロード ／ 削除 ──
-    const by = cy + h / 2 - 18
+    const by = cy + h / 2 - 27
     this.button(objs, textL, by, BTN_W, BTN_H, 'セーブ', 0x3a5a8a, true,
       () => this.onSave(index))
     this.button(objs, textL + BTN_W + BTN_GAP, by, BTN_W, BTN_H, 'ロード', 0x3a6a3a, filled,
@@ -273,7 +273,7 @@ export class PresetMenu {
     objs: Phaser.GameObjects.GameObject[],
   ): void {
     const size = this.gridSize()
-    const cell = Math.max(2, Math.floor(Math.min(PREVIEW_W / size.width, PREVIEW_H / size.height)))
+    const cell = Math.max(3, Math.floor(Math.min(PREVIEW_W / size.width, PREVIEW_H / size.height)))
     const w = cell * size.width
     const h = cell * size.height
     const ox = left + (PREVIEW_W - w) / 2
@@ -292,11 +292,11 @@ export class PresetMenu {
         // 入らない区画は描かない（呼び出したときも落ちるため）
         if (gx < 0 || gy < 0 || gx >= size.width || gy >= size.height) continue
         gfx.fillStyle(item.display.color, 1)
-        gfx.fillRect(ox + gx * cell, oy + gy * cell, cell - 1, cell - 1)
+        gfx.fillRect(ox + gx * cell, oy + gy * cell, cell - 1.5, cell - 1.5)
       }
     }
 
-    gfx.lineStyle(1, 0x6688aa, 0.8)
+    gfx.lineStyle(1.5, 0x6688aa, 0.8)
     gfx.strokeRect(ox, oy, w, h)
     objs.push(gfx)
   }
@@ -308,7 +308,7 @@ export class PresetMenu {
   ): void {
     const cx = left + w / 2
     const bg = this.scene.add.rectangle(cx, cy, w, h, enabled ? fill : 0x33333f)
-      .setStrokeStyle(1, enabled ? 0x6a8ab0 : 0x444455)
+      .setStrokeStyle(1.5, enabled ? 0x6a8ab0 : 0x444455)
     if (enabled) {
       bg.setInteractive({ useHandCursor: true })
       bg.on('pointerdown', onClick)
@@ -318,7 +318,7 @@ export class PresetMenu {
     objs.push(
       bg,
       this.scene.add.text(cx, cy, label, {
-        fontSize: '12px', color: enabled ? '#ffffff' : '#777788',
+        fontSize: '18px', color: enabled ? '#ffffff' : '#777788',
       }).setOrigin(0.5),
     )
   }

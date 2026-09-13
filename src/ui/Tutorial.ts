@@ -66,21 +66,21 @@ export class Tutorial {
     objs.push(backdrop)
 
     objs.push(
-      this.scene.add.rectangle(width / 2, height / 2, 480, 280, 0x1a1a3a)
-        .setStrokeStyle(2, 0x4a4a8a),
+      this.scene.add.rectangle(width / 2, height / 2, 720, 420, 0x1a1a3a)
+        .setStrokeStyle(3, 0x4a4a8a),
     )
 
     objs.push(
-      this.scene.add.text(width / 2, height / 2 - 100, step.title, {
-        fontSize: '24px',
+      this.scene.add.text(width / 2, height / 2 - 150, step.title, {
+        fontSize: '36px',
         color: '#ffffff',
         fontStyle: 'bold',
       }).setOrigin(0.5),
     )
 
     objs.push(
-      this.scene.add.text(width / 2, height / 2 - 20, step.body, {
-        fontSize: '16px',
+      this.scene.add.text(width / 2, height / 2 - 30, step.body, {
+        fontSize: '24px',
         color: '#cccccc',
         align: 'center',
       }).setOrigin(0.5),
@@ -88,19 +88,19 @@ export class Tutorial {
 
     const stepLabel = `${this.stepIndex + 1} / ${STEPS.length}`
     objs.push(
-      this.scene.add.text(width / 2, height / 2 + 80, stepLabel, {
-        fontSize: '13px',
+      this.scene.add.text(width / 2, height / 2 + 120, stepLabel, {
+        fontSize: '19.5px',
         color: '#888888',
       }).setOrigin(0.5),
     )
 
     const isLast = this.stepIndex === STEPS.length - 1
     const btnText = isLast ? '始める！' : '次へ'
-    const nextBtn = this.scene.add.text(width / 2, height / 2 + 110, btnText, {
-      fontSize: '20px',
+    const nextBtn = this.scene.add.text(width / 2, height / 2 + 165, btnText, {
+      fontSize: '30px',
       color: '#ffffff',
       backgroundColor: '#4a4a8a',
-      padding: { x: 24, y: 10 },
+      padding: { x: 36, y: 15 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true })
 
     nextBtn.on('pointerdown', () => {

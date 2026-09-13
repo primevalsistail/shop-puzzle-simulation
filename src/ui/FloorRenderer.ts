@@ -65,7 +65,7 @@ export class FloorRenderer {
   drawGrid(size: GridSize): void {
     this.gridGraphics.clear()
     // Cell lines (subtle)
-    this.gridGraphics.lineStyle(1, 0x446688, 0.7)
+    this.gridGraphics.lineStyle(1.5, 0x446688, 0.7)
     for (let x = 0; x <= size.width; x++) {
       const px = GRID_ORIGIN_X + x * CELL_SIZE
       this.gridGraphics.lineBetween(px, GRID_ORIGIN_Y, px, GRID_ORIGIN_Y + size.height * CELL_SIZE)
@@ -77,7 +77,7 @@ export class FloorRenderer {
 
     // Outer border (bright)
     this.borderGraphics.clear()
-    this.borderGraphics.lineStyle(3, 0x88aaff, 1.0)
+    this.borderGraphics.lineStyle(4.5, 0x88aaff, 1.0)
     this.borderGraphics.strokeRect(
       GRID_ORIGIN_X,
       GRID_ORIGIN_Y,
@@ -106,12 +106,12 @@ export class FloorRenderer {
       const px = GRID_ORIGIN_X + cell.x * CELL_SIZE
       const py = GRID_ORIGIN_Y + cell.y * CELL_SIZE
       g.fillStyle(item.display.color, quantity > 0 ? 1.0 : 0.25)
-      g.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2)
+      g.fillRect(px + 1.5, py + 1.5, CELL_SIZE - 3, CELL_SIZE - 3)
       // 空 → 赤 ／ 残りわずか → 橙 ／ ふつう → 白
-      if (quantity === 0) g.lineStyle(3, 0xff6655, 0.95)
-      else if (quantity < FloorRenderer.LOW_STOCK) g.lineStyle(3, 0xffaa33, 0.9)
-      else g.lineStyle(2, 0xffffff, 0.35)
-      g.strokeRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2)
+      if (quantity === 0) g.lineStyle(4.5, 0xff6655, 0.95)
+      else if (quantity < FloorRenderer.LOW_STOCK) g.lineStyle(4.5, 0xffaa33, 0.9)
+      else g.lineStyle(3, 0xffffff, 0.35)
+      g.strokeRect(px + 1.5, py + 1.5, CELL_SIZE - 3, CELL_SIZE - 3)
     }
 
     this.slotGraphics.set(slot.id, g)
@@ -123,11 +123,11 @@ export class FloorRenderer {
       const ty = GRID_ORIGIN_Y + cy * CELL_SIZE + CELL_SIZE / 2
       const label = quantity === 0 ? '売り切れ' : `×${quantity}`
       const text = this.scene.add.text(tx, ty, `${item.display.name}\n${label}`, {
-        fontSize: '10px',
+        fontSize: '15px',
         color: quantity === 0 ? '#ffbbaa'
           : quantity < FloorRenderer.LOW_STOCK ? '#ffdd99' : '#ffffff',
         stroke: '#000000',
-        strokeThickness: 2,
+        strokeThickness: 3,
         align: 'center',
       }).setOrigin(0.5).setDepth(DEPTH_SLOTS + 1).setVisible(this.shown)
       this.slotTexts.set(slot.id, text)
@@ -160,9 +160,9 @@ export class FloorRenderer {
       const px = GRID_ORIGIN_X + (position.x + offset.x) * CELL_SIZE
       const py = GRID_ORIGIN_Y + (position.y + offset.y) * CELL_SIZE
       this.previewGraphics.fillStyle(color, 0.45)
-      this.previewGraphics.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2)
-      this.previewGraphics.lineStyle(2, color, 0.9)
-      this.previewGraphics.strokeRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2)
+      this.previewGraphics.fillRect(px + 1.5, py + 1.5, CELL_SIZE - 3, CELL_SIZE - 3)
+      this.previewGraphics.lineStyle(3, color, 0.9)
+      this.previewGraphics.strokeRect(px + 1.5, py + 1.5, CELL_SIZE - 3, CELL_SIZE - 3)
     }
   }
 
@@ -179,7 +179,7 @@ export class FloorRenderer {
     if (offsets.length === 0) return
 
     const ghostSize = CELL_SIZE * 0.7
-    const step = ghostSize + 4
+    const step = ghostSize + 6
 
     const anchor = this.registry.getAnchorOffset(item.shape, rotation)
 
@@ -187,9 +187,9 @@ export class FloorRenderer {
       const px = cursorX + (offset.x - anchor.x) * step - ghostSize / 2
       const py = cursorY + (offset.y - anchor.y) * step - ghostSize / 2
       this.dragGhostGraphics.fillStyle(item.display.color, 0.80)
-      this.dragGhostGraphics.fillRoundedRect(px, py, ghostSize, ghostSize, 6)
-      this.dragGhostGraphics.lineStyle(2, 0xffffff, 0.65)
-      this.dragGhostGraphics.strokeRoundedRect(px, py, ghostSize, ghostSize, 6)
+      this.dragGhostGraphics.fillRoundedRect(px, py, ghostSize, ghostSize, 9)
+      this.dragGhostGraphics.lineStyle(3, 0xffffff, 0.65)
+      this.dragGhostGraphics.strokeRoundedRect(px, py, ghostSize, ghostSize, 9)
     }
   }
 

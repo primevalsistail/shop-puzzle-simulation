@@ -27,7 +27,7 @@ import {
 } from './layout.js'
 import type { PeddlerStock } from '../components/progress/PeddlerStock.js'
 
-const ROW_H = 56
+const ROW_H = 84
 /** ⚠ **決め打ちしない。**領域の高さから出す（`layout.ts`） */
 const VISIBLE_COUNT = rowsThatFit(ROW_H)
 /**
@@ -290,16 +290,16 @@ export class PurchaseMenu {
     //   ⚠ **行商人は自分の枠を持つので詰めてある**（#105・PO 回答 2026-09-14。`rowsTop()`）。
 
     // ── 絞り込み（主種類） ──
-    const btnW = 64, btnH = 22, gap = 8
+    const btnW = 96, btnH = 33, gap = 12
     const groupW = KIND_BUTTONS.length * btnW + (KIND_BUTTONS.length - 1) * gap
     KIND_BUTTONS.forEach((cat, i) => {
       const bx = PLACE_CX - groupW / 2 + btnW / 2 + i * (btnW + gap)
       const on = this.paging.isKindActive(cat.id)
       const bg = this.scene.add.rectangle(bx, this.filterY(), btnW, btnH, on ? 0x6a5a2a : 0x232338)
-        .setStrokeStyle(1, on ? 0xbb9944 : 0x444455)
+        .setStrokeStyle(1.5, on ? 0xbb9944 : 0x444455)
         .setInteractive({ useHandCursor: true })
       const label = this.scene.add.text(bx, this.filterY(), cat.label, {
-        fontSize: '12px', color: on ? '#ffdd88' : '#778899',
+        fontSize: '18px', color: on ? '#ffdd88' : '#778899',
       }).setOrigin(0.5)
       bg.on('pointerdown', () => { this.paging.toggleKind(cat.id); this.rebuild() })
       objs.push(bg, label)
@@ -319,7 +319,7 @@ export class PurchaseMenu {
     if (total === 0) {
       const filtered = this.paging.hasQuery() || this.paging.hasFilter()
       objs.push(
-        this.scene.add.text(PLACE_CX, this.rowsTop() + 60,
+        this.scene.add.text(PLACE_CX, this.rowsTop() + 90,
           filtered
             ? '商人に、当てはまる品はありません'
             : this.peddler
@@ -327,7 +327,7 @@ export class PurchaseMenu {
               //   行商人は**今日は積んでいない**だけなので、明日また来ることを言う
               ? '行商人は、今日は何も積んでいません'
               : '商人は、いま何も並べていません', {
-          fontSize: '14px', color: '#889999',
+          fontSize: '21px', color: '#889999',
         }).setOrigin(0.5),
       )
     }
@@ -344,7 +344,7 @@ export class PurchaseMenu {
     const cur = this.paging.currentPage(total)
     const arrow = (x: number, text: string, delta: number, enabled: boolean) => {
       const t = this.scene.add.text(x, PAGER_Y, text, {
-        fontSize: '18px', color: enabled ? '#ffdd88' : '#555566',
+        fontSize: '27px', color: enabled ? '#ffdd88' : '#555566',
       }).setOrigin(0.5)
       if (enabled) {
         t.setInteractive({ useHandCursor: true })
@@ -352,14 +352,14 @@ export class PurchaseMenu {
       }
       objs.push(t)
     }
-    arrow(PLACE_CX - 60, '◀', -1, cur > 0)
+    arrow(PLACE_CX - 90, '◀', -1, cur > 0)
     objs.push(this.scene.add.text(PLACE_CX, PAGER_Y, this.paging.pageLabel(total), {
-      fontSize: '13px', color: '#aa9977',
+      fontSize: '19.5px', color: '#aa9977',
     }).setOrigin(0.5))
-    arrow(PLACE_CX + 60, '▶', 1, cur < pages - 1)
+    arrow(PLACE_CX + 90, '▶', 1, cur < pages - 1)
     // 件数はページ送りと同じ行に置く。⚠ **見出しの下には出さない**（島の商人は空の帯）
     objs.push(this.scene.add.text(CONTENT_R, PAGER_Y, this.paging.rangeLabel(total), {
-      fontSize: '13px', color: '#aa9977',
+      fontSize: '19.5px', color: '#aa9977',
     }).setOrigin(1, 0.5))
   }
 
@@ -377,8 +377,8 @@ export class PurchaseMenu {
     mat: ItemDef, salesLeft: number, y: number, objs: Phaser.GameObjects.GameObject[],
   ): void {
     objs.push(
-      this.scene.add.rectangle(PLACE_CX, y, ROW_W, ROW_H - 6, ROW_BG_UPCOMING)
-        .setStrokeStyle(1, 0x444444),
+      this.scene.add.rectangle(PLACE_CX, y, ROW_W, ROW_H - 9, ROW_BG_UPCOMING)
+        .setStrokeStyle(1.5, 0x444444),
     )
 
     objs.push(
@@ -411,9 +411,9 @@ export class PurchaseMenu {
     // 産地の島であることを、**行の色**で見せる（PO 指示 2026-09-13）。
     // **品に島の名前を足してはいない**（`産地` は元からある軸。ここは値の一致を色にしているだけ）
     objs.push(
-      this.scene.add.rectangle(PLACE_CX, y, ROW_W, ROW_H - 6,
+      this.scene.add.rectangle(PLACE_CX, y, ROW_W, ROW_H - 9,
         isLocal ? ROW_BG_LOCAL : ROW_BG_ANY)
-        .setStrokeStyle(focused ? 2 : 1, focused ? 0xffdd88 : 0x555555),
+        .setStrokeStyle(focused ? 3 : 1.5, focused ? 0xffdd88 : 0x555555),
     )
 
     const nameText = this.scene.add.text(ROW_NAME_X, y, mat.display.name, {
@@ -426,7 +426,7 @@ export class PurchaseMenu {
     //   `INFO_MAX_W`（160px）を超えて左隣に重なる（→ `layout.ts` の注記）
     if (this.peddler) {
       objs.push(
-        this.scene.add.text(nameText.x + nameText.width + 8, y,
+        this.scene.add.text(nameText.x + nameText.width + 12, y,
           peddlerRemainText(this.peddler.remaining(mat.id)), {
           fontSize: `${PEDDLER_REMAIN_FONT_PX}px`, color: '#ddbb88',
         }).setOrigin(0, 0.5),
@@ -465,10 +465,10 @@ export class PurchaseMenu {
     } else {
       objs.push(
         this.scene.add.rectangle(ROW_INPUT_L + ROW_INPUT_W / 2, y, ROW_INPUT_W, ROW_INPUT_H, 0x15152a)
-          .setStrokeStyle(1, 0x4a4a8a),
+          .setStrokeStyle(1.5, 0x4a4a8a),
       )
-      valueText = this.scene.add.text(ROW_INPUT_L + ROW_INPUT_W - 6, y, input.value, {
-        fontSize: '12px', color: '#ffffff',
+      valueText = this.scene.add.text(ROW_INPUT_L + ROW_INPUT_W - 9, y, input.value, {
+        fontSize: '18px', color: '#ffffff',
       }).setOrigin(1, 0.5)
       objs.push(valueText)
     }
@@ -479,8 +479,8 @@ export class PurchaseMenu {
     }).setOrigin(1, 0.5)
     objs.push(totalText)
 
-    const buyBg = this.scene.add.rectangle(ROW_BUY_BTN_L + BUY_BTN_W / 2, y, BUY_BTN_W, 26, 0x6a5a2a)
-      .setStrokeStyle(1, 0x8a7a3a)
+    const buyBg = this.scene.add.rectangle(ROW_BUY_BTN_L + BUY_BTN_W / 2, y, BUY_BTN_W, 39, 0x6a5a2a)
+      .setStrokeStyle(1.5, 0x8a7a3a)
     const buyLabel = this.scene.add.text(ROW_BUY_BTN_L + BUY_BTN_W / 2, y, '', {
       fontSize: `${BUY_FONT_PX}px`, color: '#ffffff',
     }).setOrigin(0.5)
@@ -585,14 +585,14 @@ export class PurchaseMenu {
   ): void {
     const cx = left + w / 2
     const bg = this.scene.add.rectangle(cx, cy, w, h, 0x33335a)
-      .setStrokeStyle(1, 0x6a6ab0)
+      .setStrokeStyle(1.5, 0x6a6ab0)
       .setInteractive({ useHandCursor: true })
     bg.on('pointerdown', onClick)
     bg.on('pointerover', () => bg.setFillStyle(0x5a5ab0))
     bg.on('pointerout', () => bg.setFillStyle(0x33335a))
     objs.push(
       bg,
-      this.scene.add.text(cx, cy, label, { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5),
+      this.scene.add.text(cx, cy, label, { fontSize: '18px', color: '#ffffff' }).setOrigin(0.5),
     )
   }
 }

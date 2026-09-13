@@ -73,7 +73,7 @@ export class MessageWindow {
     this.objects.push(
       this.scene.add
         .rectangle(MSG_WIN_CX, MSG_WIN_CY, MSG_WIN_W, MSG_WIN_H, 0x16213e)
-        .setStrokeStyle(2, 0x5566cc)
+        .setStrokeStyle(3, 0x5566cc)
         .setInteractive()
         .setDepth(DEPTH + 1),
     )
@@ -98,7 +98,7 @@ export class MessageWindow {
       const cx = msgChoiceCx(i, def.choices.length)
       const btn = this.scene.add
         .rectangle(cx, MSG_CHOICE_CY, MSG_CHOICE_W, MSG_CHOICE_H, 0x2a2a4a)
-        .setStrokeStyle(1, 0x6666aa)
+        .setStrokeStyle(1.5, 0x6666aa)
         .setInteractive({ useHandCursor: true })
         .setDepth(DEPTH + 2)
       const label = this.scene.add.text(cx, MSG_CHOICE_CY, choice.label, {
