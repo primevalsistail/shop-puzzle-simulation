@@ -142,6 +142,12 @@ export class GameScene extends Phaser.Scene {
   private pendingMoveSlot: DisplaySlot | null = null
   /** 押された区画。**動かし始めるまで掴まない**（押して離すだけなら補充） */
   private pressedSlot: { slot: DisplaySlot; x: number; y: number } | null = null
+  /**
+   * 目標達成の幕を出したか。**同じ幕を2度出さないための控え。**
+   *
+   * ⚠ **ロードで戻す**（#94）。`data.isEndlessMode` と同じ値にする ——
+   *   真のままにすると、**クリア前のセーブを読んで目標へ届き直しても幕が出ない。**
+   */
   private goalCompleted = false
 
   constructor() {
@@ -302,6 +308,19 @@ export class GameScene extends Phaser.Scene {
           this.floorRenderer.drawSlot(slot)
         }
 
+        // ⚠ **クリア後の状態を戻す**（#80 ／ #94）。**`true` も `false` もそのまま反映する。**
+        //   降ろす口が無かったころは、**クリア済みのセーブを読んだあとにクリア前のセーブを読むと
+        //   `∞ endless` が居座った**（旗が立ちっぱなしなので、目標へ届いても幕が出ない）。
+        // ⚠ **所持金を戻すより先に置くこと**（#93）。旗は**判定が読むもの**なので、
+        //   **復元の途中で判定が走っても正しい側に倒れる**位置に置く。
+        //   （引き金は `TIME_MINUTE_PASSED` なので、いまは `economy.restore()` では判定は走らない。
+        //   ⚠ **引き金を所持金側へ戻すと、この順序でないとエンドレスのセーブを読んだ瞬間に幕が出る。**）
+        const endless = data.isEndlessMode === true
+        this.gameService.setEndlessMode(endless)
+        this.progress.setEndlessMode(endless)
+        // ⚠ **幕を出したかも一緒に戻す。**戻さないと、旗が降りたのに幕が二度と出ない（#94）
+        this.goalCompleted = endless
+
         // 経済・インベントリ・時間を復元
         this.economy.restore(data.money, data.totalRevenue)
         this.inventory.setInitialStock(data.inventory)
@@ -317,17 +336,14 @@ export class GameScene extends Phaser.Scene {
         //   （10種類・各10個という上限が意味を失う。`PeddlerStock` の注記）
         this.peddler.restore(data.peddler)
         this.progress.restoreUnlockedRecipes(data.unlockedRecipes ?? [])
-        // ⚠ **クリア後の状態を戻す**（#80）。読まないと**エンドレスが解け、達成の幕がまた出る**
-        //   （所持金は 1000万を超えたままなので、次の1分で `GameService` がまた出す）
-        if (data.isEndlessMode) {
-          this.gameService.enterEndlessMode()
-          this.progress.setEndlessMode(true)
-        }
         // ⚠ **自由航行の航路を戻す**（#7）。**無いセーブは空で来る**（クリア前 ／ #7 より前）。
         //   空なら日付からの導出へ戻り、**クリア済みなのに空**なら今日の島から始める。
         //   戻さないと、**選んだ島がロードで順どおりの島へ巻き戻る。**
+        // ⚠ **こちらは前から両方向ある**（#94 で確かめた）。`restoreVoyage(null)` が
+        //   `chosenIsland` を消すので、**クリア前のセーブを読めば日付からの導出へ戻る**
+        //   （`WorldState.test.ts`「航路の無いセーブを読むと、自由航行そのものが解ける」）。
         this.world.restoreVoyage(data.voyage ?? null)
-        if (data.isEndlessMode && !this.world.isFreeSailing()) this.world.beginFreeSailing()
+        if (endless && !this.world.isFreeSailing()) this.world.beginFreeSailing()
         this.applyShelfSize()
         this.timeManager.setTime(data.currentTime)
         // 解禁が無かった頃のセーブは空で来る。材料の揃っているぶんまでここで追いつく（#48・#111）
@@ -804,6 +820,14 @@ export class GameScene extends Phaser.Scene {
       const t = time as GameTime
       this.hud.updateTime(t.day, t.hour, t.minute)
       this.gameService.onMinutePassed(Math.random, this.timeManager.isOpen())
+      // ⚠ **目標と GAME OVER の判定はここ**（#93）。**売買のすぐ後ろ・`onMinutePassed` の外。**
+      //   - **外**なので、`isOpen` にも棚の空にも遮られない ——
+      //     **棚が空でも閉店中でも見る**（以前は両方の `return` の後ろにあって出なかった）
+      //   - **後ろ**であることが要点。**所持金を全部仕入れに突っ込むのは正当な戦略**なので、
+      //     **先に客が買って戻れば幕は出ない。**⚠ **`ECONOMY_MONEY_CHANGED` へ移さないこと** ——
+      //     残金ちょうどの仕入れ（`canAfford` は `>=`）が**その場で GAME OVER になる**
+      //   - 幕を2回出さない番は `GameService` 側が持つ
+      this.gameService.checkGoalAndGameOver()
       // ⚠ **できごとは時間を進めている最中に起きる**（#24・#90）。
       //   日の変わり目に出すと、`pauseAt` で止まったところに窓が重なるだけになる
       this.pumpStoryEvents(t)

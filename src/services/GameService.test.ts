@@ -26,6 +26,18 @@ function setup() {
   return { reg, grid, pm, inv, sim, eco, world, upgrades, gs }
 }
 
+/**
+ * `GameScene.setupEvents()` の `TIME_MINUTE_PASSED` と同じ順序で1分進める（#93）。
+ *
+ * ⚠ **売買が先、判定が後ろ。**この順序が要点で、**所持金を全部仕入れに突っ込んでも、
+ *   その分で売れれば幕は出ない。**
+ * ⚠ **判定は `onMinutePassed()` の外。**だから `isOpen` にも棚の空にも遮られない。
+ */
+function tickMinute(gs: GameService, rng: () => number, isOpen: boolean): void {
+  gs.onMinutePassed(rng, isOpen)
+  gs.checkGoalAndGameOver()
+}
+
 describe('GameService', () => {
   beforeEach(() => {
     EventBus.removeAllListeners()
@@ -96,39 +108,173 @@ describe('GameService', () => {
   })
 
   it('所持金が目標額に達したときPROGRESS_GOAL_COMPLETEを発火する', () => {
-    const { gs, eco, pm, reg, inv } = setup()
+    const { gs, eco, pm, inv } = setup()
     const listener = vi.fn()
     EventBus.on(GameEvents.PROGRESS_GOAL_COMPLETE, listener)
 
-    // ⚠ 判定は**所持金**（#26）。ちょうど1品売れば届くところまで積む
-    eco.addRevenue(gs.getGoalAmount() - reg.salePriceOf('snap_pea'))
+    // ⚠ 判定は**所持金**（#26）。**あと1レンで届く**ところまで積み、1品売れて越える形にする
+    eco.restore(gs.getGoalAmount() - 1, 0)
     inv.add('snap_pea', 10); pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
+    expect(listener).not.toHaveBeenCalled()
 
     let callCount = 0
     const rng = () => {
       callCount++
       return callCount === 1 ? 0.1 : 0.01
     }
-    gs.onMinutePassed(rng, true)
+    tickMinute(gs, rng, true)
     expect(listener).toHaveBeenCalledOnce()
   })
 
-  it('2回目以降はGOAL_COMPLETEを発火しない', () => {
-    const { gs, eco, pm, inv } = setup()
+  it('エンドレスの旗が立っているあいだはGOAL_COMPLETEを発火しない', () => {
+    const { gs, eco } = setup()
     gs.enterEndlessMode()
-    eco.addRevenue(999999)
-    inv.add('snap_pea', 10); pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
 
     const listener = vi.fn()
     EventBus.on(GameEvents.PROGRESS_GOAL_COMPLETE, listener)
 
-    let callCount = 0
-    const rng = () => {
-      callCount++
-      return callCount % 2 === 1 ? 0.1 : 0.01
-    }
-    gs.onMinutePassed(rng, true)
+    eco.addIncome(gs.getGoalAmount())
+    tickMinute(gs, () => 0.99, true)
     expect(listener).not.toHaveBeenCalled()
+  })
+
+  /**
+   * #93 —— **詰んだのに画面が何も言わない。**
+   *
+   * 判定は `onMinutePassed()` の `if (!isOpen) return` と `if (slots.length === 0) return` の
+   * **後ろ**にあった。**棚を空にして破産すると、GAME OVER が出ないまま止まる。**
+   */
+  describe('目標と GAME OVER の判定は、売買の外（#93）', () => {
+    it('棚に品が1つも無く、閉店中でも、分が刻まれれば GAME OVER が出る（受入条件1）', () => {
+      const { gs, eco, grid } = setup()
+      const over = vi.fn()
+      EventBus.on(GameEvents.PROGRESS_GAME_OVER, over)
+
+      expect(grid.getAllSlots()).toHaveLength(0)
+      expect(eco.spend(50000)).toBe(true)
+      expect(eco.getMoney()).toBe(0)
+      // ⚠ **払った瞬間には出ない**（下の「残金ちょうど」のテストがその理由を持つ）
+      expect(over).not.toHaveBeenCalled()
+
+      // 棚は空・店は閉まっている＝売買は1分も回らない。**それでも判定は走る**
+      tickMinute(gs, () => 0, false)
+      expect(over).toHaveBeenCalledOnce()
+    })
+
+    /**
+     * ⚠ **退行よけ**（2026-09-14 に一度入れて戻した）。
+     *
+     * `EconomyManager.canAfford()` は `this.money >= amount` なので、**残金ちょうどの仕入れが通る。**
+     * 判定を `ECONOMY_MONEY_CHANGED` で呼ぶと、**その `spend()` がそのまま GAME OVER になる。**
+     * **所持金を全部仕入れに突っ込むのは正当な戦略**で、即死にしてはいけない。
+     */
+    it('⚠ 棚に品があるとき、残金ちょうどの仕入れをしても、その場では GAME OVER にならない', () => {
+      const { gs, eco, pm, inv } = setup()
+      const over = vi.fn()
+      EventBus.on(GameEvents.PROGRESS_GAME_OVER, over)
+
+      inv.add('snap_pea', 10); pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
+      expect(eco.canAfford(50000)).toBe(true)   // ⚠ **ちょうどでも買える**
+      expect(eco.spend(50000)).toBe(true)
+      expect(eco.getMoney()).toBe(0)
+      expect(over).not.toHaveBeenCalled()
+
+      // 次の1分。**売買が先、判定が後ろ**なので、売れて戻れば幕は出ない
+      let n = 0
+      const rng = () => { n++; return n === 1 ? 0.1 : 0.01 }
+      tickMinute(gs, rng, true)
+      expect(eco.getMoney()).toBeGreaterThan(0)
+      expect(over).not.toHaveBeenCalled()
+    })
+
+    /**
+     * ⚠ **判定を売買の中（`isOpen` と棚の空判定の後ろ）へ戻さない。**戻すと #93 がそのまま再発する。
+     *
+     * **棚に品があり・営業中・客が来ない**は、**中にあれば必ず出る条件**である。
+     * ここで出ないことが「外に出ている」ことの証拠になる。
+     */
+    it('`onMinutePassed()` は幕を出さない（判定はその外）', () => {
+      const { gs, eco, pm, inv } = setup()
+      const over = vi.fn()
+      const goal = vi.fn()
+      EventBus.on(GameEvents.PROGRESS_GAME_OVER, over)
+      EventBus.on(GameEvents.PROGRESS_GOAL_COMPLETE, goal)
+
+      inv.add('snap_pea', 10); pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
+      eco.spend(50000)
+      gs.onMinutePassed(() => 0.99, true)       // 0.99 では客が来ない（到着率 0.15）
+      expect(eco.getMoney()).toBe(0)
+      expect(over).not.toHaveBeenCalled()
+
+      eco.addIncome(gs.getGoalAmount())
+      gs.onMinutePassed(() => 0.99, true)
+      expect(goal).not.toHaveBeenCalled()
+
+      // **消したのではなく、外へ出しただけ。**呼べば出る
+      gs.checkGoalAndGameOver()
+      expect(goal).toHaveBeenCalledOnce()
+    })
+
+    /** ⚠ **届いたあとは毎分通る。**幕は1回だけ */
+    it('分が何度刻まれても、目標達成の幕は1回だけ（受入条件2）', () => {
+      const { gs, eco } = setup()
+      const goal = vi.fn()
+      EventBus.on(GameEvents.PROGRESS_GOAL_COMPLETE, goal)
+
+      eco.addIncome(gs.getGoalAmount())
+      for (let i = 0; i < 10; i++) tickMinute(gs, () => 0.99, true)
+      expect(goal).toHaveBeenCalledOnce()
+    })
+
+    it('GAME OVER の幕も1回だけ（受入条件2）', () => {
+      const { gs, eco } = setup()
+      const over = vi.fn()
+      EventBus.on(GameEvents.PROGRESS_GAME_OVER, over)
+
+      eco.spend(50000)
+      for (let i = 0; i < 10; i++) tickMinute(gs, () => 0.99, true)
+      expect(over).toHaveBeenCalledOnce()
+    })
+  })
+
+  /**
+   * #94 —— **エンドレスの旗を降ろす口が無かった。**
+   *
+   * ⚠ **自由航行のほうは前から両方向ある。**`WorldState.restoreVoyage(null)` が
+   *   現在地を消して日付からの導出へ戻す（`WorldState.test.ts`
+   *   「航路の無いセーブを読むと、自由航行そのものが解ける」）。**足す口は無かった。**
+   */
+  describe('エンドレスの旗は両方向（#94）', () => {
+    it('クリア済みの旗を、クリア前のセーブで降ろせる（受入条件3）', () => {
+      const { gs } = setup()
+      gs.enterEndlessMode()
+      expect(gs.isInEndlessMode()).toBe(true)
+
+      // ロードは `data.isEndlessMode` を**そのまま**渡す
+      gs.setEndlessMode(false)
+      expect(gs.isInEndlessMode()).toBe(false)
+    })
+
+    it('旗を降ろしたあと、また目標へ届けば幕が出る（受入条件4）', () => {
+      const { gs, eco } = setup()
+      const goal = vi.fn()
+      EventBus.on(GameEvents.PROGRESS_GOAL_COMPLETE, goal)
+
+      eco.addIncome(gs.getGoalAmount())
+      tickMinute(gs, () => 0.99, true)
+      expect(goal).toHaveBeenCalledTimes(1)
+      gs.enterEndlessMode()                  // プレイヤーが「エンドレスモードへ」を押した
+
+      // ── クリア前のセーブを読む（旗も所持金も戻る）
+      gs.setEndlessMode(false)
+      eco.restore(5000, 0)
+      tickMinute(gs, () => 0.99, true)
+      expect(goal).toHaveBeenCalledTimes(1)  // 5000 では出ない
+
+      eco.addIncome(gs.getGoalAmount())
+      tickMinute(gs, () => 0.99, true)
+      expect(goal).toHaveBeenCalledTimes(2)  // ⚠ **旗が降りている証拠**
+    })
   })
 
   it('売れた品は累計販売数に積まれる（U2 の解禁条件が読む）', () => {

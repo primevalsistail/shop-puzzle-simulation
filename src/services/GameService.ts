@@ -25,6 +25,13 @@ export const GOAL_AMOUNT = 10_000_000
 
 export class GameService {
   private isEndlessMode = false
+  /**
+   * 幕を出したか。**`checkGoalAndGameOver()` を何度呼んでも、幕は1回だけ**（#93 受入条件2）。
+   *
+   * ⚠ **ロードで降ろす**（`setEndlessMode`）。読み直したら幕はまた出せる状態に戻る。
+   */
+  private goalShown = false
+  private gameOverShown = false
 
   constructor(
     private floorGrid: FloorGrid,
@@ -63,13 +70,35 @@ export class GameService {
       this.world.recordSale(sale.itemId, sale.qtySold)
       EventBus.emit(GameEvents.FLOOR_SLOT_SOLD, sale)
     }
+  }
 
-    if (!this.isEndlessMode && this.economy.getMoney() >= GOAL_AMOUNT) {
-      EventBus.emit(GameEvents.PROGRESS_GOAL_COMPLETE, this.economy.getMoney())
+  /**
+   * 目標と GAME OVER を見る。**所持金だけを見る**（#93）。
+   *
+   * ⚠ **売買の中に戻さないこと。**以前はこの判定が `onMinutePassed()` の
+   *   `if (!isOpen) return` と `if (slots.length === 0) return` の**後ろ**にあり、
+   *   **棚が空だと詰んでも GAME OVER が出ず、閉店中も出なかった。**
+   *   **目標も破産も、営業時間とも棚の中身とも関係が無い。**
+   * ⚠ **判定はここ1箇所。**呼ぶのは `TIME_MINUTE_PASSED` の購読（`GameScene.setupEvents`）で、
+   *   **`onMinutePassed()` のすぐ後ろ、その外**。
+   *   - **外**だから、`isOpen` にも棚の空にも遮られない（これが #93 の直し）
+   *   - **後ろ**だから、**その分で売れて所持金が戻れば幕は出ない**
+   * ⚠ **`ECONOMY_MONEY_CHANGED` で呼ばないこと。**`canAfford()` は `>=` なので
+   *   **残金ちょうどの仕入れが通り、その `spend()` がそのまま GAME OVER になる。**
+   *   **所持金を全部仕入れに突っ込むのは正当な戦略**で、即死にしてはいけない
+   *   （2026-09-14 に一度入れて戻した。`GameService.test.ts` の「残金ちょうど」が見ている）。
+   * ⚠ **届いたあとは毎分通る。**同じ幕を2回出さないよう、出したかをここで覚える。
+   */
+  checkGoalAndGameOver(): void {
+    if (this.isEndlessMode) return
+    const current = this.economy.getMoney()
+    if (!this.goalShown && current >= GOAL_AMOUNT) {
+      this.goalShown = true
+      EventBus.emit(GameEvents.PROGRESS_GOAL_COMPLETE, current)
     }
-
-    if (this.economy.getMoney() <= 0 && !this.isEndlessMode) {
-      EventBus.emit(GameEvents.PROGRESS_GAME_OVER, this.economy.getMoney())
+    if (!this.gameOverShown && current <= 0) {
+      this.gameOverShown = true
+      EventBus.emit(GameEvents.PROGRESS_GAME_OVER, current)
     }
   }
 
@@ -104,8 +133,23 @@ export class GameService {
     return evaluate(placements, this.world.getState(), undefined, pairs)
   }
 
+  /**
+   * エンドレスの旗を立てる／降ろす（#94）。
+   *
+   * ⚠ **両方向あること。**以前は立てる口（`enterEndlessMode`）しか無く、
+   *   **クリア済みのセーブを読んだあとにクリア前のセーブを読むと `∞ endless` が居座った。**
+   *   ロードは `data.isEndlessMode` を**そのまま**渡すこと（`true` も `false` も）。
+   * ⚠ **幕を出したかも一緒に戻す。**戻さないと、旗を降ろしたのに
+   *   **もう一度目標へ届いても幕が出ない**（#94 受入条件4）。
+   */
+  setEndlessMode(value: boolean): void {
+    this.isEndlessMode = value
+    this.goalShown = false
+    this.gameOverShown = false
+  }
+
   enterEndlessMode(): void {
-    this.isEndlessMode = true
+    this.setEndlessMode(true)
   }
 
   isInEndlessMode(): boolean {
