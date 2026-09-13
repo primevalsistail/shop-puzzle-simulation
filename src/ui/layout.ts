@@ -494,15 +494,18 @@ export const ROW_INFO_L = ROW_INFO_R - INFO_MAX_W
 /**
  * 1行の高さ。⚠ **5行入ること**（#97。4系統 ＋ **商船**）。
  *
- * ⚠ **PO 赤入れ 2026-09-15「改装ですが、余白が多すぎます。5行入れることは可能だと思います」。**
- *   **一覧の上端（`UPGRADE_ROWS_TOP` 210）は動かせない**（3タブが同じ枠を使うので、
- *   改装だけ上げると**タブを行き来するたび一覧が跳ねる**）。**下端は `ROWS_BOTTOM` 846。**
- *   **636 ÷ 5 = 127.2 以下**が要るので **126** にした（5行 = 630、下端 840 ≤ 846）。
+ * ⚠ **改装は上下の帯を2つとも使っていないので、そのぶんを一覧に回している**
+ *   （PO 赤入れ 2026-09-15「**この余白は調整できるはず**」。上下の空きを図で指名された）。
+ *   **上**: 絞り込みの帯（`FILTER_Y` 135〜171）が無い ／ **下**: ページ送りの帯（`PAGER_Y` 873）が無い。
+ *   **`UPGRADE_HEAD_Y` 120 ／ `UPGRADE_ROWS_TOP` 150 ／ 150×5 = 750 → 下端 900**（枠の下端 906）。
+ *   **行の面の上端は 159、下端は 891。線（`TITLE_RULE_Y` 81）からも枠の下端からも 39px と 15px。**
+ * ⚠ **これで改装だけ一覧の上端が 15px 上にある**（ほかの2タブは `ROWS_TOP` 165）。
+ *   **タブを行き来すると一覧がその分だけ動く。**PO が上下の余白を詰めるほうを採った。
  * ⚠ **行の面は `UPGRADE_ROW_H - 18`。**中身は約 66px（見出し `-30` ／ 一言 `+15` ／
- *   ボタン `UPGRADE_BTN_H` 45）なので、126 でも上下に 21px ずつ残る。
- *   **これ以上詰めるときは `layout.test.ts` の「5行が収まる」を必ず通すこと。**
+ *   ボタン `UPGRADE_BTN_H` 45）。
+ *   **数を動かすときは `layout.test.ts` の「5行が収まる」を必ず通すこと。**
  */
-export const UPGRADE_ROW_H = 126
+export const UPGRADE_ROW_H = 150
 export const UPGRADE_ROW_W = CONTENT_R - CONTENT_L
 /** 系統名（`棚`）と、その下の説明の左端 */
 export const UPGRADE_NAME_X = CONTENT_L + 42
@@ -515,14 +518,18 @@ export const UPGRADE_SUB_DY = 15
  *
  * ⚠ **一覧の上に1回だけ出す**（PO 回答 2026-09-14 ／ `sessions/questions-ui-all.md` Q8 = A）。
  *   **行の中に入れると、同じ3語が4行とも繰り返される。**
- * ⚠ **納品タブ（`DELIVERY_HEAD_Y` / `DELIVERY_ROWS_TOP`）と同じ形に揃えてある。**
- *   取引は3タブが同じ枠を使うので、見出しの置き方まで揃えないとタブを切り替えるたびに跳ねる。
+ * ⚠ **`ROWS_TOP` から引いていない**（2026-09-15）。**改装には絞り込みの帯が無いので、
+ *   その帯のぶん（36px）とページ送りの帯のぶんを一覧に回している**（`UPGRADE_ROW_H` の注記）。
+ *   **納品タブ（`DELIVERY_HEAD_Y`）は `ROWS_TOP` のまま。**
  */
 export const UPGRADE_COLS = ['現在値', '強化後', '強化費用'] as const
-export const UPGRADE_HEAD_Y = ROWS_TOP + 15
+export const UPGRADE_HEAD_Y = 120
 export const UPGRADE_HEAD_FONT_PX = 18
-/** 1行目の上端。⚠ **見出しの行と重ならないこと**（`layout.test.ts` が見ている） */
-export const UPGRADE_ROWS_TOP = ROWS_TOP + 45
+/**
+ * 1行目の上端。⚠ **見出しの行と重ならないこと**（`layout.test.ts` が見ている）。
+ * ⚠ **`ROWS_TOP` から引いていない理由は `UPGRADE_HEAD_Y` の注記。**
+ */
+export const UPGRADE_ROWS_TOP = 150
 
 /** 段の `●○` の中心と、その文字の大きさ */
 export const UPGRADE_STAGE_CX = PLACE_CX + 60

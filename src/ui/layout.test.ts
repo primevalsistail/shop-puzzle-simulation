@@ -1199,22 +1199,43 @@ describe('改装タブの行（PO 赤入れ 2026-09-13）', () => {
   /**
    * **#97 受入条件1 —— 改装の一覧に5行が収まっている**（4系統 ＋ 商船）。
    *
-   * **PO 赤入れ 2026-09-15**「改装ですが、余白が多すぎます。5行入れることは可能だと思います」。
-   * ⚠ **一覧の上端（`UPGRADE_ROWS_TOP`）は動かせない。**取引は3タブが同じ枠を使うので、
-   *   改装だけ上げると**タブを行き来するたび一覧が跳ねる。**
-   *   だから**行の高さを下げて**入れた（150 → 126）。
+   * **PO 赤入れ 2026-09-15**「改装ですが、余白が多すぎます。5行入れることは可能だと思います」
+   * ＋「**この余白は調整できるはず**」（**上下の空きを図で指名された**）。
+   * ⚠ **改装は上下の帯を2つとも使っていない**ので、そのぶんを一覧に回している ——
+   *   **上**: 絞り込みの帯（`FILTER_Y`〜） ／ **下**: ページ送りの帯（`PAGER_Y`）。
+   * ⚠ **だから下端は `ROWS_BOTTOM` ではなく `PLACE_B` で見る。**
+   *   `ROWS_BOTTOM` はページ送りのぶんを引いた値で、**改装には要らない。**
    */
-  it('4系統 ＋ 商船の5行が、見出しの行の下の枠に収まる（#97 受入条件1）', () => {
+  it('4系統 ＋ 商船の5行が、枠の中に収まる（#97 受入条件1）', () => {
     // ⚠ `UPGRADE_ROW_COUNT` は行数の写し。商船を数え忘れたらここで落ちる
     expect(UPGRADE_ROW_COUNT).toBe(UPGRADE_KINDS.length + 1)
-    expect(UPGRADE_ROWS_TOP + UPGRADE_ROW_COUNT * UPGRADE_ROW_H)
-      .toBeLessThanOrEqual(ROWS_BOTTOM)
+    // ⚠ **面の下端で見る。**行は中心に置くので、面は中心 ± `(ROW_H - 18)/2`
+    const lastCy = UPGRADE_ROWS_TOP + UPGRADE_ROW_COUNT * UPGRADE_ROW_H - UPGRADE_ROW_H / 2
+    expect(lastCy + (UPGRADE_ROW_H - 18) / 2).toBeLessThanOrEqual(PLACE_B)
+    // ⚠ **上は見出しの行に重ならないこと**（帯を回収して上げたぶんの見張り）
+    const firstCy = UPGRADE_ROWS_TOP + UPGRADE_ROW_H / 2
+    expect(firstCy - (UPGRADE_ROW_H - 18) / 2).toBeGreaterThan(UPGRADE_HEAD_Y)
+    // ⚠ **見出しの行が、題の下の横線に重ならないこと**
+    expect(UPGRADE_HEAD_Y - UPGRADE_HEAD_FONT_PX / 2).toBeGreaterThan(TITLE_RULE_Y)
   })
 
   /** ⚠ **6行目は入らない。**入るなら行を下げすぎている（余白を測る側の検査） */
   it('6行は入らない（下げすぎていない）', () => {
-    expect(UPGRADE_ROWS_TOP + (UPGRADE_ROW_COUNT + 1) * UPGRADE_ROW_H)
-      .toBeGreaterThan(ROWS_BOTTOM)
+    const lastCy = UPGRADE_ROWS_TOP + (UPGRADE_ROW_COUNT + 1) * UPGRADE_ROW_H - UPGRADE_ROW_H / 2
+    expect(lastCy + (UPGRADE_ROW_H - 18) / 2).toBeGreaterThan(PLACE_B)
+  })
+
+  /**
+   * ⚠ **上下の余白を使い切っていること**（PO 赤入れ 2026-09-15）。
+   *   **帯を回収した意味が消えていないかの見張り。**
+   *   **上（横線→行の面）も下（行の面→枠の下端）も、行1つぶんは空けない。**
+   */
+  it('上下に行1つぶんの余白が残っていない（#97 / PO 赤入れ 2026-09-15）', () => {
+    const firstTop = UPGRADE_ROWS_TOP + UPGRADE_ROW_H / 2 - (UPGRADE_ROW_H - 18) / 2
+    const lastBottom = UPGRADE_ROWS_TOP + UPGRADE_ROW_COUNT * UPGRADE_ROW_H
+      - UPGRADE_ROW_H / 2 + (UPGRADE_ROW_H - 18) / 2
+    expect(firstTop - TITLE_RULE_Y).toBeLessThan(UPGRADE_ROW_H)
+    expect(PLACE_B - lastBottom).toBeLessThan(UPGRADE_ROW_H)
   })
 
   /**
