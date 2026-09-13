@@ -8,7 +8,7 @@ export interface LogEntry {
   readonly type: MessageType
 }
 
-const LOG_X = LEFT_PANEL_R   // 左パネル(0〜220)は侵食しない
+const LOG_X = LEFT_PANEL_R   // 左パネル(0〜330)は侵食しない
 const LOG_Y = LOG_T
 const LOG_WIDTH = SCREEN_W - LOG_X
 const LOG_HEIGHT = SCREEN_H - LOG_Y
@@ -87,7 +87,7 @@ export class MessageLog {
 
     this.bar = this.scene.add.graphics().setDepth(DEPTH + 1)
 
-    // ⚠ **ログ欄の上だけ**で受ける。左パネル(〜220)の一覧送りと取り合わない
+    // ⚠ **ログ欄の上だけ**で受ける。左パネル(〜330)の一覧送りと取り合わない
     this.scene.input.on('wheel', (
       pointer: Phaser.Input.Pointer,
       _over: unknown, _dx: number, dy: number,

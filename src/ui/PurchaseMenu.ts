@@ -37,7 +37,7 @@ const VISIBLE_COUNT = rowsThatFit(ROW_H)
  * 島の商人より多く入りうる。
  *
  * ⚠ **`VISIBLE_COUNT` を使い回さないこと。**上端が違えば入る行数も違う。
- * ⚠ **いまの寸法ではどちらも 8行**（詰めたのは 18px で、行は 56px あるため）。
+ * ⚠ **いまの寸法ではどちらも 8行**（詰めたのは 27px で、行は 84px あるため）。
  *   **`ROWS_TOP` や `PAGER_Y` を動かすとここだけ増える**ので、値ではなく式で持つ。
  */
 const VISIBLE_COUNT_PEDDLER = rowsThatFit(ROW_H, ROWS_TOP_NO_SUBTITLE)
@@ -425,7 +425,7 @@ export class PurchaseMenu {
 
     // 行商人は**今日これだけしか積んでいない**（#9 の上限10個）。
     // ⚠ **品名の右**に出す。`51レン/個　在庫 100/999` の側に足すと
-    //   `INFO_MAX_W`（160px）を超えて左隣に重なる（→ `layout.ts` の注記）
+    //   `INFO_MAX_W`（240px）を超えて左隣に重なる（→ `layout.ts` の注記）
     if (this.peddler) {
       objs.push(
         this.scene.add.text(nameText.x + nameText.width + 12, y,

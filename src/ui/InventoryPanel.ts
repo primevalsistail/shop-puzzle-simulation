@@ -11,10 +11,10 @@ import {
 const PANEL_X = 30
 const PANEL_WIDTH = 300
 const ITEM_RIGHT_MARGIN = 18             // アイテム右端の余白
-const ITEM_WIDTH = PANEL_WIDTH - PANEL_X - ITEM_RIGHT_MARGIN  // = 168
+const ITEM_WIDTH = PANEL_WIDTH - PANEL_X - ITEM_RIGHT_MARGIN  // = 252
 const ITEM_HEIGHT = 105
-const ITEM_START_Y = 225  // ページ送り(108)の下端から余白をとる
-const LIST_BOTTOM = 1074   // 左パネルはy=720まで
+const ITEM_START_Y = 225  // ページ送り(162)の下端から余白をとる
+const LIST_BOTTOM = 1074   // 左パネルはy=1080まで
 const VISIBLE_COUNT = Math.floor((LIST_BOTTOM - ITEM_START_Y) / ITEM_HEIGHT)  // = 8
 const PREVIEW_CELL = 19.5
 const PREVIEW_CX = PANEL_X + 40.5
@@ -31,7 +31,7 @@ const PAGER_Y = 162
 /**
  * 検索の入力欄（#55）。**見出しの行に置く。**
  *
- * ⚠ **行を1本足さないこと。**品の行は `ITEM_START_Y`(150) から `ITEM_HEIGHT`(70) 刻みなので、
+ * ⚠ **行を1本足さないこと。**品の行は `ITEM_START_Y`(225) から `ITEM_HEIGHT`(105) 刻みなので、
  *   間に1行入れると **8行 → 7行に減る。**「アイテム」という見出しの語は無くても分かる。
  */
 const SEARCH_X = PANEL_X
@@ -168,7 +168,7 @@ export class InventoryPanel {
     )
 
     // 絞り込み（1行 × 4種類、横幅をアイテムに揃える）
-    // ITEM_WIDTH=168: (168 - 3*gap) / 4 = 39px @ gap=4 → total=4*39+3*4=168 ✓
+    // ITEM_WIDTH=252: (252 - 3*gap) / 4 = 58.5px @ gap=6 → total=4*58.5+3*6=252 ✓
     const btnW = 58.5, btnH = 27, gap = 6
     const rowY = 114
 

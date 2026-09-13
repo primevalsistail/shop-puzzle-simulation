@@ -10,7 +10,7 @@ import {
   HUD_PHASE_FONT_PX, HUD_TIME_FONT_PX, HUD_PLACE_FONT_PX,
 } from './layout.js'
 
-/** panel width（右パネル 190px - 余白 16px）。⚠ **値は `layout.ts` にある**（テストが見ている） */
+/** panel width（右パネル 285px - 余白 24px）。⚠ **値は `layout.ts` にある**（テストが見ている） */
 const PW = HUD_PANEL_W
 /** panel height。⚠ **値は `layout.ts` にある**（`layout.test.ts` が行の重なりを見ている） */
 const PH = HUD_PANEL_H
@@ -48,8 +48,8 @@ export class HUD {
       .setStrokeStyle(1.5, 0x334477).setDepth(5)
 
     // Row 1 — 区分（左・小）＋ 時刻（右・大）
-    // ⚠ **この行に長い文字を足さないこと。**時刻が 26px で右寄せなので、
-    //   左の文字と重なる（幅は 174px しかない）
+    // ⚠ **この行に長い文字を足さないこと。**時刻が 39px で右寄せなので、
+    //   左の文字と重なる（幅は 261px しかない）
     this.phaseText = this.scene.add.text(px - PW / 2 + 15, HUD_ROW_TIME_Y, `D1 ${phaseLabel('作業')}`, {
       fontSize: `${HUD_PHASE_FONT_PX}px`, color: '#7788aa',
     }).setOrigin(0, 0.5).setDepth(5)
@@ -70,7 +70,7 @@ export class HUD {
 
     // Row 3 — Money (center, big)
     // ⚠ **大きさは `layout.ts` の `HUD_MONEY_FONT_PX`。**`10,000,000レン`（クリア条件の額）が
-    //   枠 174px に収まるかを `layout.test.ts` が見ている
+    //   枠 261px に収まるかを `layout.test.ts` が見ている
     this.moneyText = this.scene.add.text(px, HUD_ROW_MONEY_Y, money(0), {
       fontSize: `${HUD_MONEY_FONT_PX}px`, color: '#ffdd44', fontStyle: 'bold',
     }).setOrigin(0.5, 0.5).setDepth(5)
