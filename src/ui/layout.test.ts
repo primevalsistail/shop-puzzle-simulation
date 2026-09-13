@@ -14,6 +14,7 @@ import {
   rowsThatFit, TITLE_RULE_Y, FILTER_BAND_H, FILTER_Y_NO_SUBTITLE, ROWS_TOP_NO_SUBTITLE,
   peddlerRemainText, peddlerSubtitleText, PEDDLER_REMAIN_FONT_PX, PEDDLER_TITLE,
   CHAR_ART_T, CHAR_ART_B, CHAR_ART_H, BTN_Y_ICON, BTN_ICON_H, BTN_Y_ADVANCE, BTN_ACTION_H,
+  HUD_PANEL_B, HUD_ROW_MONEY_Y, HUD_ROW_TIME_Y, HUD_ROW_PLACE_Y,
   BTN_PANEL_L, BTN_PANEL_W, BTN_ICON_W, BTN_Y_TRADE,
   TITLE_FONT_PX, BACK_BTN_W, TAB_W, TAB_H, TAB_GAP, TAB_FONT_PX, tabCx,
   TRADE_TITLE, TRADE_TABS,
@@ -465,12 +466,32 @@ describe('次の寄港地（#7・自由航行）', () => {
     }
   })
 
-  /** ⚠ **HUD の枠（上端8・高さ126）から出ないこと。**出るとキャラ絵の枠に被る */
-  it('押せるところが HUD の枠に収まり、キャラ絵の枠に被らない', () => {
-    // `HUD.ts` の置き場所: パネル中心 y = 126/2 + 8、そこから +40（バー）+6
-    const cy = 126 / 2 + 8 + 46
-    expect(cy + HUD_NEXT_PORT_H / 2).toBeLessThanOrEqual(126 + 8)
-    expect(cy + HUD_NEXT_PORT_H / 2).toBeLessThanOrEqual(CHAR_ART_T)
+  /**
+   * ⚠ **HUD の枠の中には置かない**（PO 指示 2026-09-14「ここの空白は不要」）。
+   *   **枠の中に居場所を取ると、クリア前はずっと空の帯が残る。**
+   *   **クリア後だけ、キャラ絵の枠の上端 `HUD_NEXT_PORT_H` を使う。**
+   * ⚠ **#15 の絵はそのぶんを見込むこと。**
+   */
+  it('押せるところは HUD の枠の外、キャラ絵の枠の上端に収まる', () => {
+    const cy = CHAR_ART_T + HUD_NEXT_PORT_H / 2
+    // 枠の下（重ならない）
+    expect(cy - HUD_NEXT_PORT_H / 2).toBeGreaterThanOrEqual(HUD_PANEL_B)
+    // キャラ絵の枠からはみ出さない
+    expect(cy + HUD_NEXT_PORT_H / 2).toBeLessThanOrEqual(CHAR_ART_B)
+  })
+
+  /** ⚠ **枠は所持金の行で終わる。**下に空の帯を作らない */
+  it('HUD の枠は、いちばん下の行（所持金）のすぐ下で終わる', () => {
+    // 所持金は HUD_MONEY_FONT_PX。行の下端から枠の下端までは余白1つぶん
+    expect(HUD_PANEL_B - (HUD_ROW_MONEY_Y + HUD_MONEY_FONT_PX / 2)).toBeLessThanOrEqual(14)
+    expect(HUD_PANEL_B).toBeGreaterThan(HUD_ROW_MONEY_Y + HUD_MONEY_FONT_PX / 2)
+  })
+
+  /** ⚠ **行が詰まりすぎないこと**（PO 指示 2026-09-14「詰まりすぎ。調整」） */
+  it('時刻の行と現在地の行が、字の高さぶん離れている', () => {
+    const timeBottom = HUD_ROW_TIME_Y + 26 / 2      // 時刻は 26px
+    const placeTop = HUD_ROW_PLACE_Y - 13 / 2       // 現在地は 13px
+    expect(placeTop - timeBottom).toBeGreaterThanOrEqual(6)
   })
 })
 
@@ -488,13 +509,15 @@ describe('右パネルのボタン列とキャラ絵の枠（#9 で行を1つ足
 
   /**
    * ⚠ **縮めないこと。**#9 で行を足したときに 200 → 155px になり、#24 で外して 202px に戻り、
-   *   **#96 で `改装` と `商人のところ` を `取引` の1行にまとめて 249px まで広がった。**
+   *   **#96 で `改装` と `商人のところ` を `取引` の1行にまとめて 249px。**
+   *   **2026-09-14 に HUD の枠を所持金の行で終わらせて 265px**（PO 指示「ここの空白は不要」）。
+   *   ⚠ **クリア後は上端 `HUD_NEXT_PORT_H`（26px）を次の寄港地の行が使う。**
    *   **#15 の絵はこの大きさで入る**ので、ここを下回る変更は絵が入らなくなるという意味になる。
    *   ⚠ **#7（自由航行）は行を足さずに済ませてある** —— 次の寄港地は
    *   HUD の中で目標の進みのバーと入れ替わるので、ボタン列も HUD の枠も伸びない。
    */
-  it('キャラ絵の枠が 249px から縮んでいない（#96 で広がった大きさ）', () => {
-    expect(CHAR_ART_H).toBeGreaterThanOrEqual(249)
+  it('キャラ絵の枠が 265px から縮んでいない', () => {
+    expect(CHAR_ART_H).toBeGreaterThanOrEqual(265)
   })
 
   it('ボタン列がメッセージ欄に食い込まない', () => {

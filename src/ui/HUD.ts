@@ -6,11 +6,14 @@ import { money } from './money.js'
 import {
   HUD_PANEL_W, HUD_MONEY_FONT_PX, HUD_BAR_W, phaseLabel,
   HUD_NEXT_PORT_FONT_PX, HUD_NEXT_PORT_H, nextPortLabel,
+  HUD_PANEL_T, HUD_PANEL_H, HUD_ROW_TIME_Y, HUD_ROW_PLACE_Y, HUD_RULE_Y, HUD_ROW_MONEY_Y,
+  CHAR_ART_T,
 } from './layout.js'
 
 /** panel width（右パネル 190px - 余白 16px）。⚠ **値は `layout.ts` にある**（テストが見ている） */
 const PW = HUD_PANEL_W
-const PH = 126  // panel height（#44 の場所表示ぶん 108 から広げた）
+/** panel height。⚠ **値は `layout.ts` にある**（`layout.test.ts` が行の重なりを見ている） */
+const PH = HUD_PANEL_H
 
 export class HUD {
   private timeText!: Phaser.GameObjects.Text
@@ -33,7 +36,7 @@ export class HUD {
   create(): void {
     const { width } = this.scene.scale
     this.panelX = width - PW / 2 - 8
-    this.panelY = PH / 2 + 8
+    this.panelY = HUD_PANEL_T + PH / 2
 
     const px = this.panelX
     const py = this.panelY
@@ -45,37 +48,37 @@ export class HUD {
     // Row 1 — 区分（左・小）＋ 時刻（右・大）
     // ⚠ **この行に長い文字を足さないこと。**時刻が 26px で右寄せなので、
     //   左の文字と重なる（幅は 174px しかない）
-    this.phaseText = this.scene.add.text(px - PW / 2 + 10, py - 47, `D1 ${phaseLabel('作業')}`, {
+    this.phaseText = this.scene.add.text(px - PW / 2 + 10, HUD_ROW_TIME_Y, `D1 ${phaseLabel('作業')}`, {
       fontSize: '12px', color: '#7788aa',
     }).setOrigin(0, 0.5).setDepth(5)
 
-    this.timeText = this.scene.add.text(px + PW / 2 - 12, py - 47, '06:00', {
+    this.timeText = this.scene.add.text(px + PW / 2 - 12, HUD_ROW_TIME_Y, '06:00', {
       fontSize: '26px', color: '#55ddff', fontStyle: 'bold',
     }).setOrigin(1, 0.5).setDepth(5)
 
     // Row 2 — 現在地（#44）。島名は正式名のみ。**季節名は出さない**（#2 の確定事項）
-    this.placeText = this.scene.add.text(px - PW / 2 + 12, py - 25, '', {
+    this.placeText = this.scene.add.text(px - PW / 2 + 12, HUD_ROW_PLACE_Y, '', {
       fontSize: '13px', color: '#88bbdd',
     }).setOrigin(0, 0.5).setDepth(5)
 
     // Divider line
     const lineGfx = this.scene.add.graphics().setDepth(5)
     lineGfx.lineStyle(1, 0x334477, 0.7)
-    lineGfx.lineBetween(px - PW / 2 + 8, py - 12, px + PW / 2 - 8, py - 12)
+    lineGfx.lineBetween(px - PW / 2 + 8, HUD_RULE_Y, px + PW / 2 - 8, HUD_RULE_Y)
 
     // Row 3 — Money (center, big)
     // ⚠ **大きさは `layout.ts` の `HUD_MONEY_FONT_PX`。**`10,000,000レン`（クリア条件の額）が
     //   枠 174px に収まるかを `layout.test.ts` が見ている
-    this.moneyText = this.scene.add.text(px, py + 10, money(0), {
+    this.moneyText = this.scene.add.text(px, HUD_ROW_MONEY_Y, money(0), {
       fontSize: `${HUD_MONEY_FONT_PX}px`, color: '#ffdd44', fontStyle: 'bold',
     }).setOrigin(0.5, 0.5).setDepth(5)
 
-    // Row 4（#7）— 次の寄港地。**クリア後だけ出す。**
-    // ⚠ **目標までの進みのバーは消した**（PO 指示 2026-09-14「進捗要らない」）。
-    //   **どれだけ目標に近いかは、改装の「商船」の値段で分かる**（#97）。
-    // ⚠ **行を増やさないこと。**枠が下へ伸びてキャラ絵の枠（`CHAR_ART_T`）が縮む
+    // 次の寄港地（#7）。**クリア後だけ出す。**
+    // ⚠ **枠の外、キャラ絵の枠の上端に置く**（PO 指示 2026-09-14「ここの空白は不要」）。
+    //   **枠の中に居場所を取ると、クリア前はずっと空の帯が残る。**
+    // ⚠ **#15 の絵は、クリア後にこの 26px を取られることを見込むこと**（`layout.ts` の注記）。
     const barW = HUD_BAR_W
-    const npY = py + 46
+    const npY = CHAR_ART_T + HUD_NEXT_PORT_H / 2
     this.nextPortBg = this.scene.add.rectangle(px, npY, barW, HUD_NEXT_PORT_H, 0x2a2a4a)
       .setStrokeStyle(1, 0x5566aa).setDepth(5).setVisible(false)
       .setInteractive({ useHandCursor: true })

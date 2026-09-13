@@ -470,12 +470,34 @@ export const BTN_Y_TRADE   = BTN_Y_CRAFT - BTN_ACTION_H / 2 - BTN_GAP - BTN_ACTI
 export const BTN_Y_ICON    = BTN_Y_TRADE - BTN_ACTION_H / 2 - BTN_GAP - BTN_ICON_H / 2
 
 /**
+ * 右パネル上の枠（時刻・現在地・所持金）。⚠ **`HUD.ts` に写しを置かないこと。**
+ *
+ * ⚠ **行の位置は枠の上端からの絶対値で持つ。**中心からの相対にすると、
+ *   **高さを変えたときに全部の行が動く**（どれか1つだけ直したいときに効かない）。
+ * ⚠ **`時刻` は 26px、`所持金` は 20px。**行の間隔はその半分を見込んである
+ *   （PO 指示 2026-09-14「詰まりすぎ。調整」で広げた）。
+ * ⚠ **枠は所持金の行で終わる**（PO 指示「ここの空白は不要」）。
+ *   **目標の進みのバーを消したあと、下に空の帯が残っていた。**
+ */
+export const HUD_PANEL_T = 8
+export const HUD_ROW_TIME_Y = HUD_PANEL_T + 22
+export const HUD_ROW_PLACE_Y = HUD_PANEL_T + 50
+export const HUD_RULE_Y = HUD_PANEL_T + 64
+export const HUD_ROW_MONEY_Y = HUD_PANEL_T + 84
+export const HUD_PANEL_H = 102
+export const HUD_PANEL_B = HUD_PANEL_T + HUD_PANEL_H
+
+/**
  * キャラ絵の枠（#21・#15 の置き場所）。**HUD の下から、ボタン列の上まで。**
  *
  * ⚠ **下端を決め打ちしないこと。**ボタン列に行を足すと列が上へ伸びるので、
  *   決め打ちにすると**気づかないまま重なる**（#9 で行商人の行を足したときに実際に起きかけた）。
+ * ⚠ **上端も決め打ちしない。**HUD の枠の下から引く。
+ *   **枠の高さを変えたときに、ここが置き去りになると隙間か重なりになる。**
+ * ⚠ **クリア後は、次の寄港地の行がこの枠の上端 `HUD_NEXT_PORT_H` を使う**（#7）。
+ *   **#15 の絵はそのぶんを見込むこと。**
  */
-export const CHAR_ART_T = 135
+export const CHAR_ART_T = HUD_PANEL_B + 9
 export const CHAR_ART_B = BTN_Y_ICON - BTN_ICON_H / 2 - 9
 export const CHAR_ART_CY = (CHAR_ART_T + CHAR_ART_B) / 2
 export const CHAR_ART_H = CHAR_ART_B - CHAR_ART_T
