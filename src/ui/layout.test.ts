@@ -733,7 +733,10 @@ describe('行商人バレンのところ（#9）', () => {
   it('`N品に要る` を画面に戻していない（素のものも橙の警告も）', () => {
     expect(purchaseSource).not.toMatch(/`\$\{need\.recipes\}品に要る`/)
     expect(purchaseSource).not.toMatch(/add\.text\([^)]*切らしている/)
-    // 数える材料そのものを持っていない（戻すなら `materialNeeds` から数え直す）
+    // ⚠ **数える材料そのものを持っていないことの見張り。**
+    //   型は `taxonomy/materials.test.ts` へ移った（#115）が、**ここは型の置き場所の話ではない。**
+    //   `PurchaseMenu` がまた要り用を数え始めていないかを見ているので、**この行は残す。**
+    //   戻すなら `expandToMaterials`（`taxonomy/materials.ts`）でレシピから数え直す。
     expect(purchaseSource).not.toContain('MaterialNeed')
   })
 

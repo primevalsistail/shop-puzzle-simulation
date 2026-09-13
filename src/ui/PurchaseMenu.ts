@@ -436,7 +436,9 @@ export class PurchaseMenu {
     // ⚠ **`N品に要る` の注記は、素のものも橙の警告も出さない**
     //   （PO 指示 2026-09-13「不要」／ PO 回答 2026-09-14「基本表示しない」）。
     //   **島の商人タブと行商人の両方に効く**（同じ組み立てを通るため）。
-    //   ⚠ **戻すなら `materialNeeds`（`taxonomy/materials.ts`）から数え直すこと。**
+    //   ⚠ **戻すなら `expandToMaterials`（`taxonomy/materials.ts`）でレシピから数え直すこと。**
+    //   **本数と数をまとめて数える導出は本番に無い**（読み手がゼロだったので
+    //   `taxonomy/materials.test.ts` へ移した。#115）。
     //   **画面から消えたので、`PurchaseMenu` はもう素材の要り用を持っていない。**
 
     // ⚠ **大きさは `layout.ts` の `INFO_FONT_PX`。**12px だと4桁の仕入れ値で左隣に重なる

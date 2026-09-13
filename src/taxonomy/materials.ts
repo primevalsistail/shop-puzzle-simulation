@@ -5,24 +5,14 @@ import type { RecipeDef } from './axes.js'
  * 「戻るまでに要る素材」を出す（#33）。
  *
  * 素材は**採れる島でしか買えず**、島を出ると **30日戻らない。**
- * いまは出てから初めて足りないと分かるので、**島にいるうちに見せる**ための計算。
+ * 出てから初めて足りないと分かるのを避けるため、**島にいるうちに数える**ための計算。
  *
  * ⚠ **ここは純粋。**Phaser も現在地も知らない。島で絞るのは呼ぶ側の仕事。
+ *
+ * ⚠ **素材を「本数と数」でまとめて数える `materialNeeds` はここに無い**（#115）。
+ *   **本番の読み手がゼロだったので `materials.test.ts` へ移した。**
+ *   **世界データの歯止め（島ごとの素材が15種を超えない）はそちらで見ている。**
  */
-
-export interface MaterialNeed {
-  /** その素材を（間接にでも）要するレシピの本数。**画面に出すのはこれ** */
-  readonly recipes: number
-  /**
-   * 渡したレシピを**1回ずつ**作るのに要る数（出来高 `outputQuantity` 個ぶん）。
-   *
-   * ⚠ **画面に出さないこと。**誰も1回ずつは作らないので、
-   *   「必要数」として出すと嘘になる（実測で綿 94.8個・稲わら 47.3個）。
-   *   issue #33 の「最適解を教えない」にも反する。**費用の計算と測定のためだけ**に持つ。
-   * ⚠ **端数が出る**（1回で2個できるレシピを3個ぶん使う、など）。整数と思って表示しない。
-   */
-  readonly quantity: number
-}
 
 /**
  * その品**1個**を作るのに要る素材を出す。
@@ -66,34 +56,6 @@ function expand(
     for (const [id, n] of expand(ing.itemId, byOutput, next)) {
       out.set(id, (out.get(id) ?? 0) + (n * ing.quantity) / perUnit)
     }
-  }
-  return out
-}
-
-/**
- * 渡したレシピ群が要する素材を、**本数と数**の両方で数える。
- *
- * `recipes` には**解禁済みのレシピ**を渡す。解禁は `everHeld`（手に入れたことがある品）で
- * 進むので、**プレイヤー自身の行動からすでに出ている**（新しい記録を足さない ＝ セーブが変わらない）。
- */
-export function materialNeeds(recipes: readonly RecipeDef[]): Map<ItemId, MaterialNeed> {
-  const byOutput = new Map<ItemId, RecipeDef>()
-  for (const r of recipes) byOutput.set(r.outputItemId, r)
-
-  const recipeCount = new Map<ItemId, number>()
-  const quantity = new Map<ItemId, number>()
-  for (const r of recipes) {
-    // `expand` は1個あたりなので、1回ぶんに戻す
-    const perRun = r.outputQuantity > 0 ? r.outputQuantity : 1
-    for (const [id, n] of expand(r.outputItemId, byOutput, new Set())) {
-      recipeCount.set(id, (recipeCount.get(id) ?? 0) + 1)
-      quantity.set(id, (quantity.get(id) ?? 0) + n * perRun)
-    }
-  }
-
-  const out = new Map<ItemId, MaterialNeed>()
-  for (const [id, recipesNeeding] of recipeCount) {
-    out.set(id, { recipes: recipesNeeding, quantity: quantity.get(id) ?? 0 })
   }
   return out
 }

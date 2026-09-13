@@ -1,9 +1,61 @@
 import { describe, it, expect } from 'vitest'
-import { expandToMaterials, materialNeeds } from './materials.js'
-import type { RecipeDef } from './axes.js'
+import { expandToMaterials } from './materials.js'
+import type { ItemId, RecipeDef } from './axes.js'
 import { ALL_RECIPES } from './recipes.js'
 import { ALL_ITEMS } from './items.js'
 import { ROUTE } from './islands.js'
+
+/**
+ * ⚠ **`MaterialNeed` と `materialNeeds` はここに置く**（#115）。
+ *
+ * **本番の読み手がゼロ**（`N品に要る` の注記は #107 で画面から消えた）なので、
+ * `src/taxonomy/materials.ts` から**テストの持ち物に移した。**
+ *
+ * ⚠ **消さずに残してあるのは、下の「実データ（161品 / 106レシピ）」が
+ *   これを使って世界データの歯止めを見ているから。**
+ *   **品を足すたびに効く**（島ごとの素材が15種を超えない）ので、関数ごと消すと歯止めも落ちる。
+ *
+ * ⚠ **本番へ戻すときは `materials.ts` へ戻すこと。**
+ *   `outputQuantity` で割る知識は `expandToMaterials` 側にあり、ここでは作り直していない。
+ */
+interface MaterialNeed {
+  /** その素材を（間接にでも）要するレシピの本数 */
+  readonly recipes: number
+  /**
+   * 渡したレシピを**1回ずつ**作るのに要る数（出来高 `outputQuantity` 個ぶん）。
+   *
+   * ⚠ **画面に出さないこと。**誰も1回ずつは作らないので、
+   *   「必要数」として出すと嘘になる（実測で綿 94.8個・稲わら 47.3個）。
+   *   issue #33 の「最適解を教えない」にも反する。**費用の計算と測定のためだけ**に持つ。
+   * ⚠ **端数が出る**（1回で2個できるレシピを3個ぶん使う、など）。整数と思って表示しない。
+   */
+  readonly quantity: number
+}
+
+/**
+ * 渡したレシピ群が要する素材を、**本数と数**の両方で数える。
+ *
+ * `recipes` には**解禁済みのレシピ**を渡す。解禁は `everHeld`（手に入れたことがある品）で
+ * 進むので、**プレイヤー自身の行動からすでに出ている**（新しい記録を足さない ＝ セーブが変わらない）。
+ */
+function materialNeeds(recipes: readonly RecipeDef[]): Map<ItemId, MaterialNeed> {
+  const recipeCount = new Map<ItemId, number>()
+  const quantity = new Map<ItemId, number>()
+  for (const r of recipes) {
+    // `expandToMaterials` は1個あたりなので、1回ぶん（出来高）に戻す
+    const perRun = r.outputQuantity > 0 ? r.outputQuantity : 1
+    for (const [id, n] of expandToMaterials(r.outputItemId, recipes)) {
+      recipeCount.set(id, (recipeCount.get(id) ?? 0) + 1)
+      quantity.set(id, (quantity.get(id) ?? 0) + n * perRun)
+    }
+  }
+
+  const out = new Map<ItemId, MaterialNeed>()
+  for (const [id, recipesNeeding] of recipeCount) {
+    out.set(id, { recipes: recipesNeeding, quantity: quantity.get(id) ?? 0 })
+  }
+  return out
+}
 
 /** 小麦 → 生地 → パン。パンとサンドイッチが同じ素材を共有する */
 const RECIPES: RecipeDef[] = [
