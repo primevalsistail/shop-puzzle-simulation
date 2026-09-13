@@ -253,8 +253,11 @@ export function peddlerSubtitleText(moneyText: string): string {
 }
 
 /**
- * 行商人の場所の見出し。**左パネルのボタンと同じ名にすること**
- *   （同じ場所を2つの名で呼ばない。`クラフト`→`工房` と同じ直し。束M）。
+ * 行商人の場所の見出し。
+ *
+ * ⚠ **できごとの窓に出る話し手の名（`STORY_EVENTS`）と同じにすること。**
+ *   同じ相手を2つの名で呼ばない（`クラフト`→`工房` と同じ直し。束M）。
+ *   ⚠ **ボタン列にはもう無い**（#90。向こうから来るので、窓の「見る」からだけ開く）。
  */
 export const PEDDLER_TITLE = '行商人バレン'
 
@@ -325,9 +328,14 @@ const BTN_COLUMN_B = LOG_T - 1 - 16
 export const BTN_Y_ADVANCE = BTN_COLUMN_B - BTN_ACTION_H / 2
 export const BTN_Y_SPEED   = BTN_Y_ADVANCE - BTN_ACTION_H / 2 - BTN_GAP - BTN_SPEED_H / 2
 export const BTN_Y_CRAFT   = BTN_Y_SPEED   - BTN_SPEED_H / 2  - BTN_GAP - BTN_ACTION_H / 2
-/** 行商人（#9）。**船まで来るが、枠は他の場所と同じものを使う** */
-export const BTN_Y_PEDDLER = BTN_Y_CRAFT   - BTN_ACTION_H / 2 - BTN_GAP - BTN_ACTION_H / 2
-export const BTN_Y_PURCHASE = BTN_Y_PEDDLER - BTN_ACTION_H / 2 - BTN_GAP - BTN_ACTION_H / 2
+/**
+ * ⚠ **行商人の行はここに無い**（#90 で外した）。**向こうから来る**ので、
+ *   いつでも押せるボタンにすると「そこに在る店」になり、来訪という形が消える。
+ *   開くのは**できごとの窓の「見る」**だけ（`MessageWindow` ／ `STORY_EVENTS`）。
+ *   ⚠ **行が1つ減ったぶん、列の上端が下がってキャラ絵の枠が広がる。**
+ *   それも `CHAR_ART_B` が列から引いているので、写しを作らないこと。
+ */
+export const BTN_Y_PURCHASE = BTN_Y_CRAFT - BTN_ACTION_H / 2 - BTN_GAP - BTN_ACTION_H / 2
 export const BTN_Y_UPGRADE = BTN_Y_PURCHASE - BTN_ACTION_H / 2 - BTN_GAP - BTN_ACTION_H / 2
 export const BTN_Y_ICON    = BTN_Y_UPGRADE - BTN_ACTION_H / 2 - BTN_GAP - BTN_ICON_H / 2
 
@@ -409,3 +417,71 @@ export const ORDER_BAR_PAD = 10
 export const ORDER_TEXT_MAX_W = ORDER_BAR_W - ORDER_BAR_PAD * 2
 /** 帯の文字の大きさ。⚠ 帯の高さが 18px しかないので、これ以上大きくしない */
 export const ORDER_BAR_FONT_PX = 12
+
+// ─── できごとのウィンドウ（#24） ──────────────────────────
+/**
+ * 選択肢のあるできごとを出す窓（#24）。
+ *
+ * ⚠ **`PlaceFrame`（行く場所）にしないこと。**あれは**棚を消してから**出る器で、
+ *   中央の領域がまるごと入れ替わる。**選択肢1つ出すために店の風景を消さない。**
+ *   先例は `MessageLog` の遡り —— 同じ理由で「行く場所」にしなかった。
+ *
+ * ⚠ **納品の帯（#28）とメッセージ欄に被せない。**帯はいま受けている注文で、
+ *   **選ぶ材料になる**（「見る」かどうかは何が要るかで決まる）。
+ *   ⚠ **左右は帯とそろえてある。**そろえないと、同じ中央の領域に幅の違う箱が2つ並ぶ。
+ * ⚠ **キャラ帯（980〜1090）を覆わない。**`PlaceFrame` は帯を隠してからその領域まで使うが、
+ *   こちらは**隠さない**ので、覆うと店番と来店客が窓に切られる。
+ *   ⚠ **話し手の絵はいずれあの帯に入る**（#21・#15）。覆うと絵が見えない窓になる。
+ * ⚠ **盤面には重なる。**盤面はいちばん広いとき y588 まで来るので、
+ *   帯より上に置く以上は避けようがない。**消さずに重ねる**のがここの線引き。
+ */
+export const MSG_WIN_L = ORDER_BAR_L
+export const MSG_WIN_R = ORDER_BAR_R
+export const MSG_WIN_B = ORDER_BAR_T - 6
+/** ⚠ **高さを増やすなら `MSG_LINES_MAX` と一緒に見ること**（本文の行が入らなくなる） */
+export const MSG_WIN_H = 160
+export const MSG_WIN_T = MSG_WIN_B - MSG_WIN_H
+export const MSG_WIN_W = MSG_WIN_R - MSG_WIN_L
+export const MSG_WIN_CX = (MSG_WIN_L + MSG_WIN_R) / 2
+export const MSG_WIN_CY = (MSG_WIN_T + MSG_WIN_B) / 2
+/** 窓の内側の余白 */
+export const MSG_WIN_PAD = 20
+/** 本文と名前に使える幅 */
+export const MSG_TEXT_MAX_W = MSG_WIN_W - MSG_WIN_PAD * 2
+
+/** 話し手の名前の行。⚠ **名前だけ出す**（絵は #21・#15 で後から入る） */
+export const MSG_SPEAKER_FONT_PX = 16
+export const MSG_SPEAKER_Y = MSG_WIN_T + MSG_WIN_PAD
+
+/** 本文。**1行ずつ置く**（自動で折り返さない ＝ node のテストから測れる） */
+export const MSG_TEXT_FONT_PX = 16
+export const MSG_LINE_H = 24
+export const MSG_TEXT_TOP = MSG_SPEAKER_Y + 30
+
+/** 選択肢のボタン。**窓の下端に1行で並べる** */
+export const MSG_CHOICE_W = 160
+export const MSG_CHOICE_H = 34
+export const MSG_CHOICE_GAP = 12
+export const MSG_CHOICE_FONT_PX = 15
+export const MSG_CHOICE_CY = MSG_WIN_B - MSG_WIN_PAD - MSG_CHOICE_H / 2
+
+/**
+ * 本文に使える行数。**選択肢のボタンに食い込まない範囲。**
+ *
+ * ⚠ **決め打ちにしないこと。**窓の高さやボタンの高さを動かしたときに、
+ *   本文がボタンへ食い込んだことに**気づけなくなる**（`CHAR_ART_B` と同じ直し）。
+ */
+export const MSG_LINES_MAX = Math.max(
+  0,
+  Math.floor((MSG_CHOICE_CY - MSG_CHOICE_H / 2 - 8 - MSG_TEXT_TOP) / MSG_LINE_H),
+)
+
+/**
+ * 選択肢 `count` 個を1行に並べたときの、`index` 番目のボタンの中心 x。
+ *
+ * ⚠ **中央ぞろえ。**左詰めにすると、選択肢の数で「はい」の位置が動く。
+ */
+export function msgChoiceCx(index: number, count: number): number {
+  const total = count * MSG_CHOICE_W + (count - 1) * MSG_CHOICE_GAP
+  return MSG_WIN_CX - total / 2 + MSG_CHOICE_W / 2 + index * (MSG_CHOICE_W + MSG_CHOICE_GAP)
+}

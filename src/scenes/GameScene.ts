@@ -13,6 +13,8 @@ import { GameProgress } from '../components/progress/GameProgress.js'
 import { WorldState } from '../components/progress/WorldState.js'
 import { DeliveryOrders } from '../components/progress/DeliveryOrders.js'
 import { PeddlerStock } from '../components/progress/PeddlerStock.js'
+import { StoryEventScheduler } from '../components/progress/StoryEventScheduler.js'
+import type { StoryChoice } from '../components/progress/StoryEvents.js'
 import { RecipeUnlocks, groupLabel } from '../components/progress/RecipeUnlocks.js'
 import { Upgrades } from '../components/progress/Upgrades.js'
 import { FloorRenderer, GRID_ORIGIN_X, GRID_ORIGIN_Y, CELL_SIZE } from '../ui/FloorRenderer.js'
@@ -27,12 +29,13 @@ import { Tutorial } from '../ui/Tutorial.js'
 import { SaveLoadMenu } from '../ui/SaveLoadMenu.js'
 import { CharacterStrip } from '../ui/CharacterStrip.js'
 import { PlaceFrame } from '../ui/PlaceFrame.js'
+import { MessageWindow } from '../ui/MessageWindow.js'
 import {
   LEFT_PANEL_R, RIGHT_PANEL_L, LOG_T, SCREEN_W, SCREEN_H,
   BTN_PANEL_L, BTN_PANEL_W, BTN_ICON_W, BTN_ICON_H, BTN_ACTION_H,
-  BTN_Y_ADVANCE, BTN_Y_SPEED, BTN_Y_CRAFT, BTN_Y_PEDDLER, BTN_Y_PURCHASE,
+  BTN_Y_ADVANCE, BTN_Y_SPEED, BTN_Y_CRAFT, BTN_Y_PURCHASE,
   BTN_Y_UPGRADE, BTN_Y_ICON,
-  CHAR_ART_CX, CHAR_ART_CY, CHAR_ART_W, CHAR_ART_H, PEDDLER_TITLE, craftTimeLabel,
+  CHAR_ART_CX, CHAR_ART_CY, CHAR_ART_W, CHAR_ART_H, craftTimeLabel,
 } from '../ui/layout.js'
 import { MessageLog } from '../ui/MessageLog.js'
 import { OrderBar } from '../ui/OrderBar.js'
@@ -83,8 +86,15 @@ export class GameScene extends Phaser.Scene {
   private upgrades!: Upgrades
   /** 納品の注文（#28）。**寄港ごとに1件、自動で出る** */
   private deliveryOrders!: DeliveryOrders
-  /** 行商人バレンの積荷（#9）。**1日1回、船に来る** */
+  /** 行商人バレンの積荷（#9）。**来た日ぶんを1回だけ引く** */
   private peddler!: PeddlerStock
+  /**
+   * 選択肢のあるできごとの発火（#24）。
+   *
+   * ⚠ **セーブに載せない。**その日ぶんの控えは日付から引き直せるので、
+   *   載せると「引き直せる状態」を増やすだけになる（`ensureDay` の注記）。
+   */
+  private storyEvents = new StoryEventScheduler()
   /** 品出しの型（マイセット。#27） */
   private shelfPresets = new ShelfPresets()
 
@@ -102,6 +112,8 @@ export class GameScene extends Phaser.Scene {
   private orderBar!: OrderBar
   /** 「行く場所」の枠（#58）。**いまどこに居るかはこれが持つ** */
   private placeFrame!: PlaceFrame
+  /** 選択肢のあるできごとの窓（#24）。**開いている間は時間も配置も止まる** */
+  private messageWindow!: MessageWindow
   private presetMenu!: PresetMenu
 
   private speedLabel!: Phaser.GameObjects.Text
@@ -162,6 +174,7 @@ export class GameScene extends Phaser.Scene {
       this, this.registry_, () => this.upgrades.marginMultiplier(),
     )
     this.placeFrame = new PlaceFrame(this, visible => this.setShopVisible(visible))
+    this.messageWindow = new MessageWindow(this)
     this.hud = new HUD(this)
     this.tutorial = new Tutorial(this)
     this.characterStrip = new CharacterStrip(this)
@@ -283,6 +296,9 @@ export class GameScene extends Phaser.Scene {
         // ⚠ **行商人が無かった頃のセーブは日が 0 で来る。**その日ぶんをここで引く。
         //   同じ日の積荷が入っていれば `refresh` は何もしない（1日1回。`PeddlerStock`）
         this.visitPeddler(data.currentTime.day)
+        // ⚠ **その日ぶんのできごとも引き直す。**引かないと、**別の日のセーブを読んだあと
+        //   その日が終わるまで何も起きない**（控えは前の日のままになる）
+        this.storyEvents.ensureDay(data.currentTime.day)
         this.refreshInventoryPanel()
         this.updateStatus(`スロット ${slot + 1}からロードしました`)
       },
@@ -301,8 +317,9 @@ export class GameScene extends Phaser.Scene {
     this.hud.updateGoal(this.economy.getMoney(), false)
     // 初日ぶんの注文。**寄港したら必ず1件ある**（#28）
     this.issueOrder()
-    // 初日ぶんの行商人。**来訪は1日1回**（#9）
+    // 初日ぶんの行商人と、その日のできごと（#24・#90）
     this.visitPeddler(t0.day)
+    this.storyEvents.ensureDay(t0.day)
     this.inventoryPanel.onSelect(id => {
       // 1つの品は棚に1区画まで。**掴んだ時点で知らせる**（どこへ持って行っても置けないため）
       if (this.placementManager.isDisplayed(id)) {
@@ -410,7 +427,6 @@ export class GameScene extends Phaser.Scene {
     const yAdv = BTN_Y_ADVANCE
     const ySpeed = BTN_Y_SPEED
     const yCraft = BTN_Y_CRAFT
-    const yPeddle = BTN_Y_PEDDLER
     const yPurch = BTN_Y_PURCHASE
     const yUpg = BTN_Y_UPGRADE
     const yIcon = BTN_Y_ICON
@@ -471,9 +487,9 @@ export class GameScene extends Phaser.Scene {
     // ⚠ **行った先の見出しと同じ名にすること**（`PlaceFrame.show('商人のところ')`）。
     //   同じ場所を2つの名で呼ばない（`クラフト`→`工房` と同じ直し。束M）
     makeAction(yPurch, '商人のところ', '🛒', 0x6a5a2a, 0x8a7a3a, () => this.openPurchaseMenu())
-    // 行商人は**船まで来る**ので「行く場所」ではないが、枠は同じものを使う（#58 の器）。
-    // ⚠ **見出しと同じ名にすること**（`PEDDLER_TITLE`）
-    makeAction(yPeddle, PEDDLER_TITLE, '⛵', 0x5a3a6a, 0x7a4a8a, () => this.openPeddlerMenu())
+    // ⚠ **行商人はここに並べない**（#90）。**向こうから来る**ので、
+    //   いつでも押せるボタンとして置くと「そこに在る店」になり、来訪という形が消える。
+    //   開くのはできごとの窓の「見る」だけ（`resolveStoryChoice`）
     makeAction(yCraft, '工房', '🔨', 0x4a6a3a, 0x5a8a4a, () => this.openCraftMenu())
 
     // 速度切り替え。⚠ 飛ばすのではなく速くする（飛ばすと売れた実感が消える）。
@@ -706,6 +722,9 @@ export class GameScene extends Phaser.Scene {
       const t = time as GameTime
       this.hud.updateTime(t.day, t.hour, t.minute)
       this.gameService.onMinutePassed(Math.random, this.timeManager.isOpen())
+      // ⚠ **できごとは時間を進めている最中に起きる**（#24・#90）。
+      //   日の変わり目に出すと、`pauseAt` で止まったところに窓が重なるだけになる
+      this.pumpStoryEvents(t)
     })
 
     // 日が変わると現在地が動く（#2）
@@ -823,6 +842,8 @@ export class GameScene extends Phaser.Scene {
     // ⚠ **島が変わったあとに引く。**次の寄港地は島が変わった時点で変わるので、
     //   先に引くと「1日だけ、いまの次の島の産を積んだ行商人」が出る（#9）
     this.visitPeddler(day)
+    // その日ぶんのできごとを引く（#24）。**当たった日だけ、その日のどこかで起きる**
+    this.storyEvents.ensureDay(day)
 
     // 滞在中にも解禁が起きる（段4-4）。枠は4日に1つ増える ＝ 1寄港あたり2〜3回
     this.checkRecipeUnlocks()
@@ -908,14 +929,17 @@ export class GameScene extends Phaser.Scene {
    * 棚に手が出せない状態か。
    *
    * **場所へ行っている間**（商人のところ・工房・改装。#58）と、
-   * **セーブ／ロードが開いている間**（ここだけダイアログのまま。PO 判断 Q2）。
+   * **セーブ／ロードが開いている間**（ここだけダイアログのまま。PO 判断 Q2）と、
+   * **できごとの窓が開いている間**（#24。選択を求めている以上、時間は止める）。
    *
    * ⚠ **判定はここ1つだけにする。**以前は同じ `||` の連鎖が**7箇所に散らばって**いて、
    *   **うち1箇所だけ強化メニューが抜けていた**（強化を開いたまま棚を掴めた）。
    *   条件を足すときもここだけを直す。
    */
   private isShelfBlocked(): boolean {
-    return this.placeFrame.isShown() || this.saveLoadMenu.isVisible()
+    return this.placeFrame.isShown()
+      || this.saveLoadMenu.isVisible()
+      || this.messageWindow.isShown()
   }
 
   /**
@@ -1023,23 +1047,59 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * その日の行商人（#9）。**来訪は1日1回。**
+   * その日の積荷を引く（#9）。**1日1回。**
    *
-   * ⚠ **知らせは `event`。**`info` は同じ文が続くと抑止されるので、
-   *   毎日出るこの知らせには使えない（2日目以降が黙って消える）。
+   * ⚠ **ここでは知らせを出さない**（#90）。**来るかどうかはできごとが決める**ので、
+   *   引いた日ぜんぶに「寄った」と出すと、来ていない日にも来たことになる。
+   *   知らせはできごとの窓そのもの（`STORY_EVENTS` の `peddler_visit`）。
+   * ⚠ **来ない日も引いておく。**引かずに来訪の側で引くと、**ロードしてから来た日**に
+   *   引き直しが起き、`PeddlerStock` の「日ごとに1度だけ」が回り道で破れる。
+   *   積荷は誰にも見えないので、持っていて困らない。
    */
   private visitPeddler(day: number): void {
-    const came = this.peddler.refresh(
+    this.peddler.refresh(
       day,
       this.registry_.getAllItems(),
       this.world.getState(),
       // ⚠ **次の寄港地の産は積まない**（#9。島を巡る動機を直接削るため）
       this.world.getLocation().next,
     )
-    if (!came) return
-    const kinds = this.peddler.list().length
-    if (kinds === 0) return
-    this.messageLog.addMessage(`${PEDDLER_TITLE}が船に寄った（${kinds}種）`, 'event')
+  }
+
+  /**
+   * 時間を進めている最中に、できごとが起きたか（#24）。**1分ごとに訊く。**
+   */
+  private pumpStoryEvents(time: GameTime): void {
+    // ⚠ 窓が開いている間は時間が止まるので普通はここへ来ないが、重なりを偶然に任せない
+    if (this.messageWindow.isShown()) return
+    const def = this.storyEvents.due(time.hour, time.minute)
+    if (!def) return
+    // ⚠ **時間を止めてから出す。**`isShelfBlocked()` は「進める」を押せなくするだけで、
+    //   すでに進んでいる時計は止めない
+    this.stopAdvancing()
+    this.messageWindow.show(def, choice => this.resolveStoryChoice(choice))
+  }
+
+  /**
+   * 選ばれた選択肢の結末（#24）。
+   *
+   * ⚠ **ここが結末の語彙のすべて**（`StoryOutcome`）。できごとを1本足しても、
+   *   **既にある語を使う限りここは触らない。**新しい語を足したときだけ網羅が崩れ、
+   *   `tsc` が「実装が要る場所はここ」と指す。
+   */
+  private resolveStoryChoice(choice: StoryChoice): void {
+    switch (choice.outcome) {
+      case '行商人の積荷を見る':
+        this.openPeddlerMenu()
+        return
+      // 結末の無い選択肢は、窓を閉じるだけ
+      case undefined:
+        return
+      default: {
+        const unhandled: never = choice.outcome
+        throw new Error(`実装の無い結末: ${String(unhandled)}`)
+      }
+    }
   }
 
   /**

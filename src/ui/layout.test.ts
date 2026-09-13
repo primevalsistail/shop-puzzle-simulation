@@ -14,7 +14,14 @@ import {
   rowsThatFit, TITLE_RULE_Y, FILTER_BAND_H, FILTER_Y_NO_SUBTITLE, ROWS_TOP_NO_SUBTITLE,
   peddlerRemainText, peddlerSubtitleText, PEDDLER_REMAIN_FONT_PX, PEDDLER_TITLE,
   CHAR_ART_T, CHAR_ART_B, CHAR_ART_H, BTN_Y_ICON, BTN_ICON_H, BTN_Y_ADVANCE, BTN_ACTION_H,
-  BTN_PANEL_L, BTN_PANEL_W, BTN_ICON_W, BTN_Y_UPGRADE,} from './layout.js'
+  BTN_PANEL_L, BTN_PANEL_W, BTN_ICON_W, BTN_Y_UPGRADE,
+  MSG_WIN_L, MSG_WIN_R, MSG_WIN_T, MSG_WIN_B, MSG_WIN_PAD, MSG_TEXT_MAX_W,
+  MSG_SPEAKER_FONT_PX, MSG_SPEAKER_Y, MSG_TEXT_FONT_PX, MSG_TEXT_TOP, MSG_LINE_H,
+  MSG_LINES_MAX, MSG_CHOICE_W, MSG_CHOICE_H, MSG_CHOICE_GAP, MSG_CHOICE_FONT_PX,
+  MSG_CHOICE_CY, msgChoiceCx,
+  ORDER_BAR_T, ORDER_BAR_L, ORDER_BAR_R, GRID_ORIGIN_Y, CELL_SIZE,
+} from './layout.js'
+import { STORY_EVENTS } from '../components/progress/StoryEvents.js'
 import { ALL_ITEMS } from '../taxonomy/items.js'
 import { PEDDLER_MAX_PER_KIND, peddlerPrice } from '../components/progress/PeddlerStock.js'
 import { money } from './money.js'
@@ -419,9 +426,18 @@ describe('行商人バレンのところ（#9）', () => {
     expect(estTextWidth(line, 15)).toBeLessThanOrEqual(CONTENT_R - CONTENT_L)
   })
 
-  /** ⚠ **場所の見出しとボタンの名は同じ**（同じ場所を2つの名で呼ばない。束M） */
-  it('見出しの名がボタンに収まる', () => {
-    expect(estTextWidth(`⛵  ${PEDDLER_TITLE}`, 17)).toBeLessThanOrEqual(BTN_PANEL_W)
+  /**
+   * ⚠ **見出しの名と、できごとの窓に出る話し手の名は同じ**
+   *   （同じ相手を2つの名で呼ばない。束M）。
+   * ⚠ **ボタン列の名ではもう見ない**（#90 で列から外した）。
+   */
+  it('見出しの名が、できごとの窓の話し手と同じ', () => {
+    const peddler = STORY_EVENTS.find(e => e.id === 'peddler_visit')
+    expect(peddler?.speaker).toBe(PEDDLER_TITLE)
+  })
+
+  it('見出しが枠の内側に収まる', () => {
+    expect(estTextWidth(PEDDLER_TITLE, 24)).toBeLessThanOrEqual(CONTENT_R - CONTENT_L)
   })
 
   /** ⚠ 行商人の買値も「買う」ボタンに収まること（`レン` は全角2文字） */
@@ -459,5 +475,138 @@ describe('右パネルのボタン列とキャラ絵の枠（#9 で行を1つ足
     expect(sub).toBeLessThanOrEqual(PRESET_TEXT_W)
     // 1行目（入力欄）と重ならない高さに置いてある
     expect(PRESET_SUB_FONT_PX).toBeLessThan(PRESET_TEXT_FONT_PX)
+  })
+})
+
+/**
+ * **選択肢のあるできごとの窓**（#24）。
+ *
+ * ⚠ **`PlaceFrame` と違って棚を消さない。**だから「隣の区画を侵さないか」ではなく、
+ *   **消してはいけないもの（納品の帯・メッセージ欄・左右のパネル）に被っていないか**を見る。
+ */
+describe('できごとの窓（#24）', () => {
+  it('左パネル（船倉の中身）と右パネルを侵さない', () => {
+    expect(MSG_WIN_L).toBeGreaterThanOrEqual(LEFT_PANEL_R)
+    expect(MSG_WIN_R).toBeLessThanOrEqual(RIGHT_PANEL_L)
+  })
+
+  /**
+   * ⚠ **キャラ帯を覆わない。**`PlaceFrame` は帯を**隠してから**その領域まで使うが、
+   *   こちらは隠さないので、覆えば店番と来店客が窓に切られる。
+   *   **話し手の絵はいずれあの帯に入る**（#21・#15）。
+   */
+  it('キャラ帯（店番・来店客）を覆わない', () => {
+    expect(MSG_WIN_R).toBeLessThanOrEqual(STRIP_L)
+  })
+
+  /** ⚠ **納品の帯と左右をそろえる**（同じ領域に幅の違う箱を2つ並べない） */
+  it('納品の帯と左右がそろっている', () => {
+    expect(MSG_WIN_L).toBe(ORDER_BAR_L)
+    expect(MSG_WIN_R).toBe(ORDER_BAR_R)
+  })
+
+  /** ⚠ **帯はいま受けている注文で、選ぶ材料そのもの**（何が要るかで「見る」かが決まる） */
+  it('納品の帯（#28）に被らない', () => {
+    expect(MSG_WIN_B).toBeLessThanOrEqual(ORDER_BAR_T)
+  })
+
+  it('メッセージ欄に食い込まない', () => {
+    expect(MSG_WIN_B).toBeLessThanOrEqual(LOG_T)
+    expect(MSG_WIN_T).toBeGreaterThanOrEqual(0)
+  })
+
+  /**
+   * ⚠ **窓が盤面をまるごと覆わないこと。**覆うなら `PlaceFrame` と変わらず、
+   *   「棚を消さない」（#24 の既決2）が形だけになる。
+   */
+  it('盤面をまるごとは覆わない（上に棚が残る）', () => {
+    const gridB = GRID_ORIGIN_Y + 10 * CELL_SIZE   // いちばん広いとき（13×10）の下端
+    expect(MSG_WIN_T).toBeGreaterThan(GRID_ORIGIN_Y)
+    // 盤面の上半分より下から始まる
+    expect(MSG_WIN_T).toBeGreaterThan((GRID_ORIGIN_Y + gridB) / 2)
+  })
+
+  it('中の行が上から下へ重ならずに並んでいる', () => {
+    expect(MSG_WIN_T).toBeLessThan(MSG_SPEAKER_Y)
+    expect(MSG_SPEAKER_Y).toBeLessThan(MSG_TEXT_TOP)
+    expect(MSG_TEXT_TOP).toBeLessThan(MSG_CHOICE_CY - MSG_CHOICE_H / 2)
+    expect(MSG_CHOICE_CY + MSG_CHOICE_H / 2).toBeLessThanOrEqual(MSG_WIN_B)
+  })
+
+  /**
+   * ⚠ **本文の行数を決め打ちにしないこと。**窓の高さやボタンの高さを動かしたとき、
+   *   本文がボタンへ食い込んだことに気づけなくなる（`CHAR_ART_B` と同じ直し）。
+   */
+  it('本文の行が、選択肢のボタンに食い込まない', () => {
+    expect(MSG_LINES_MAX).toBeGreaterThanOrEqual(1)
+    expect(MSG_TEXT_TOP + MSG_LINES_MAX * MSG_LINE_H)
+      .toBeLessThanOrEqual(MSG_CHOICE_CY - MSG_CHOICE_H / 2)
+    // あと1行は入らない（詰められるだけ詰めている）
+    expect(MSG_TEXT_TOP + (MSG_LINES_MAX + 1) * MSG_LINE_H)
+      .toBeGreaterThan(MSG_CHOICE_CY - MSG_CHOICE_H / 2)
+  })
+
+  /** 選択肢は**1行に並べる**。段組みにすると「どれが先か」が生まれる */
+  it('選択肢が1行に並び、窓からはみ出さない', () => {
+    for (const def of STORY_EVENTS) {
+      const n = def.choices.length
+      const l = msgChoiceCx(0, n) - MSG_CHOICE_W / 2
+      const r = msgChoiceCx(n - 1, n) + MSG_CHOICE_W / 2
+      expect(l, def.id).toBeGreaterThanOrEqual(MSG_WIN_L + MSG_WIN_PAD)
+      expect(r, def.id).toBeLessThanOrEqual(MSG_WIN_R - MSG_WIN_PAD)
+      // 隣と重ならない
+      for (let i = 1; i < n; i++) {
+        expect(msgChoiceCx(i, n) - msgChoiceCx(i - 1, n))
+          .toBe(MSG_CHOICE_W + MSG_CHOICE_GAP)
+      }
+    }
+  })
+
+  /** 3つ並べても収まるか。**選択肢の数はデータ側で増える** */
+  it('選択肢が3つでも1行に収まる', () => {
+    expect(msgChoiceCx(0, 3) - MSG_CHOICE_W / 2).toBeGreaterThanOrEqual(MSG_WIN_L + MSG_WIN_PAD)
+    expect(msgChoiceCx(2, 3) + MSG_CHOICE_W / 2).toBeLessThanOrEqual(MSG_WIN_R - MSG_WIN_PAD)
+  })
+})
+
+/**
+ * **できごとのデータが、実物の文字として窓に収まるか**（受入条件4・5）。
+ *
+ * ⚠ **文字を組み立てているのは `StoryEvents.ts`（Phaser を読まない）。**
+ *   だからここで実物を測れる。`MessageWindow.ts` 側で組み立てると測れなくなる。
+ * ⚠ **文言は PO が決める（#79）。**言い回しを変えて収まらなくなったら、ここが落ちる。
+ */
+describe('できごとの文字が窓に収まる', () => {
+  it('話し手の名前が枠に収まる', () => {
+    for (const def of STORY_EVENTS) {
+      expect(estTextWidth(def.speaker, MSG_SPEAKER_FONT_PX, true), def.id)
+        .toBeLessThanOrEqual(MSG_TEXT_MAX_W)
+    }
+  })
+
+  /** ⚠ **自動で折り返さない。**1行が枠を超えたら、超えたぶんは窓の外へ出る */
+  it('本文の各行が枠に収まる', () => {
+    for (const def of STORY_EVENTS) {
+      for (const line of def.lines) {
+        expect(estTextWidth(line, MSG_TEXT_FONT_PX), `${def.id}: ${line}`)
+          .toBeLessThanOrEqual(MSG_TEXT_MAX_W)
+      }
+    }
+  })
+
+  it('本文の行数が、入る行数を超えていない', () => {
+    for (const def of STORY_EVENTS) {
+      expect(def.lines.length, def.id).toBeGreaterThan(0)
+      expect(def.lines.length, def.id).toBeLessThanOrEqual(MSG_LINES_MAX)
+    }
+  })
+
+  it('選択肢の文字がボタンに収まる', () => {
+    for (const def of STORY_EVENTS) {
+      for (const choice of def.choices) {
+        expect(estTextWidth(choice.label, MSG_CHOICE_FONT_PX), `${def.id}: ${choice.label}`)
+          .toBeLessThanOrEqual(MSG_CHOICE_W - 16)
+      }
+    }
   })
 })
