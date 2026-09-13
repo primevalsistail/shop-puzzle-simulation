@@ -55,6 +55,17 @@ export const DEMAND_TABLE: readonly DemandRow[] = [
 ] as const
 
 /**
+ * その `向く土地` の品が**高く売れる島**。
+ *
+ * ⚠ **`どこでも` の品は行を持たない**ので `undefined` を返す（**売れる島が無い**）。
+ *   161品中65品がこれで、**工房の `需要` の列はそこが空欄になる**（PO 了承済み 2026-09-14）。
+ * ⚠ **引くのは `DEMAND_TABLE` の4行だけ。**画面側に島の名を書かない。
+ */
+export function demandIsland(suitedLand: SuitedLand): IslandName | undefined {
+  return DEMAND_TABLE.find(row => row.suitedLand === suitedLand)?.island
+}
+
+/**
  * 海。どの島のものでもなく四島に共通してある。
  * → island-goods.md §3。産地 `なし` の品はここから来る
  */

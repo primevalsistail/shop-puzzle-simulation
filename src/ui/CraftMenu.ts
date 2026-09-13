@@ -6,7 +6,7 @@ import type { RecipeUnlocks } from '../components/progress/RecipeUnlocks.js'
 import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
 import { SearchBox } from './SearchBox.js'
 import { createInput, tryAddDom, setGameKeyboard, readCount } from './domInput.js'
-import type { IslandName } from '../taxonomy/islands.js'
+import { demandIsland } from '../taxonomy/islands.js'
 import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
 import {
@@ -17,7 +17,8 @@ import {
   CRAFT_HEAD_Y, CRAFT_HEAD_FONT_PX, CRAFT_ROWS_TOP, CRAFT_ROW_H, CRAFT_COLS,
   CRAFT_NAME_L, CRAFT_NAME_W, CRAFT_NAME_FONT_PX, CRAFT_CELL_FONT_PX,
   CRAFT_MADE_R, CRAFT_STOCK_R, CRAFT_TIME_L, CRAFT_TIME_W,
-  CRAFT_DEMAND_L, CRAFT_DEMAND_W, CRAFT_DEMAND_SEP,
+  CRAFT_DEMAND_L, CRAFT_DEMAND_W,
+  CRAFT_ING_L, CRAFT_ING_W, craftIngredientsLabel,
   CRAFT_BTN_W, CRAFT_BTN_H, CRAFT_BTN_L, CRAFT_BTN_FONT_PX, CRAFT_BTN_LABEL,
   CRAFT_REASON_INGREDIENTS, CRAFT_REASON_STOCK, CRAFT_REASON_TIME,
   CRAFT_REASON_EMPTY, CRAFT_REASON_NOT_INT,
@@ -48,6 +49,8 @@ interface Row {
   madeText: Phaser.GameObjects.Text
   /** `時間` — `◯分（営業◯分）`（#53） */
   timeText: Phaser.GameObjects.Text
+  /** `材料` — `蕎麦の実×3` を並べたもの（#107）。**数は回数を掛けたぶん** */
+  ingText: Phaser.GameObjects.Text
   craftBg: Phaser.GameObjects.Rectangle
   craftLabel: Phaser.GameObjects.Text
 }
@@ -81,8 +84,6 @@ export class CraftMenu {
     /** 解禁済みのレシピ（#48）。**`registry.getAllRecipes()` を直に並べないこと** */
     private unlocks: RecipeUnlocks,
     private frame: PlaceFrame,
-    /** いまいる島（#33）。**ここで手に入らない材料に産地を出す**ため */
-    private islandOf: () => IslandName,
     private onClose: () => void,
   ) {
     this.search = new SearchBox(scene)
@@ -207,7 +208,7 @@ export class CraftMenu {
    * ⚠ **列の名も位置も `layout.ts` から来る**（`CRAFT_COLS`）。ここに字を書かない。
    */
   private buildHead(objs: Phaser.GameObjects.GameObject[]): void {
-    const [name, made, stock, time, demand, qty, craft] = CRAFT_COLS
+    const [name, made, stock, time, demand, ing, qty, craft] = CRAFT_COLS
     const head = (x: number, text: string, originX: number) =>
       objs.push(this.scene.add.text(x, CRAFT_HEAD_Y, text, {
         fontSize: `${CRAFT_HEAD_FONT_PX}px`, color: '#8899aa',
@@ -218,6 +219,7 @@ export class CraftMenu {
     head(CRAFT_STOCK_R, stock, 1)
     head(CRAFT_TIME_L, time, 0)
     head(CRAFT_DEMAND_L, demand, 0)
+    head(CRAFT_ING_L, ing, 0)
     head(CRAFT_STEP_XS.input + CRAFT_INPUT_W / 2, qty, 0.5)
     head(CRAFT_BTN_L + CRAFT_BTN_W / 2, craft, 0.5)
   }
@@ -280,10 +282,10 @@ export class CraftMenu {
   }
 
   /**
-   * 1件ぶんの行。**1行で7列**（**PO 赤入れ 2026-09-13**）。
+   * 1件ぶんの行。**1行で8列**（**PO 赤入れ 2026-09-13** ＋ **`材料` は #107 で戻した**）。
    *
-   * ⚠ **3段組みには戻さない。**材料の一覧と儲け方の3ルート（#23）は
-   *   図に列が無いので落ちている（→ #107 ／ #108）。**戻すなら列を足す話になる。**
+   * ⚠ **3段組みには戻さない。**儲け方の3ルート（#23）は出さない（→ #108。PO 回答 2026-09-14）。
+   *   **出し方そのものは `taxonomy/routes.ts` に残してある**ので、戻すなら列を足す話になる。
    */
   private buildRecipeRow(recipe: RecipeDef, cy: number, objs: Phaser.GameObjects.GameObject[]): void {
     const max = this.craftingSystem.maxCraftTimes(recipe.id)
@@ -311,7 +313,8 @@ export class CraftMenu {
       fontSize: `${CRAFT_CELL_FONT_PX}px`, color: '#ffffff',
     }).setOrigin(1, 0.5)
     const timeText = this.cell(CRAFT_TIME_L, cy, '', CRAFT_CELL_FONT_PX, '#aaddaa', CRAFT_TIME_W)
-    objs.push(madeText, timeText)
+    const ingText = this.cell(CRAFT_ING_L, cy, '', CRAFT_CELL_FONT_PX, '#aabbcc', CRAFT_ING_W)
+    objs.push(madeText, timeText, ingText)
 
     // ── 作る ── ⚠ **作れないときは字が理由に変わる**（商人タブと同じ作り）
     const craftBg = this.scene.add
@@ -325,7 +328,7 @@ export class CraftMenu {
 
     // ── 数量 —— `-10` `-1` `□` `+1` `+10` `最大` ──
     const input = this.createInput(recipe)
-    const row: Row = { recipe, max, input, madeText, timeText, craftBg, craftLabel }
+    const row: Row = { recipe, max, input, madeText, timeText, ingText, craftBg, craftLabel }
     craftBg.on('pointerdown', () => this.craft(row))
 
     // ⚠ **`tryAddDom` は左上基点**（`domInput.ts` の注記）
@@ -368,18 +371,15 @@ export class CraftMenu {
   }
 
   /**
-   * `需要` の列 —— **いまの島では手に入らない材料の産地**（#33）。
+   * `需要` の列 —— **出来上がる品が高く売れる島**（PO 回答 2026-09-14。Q1）。
    *
-   * ⚠ **「売れる島」ではない。**列の名は PO 判断（`sessions/questions-craft-tab.md` Q1）。
-   * ⚠ **ここで手に入る材料には出さない。**全部に出すと列が溢れるうえ、
-   *   **答えたいのは「ここで手に入るか」**である。産地が `なし` の品はどの島でも買える。
+   * ⚠ **材料の産地ではない。**2026-09-13 に入れたときは `＠` を列にしたもので、
+   *   **PO の図の `ノアキータ` と字が偶然そろっていた**だけだった。
+   * ⚠ **出どころは `islands.ts` の `DEMAND_TABLE` 1箇所。**ここに島の名を書かない。
+   * ⚠ **`向く土地: どこでも` の品は売れる島が無いので空欄**（106本中42本。PO 了承済み）。
    */
   private demandLabel(recipe: RecipeDef): string {
-    const island = this.islandOf()
-    const origins = recipe.ingredients
-      .map(ing => this.registry.getItem(ing.itemId).origin)
-      .filter(o => o !== 'なし' && o !== island)
-    return [...new Set(origins)].join(CRAFT_DEMAND_SEP)
+    return demandIsland(this.registry.getItem(recipe.outputItemId).suitedLand) ?? ''
   }
 
   /** 回数入力の `<input>`。打鍵ではこの要素を作り直さない（カーソルが飛ぶため） */
@@ -436,6 +436,13 @@ export class CraftMenu {
       //   時間が値段である以上、ここがずれると**払う額を間違えて見せている**ことになる。
       const minutes = this.craftingSystem.minutesFor(recipe.id) * times
       this.fit(row.timeText, craftTimeLabel(minutes), CRAFT_TIME_W)
+      // ⚠ **`材料` も回数を掛けたぶんを出す**（`作成数` と同じ数え方。#107）。
+      //   **手持ちの数（かつての `(400)`）は出さない** —— 付けると列に収まるのが
+      //   106本中32本まで落ちる（`layout.ts` の `CRAFT_ING_W` に実測）
+      this.fit(row.ingText, craftIngredientsLabel(recipe.ingredients.map(ing => ({
+        name: this.registry.getItem(ing.itemId).display.name,
+        quantity: ing.quantity * times,
+      }))), CRAFT_ING_W)
     }
 
     // ⚠ **理由はボタンの字になる**（1行になって、理由を置く段が無くなったため）

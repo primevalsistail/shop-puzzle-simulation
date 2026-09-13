@@ -15,10 +15,11 @@ import {
   PRESET_COLS, PRESET_GAP_X, PRESET_CELL_W, PRESET_TEXT_L_OFFSET, PRESET_TEXT_W,
   PRESET_NAME_INPUT_W, PRESET_NAME_INPUT_H,
   craftTimeLabel,
-  CRAFT_HEAD_Y, CRAFT_ROWS_TOP, CRAFT_ROW_H, CRAFT_COLS,
+  CRAFT_HEAD_Y, CRAFT_HEAD_FONT_PX, CRAFT_ROWS_TOP, CRAFT_ROW_H, CRAFT_COLS,
   CRAFT_NAME_L, CRAFT_NAME_W, CRAFT_NAME_FONT_PX, CRAFT_CELL_FONT_PX,
   CRAFT_MADE_R, CRAFT_STOCK_R, CRAFT_TIME_L, CRAFT_TIME_W,
-  CRAFT_DEMAND_L, CRAFT_DEMAND_W, CRAFT_DEMAND_SEP,
+  CRAFT_DEMAND_L, CRAFT_DEMAND_W,
+  CRAFT_ING_L, CRAFT_ING_W, CRAFT_COL_GAP, CRAFT_NUM_W, craftIngredientsLabel,
   CRAFT_BTN_W, CRAFT_BTN_L, CRAFT_BTN_FONT_PX, CRAFT_BTN_LABEL,
   CRAFT_REASON_INGREDIENTS, CRAFT_REASON_STOCK, CRAFT_REASON_TIME,
   CRAFT_REASON_EMPTY, CRAFT_REASON_NOT_INT,
@@ -72,7 +73,8 @@ import { salePrice } from '../taxonomy/derive.js'
 import {
   MISSION_CAP, ORDER_REWARD_RATE, orderQuantity,
 } from '../components/progress/DeliveryOrders.js'
-import { ISLANDS } from '../taxonomy/islands.js'
+import { ISLANDS, demandIsland } from '../taxonomy/islands.js'
+import { ALL_RECIPES } from '../taxonomy/recipes.js'
 
 /**
  * **受入条件2（棚を覆わない）を機械で見る。**
@@ -434,9 +436,10 @@ describe('金額の文字が枠に収まる', () => {
 /**
  * 工房の表（**PO 赤入れ 2026-09-13**「↓のように表示して」）。
  *
- * **商品 ／ 作成数 ／ 在庫 ／ 時間 ／ 需要 ／ 数量 ／ 作る。**
+ * **商品 ／ 作成数 ／ 在庫 ／ 時間 ／ 需要 ／ 材料 ／ 数量 ／ 作る。**
  * ⚠ **表にした時点で、はみ出す先は隣の列になった。**
  *   3段組みのときは左半分ぜんぶが文字の領域だったので、ここが測られていなかった。
+ * ⚠ **`材料` は8列目として戻した列**（#107。2026-09-14）。**足した列も同じように見ること。**
  */
 describe('工房の表', () => {
   it('列が左から右へ、重ならずに並ぶ', () => {
@@ -444,14 +447,15 @@ describe('工房の表', () => {
     expect(CRAFT_MADE_R).toBeLessThan(CRAFT_STOCK_R)
     expect(CRAFT_STOCK_R).toBeLessThan(CRAFT_TIME_L)
     expect(CRAFT_TIME_L + CRAFT_TIME_W).toBeLessThanOrEqual(CRAFT_DEMAND_L)
-    expect(CRAFT_DEMAND_L + CRAFT_DEMAND_W).toBeLessThanOrEqual(CRAFT_QTY_L)
+    expect(CRAFT_DEMAND_L + CRAFT_DEMAND_W).toBeLessThanOrEqual(CRAFT_ING_L)
+    expect(CRAFT_ING_L + CRAFT_ING_W).toBeLessThanOrEqual(CRAFT_QTY_L)
     expect(CRAFT_QTY_L + CRAFT_QTY_W).toBeLessThanOrEqual(CRAFT_BTN_L)
     expect(CRAFT_BTN_L + CRAFT_BTN_W).toBeLessThanOrEqual(CONTENT_R)
     expect(CRAFT_NAME_L).toBeGreaterThanOrEqual(CONTENT_L)
   })
 
-  it('見出しの字が7つある（列と同じ数）', () => {
-    expect(CRAFT_COLS).toEqual(['商品', '作成数', '在庫', '時間', '需要', '数量', '作る'])
+  it('見出しの字が8つある（列と同じ数）', () => {
+    expect(CRAFT_COLS).toEqual(['商品', '作成数', '在庫', '時間', '需要', '材料', '数量', '作る'])
   })
 
   it('見出しの行と、1件目の行が重ならない', () => {
@@ -475,6 +479,7 @@ describe('工房の表', () => {
 
   it('4桁の作成数・在庫が、左隣の列に食い込まない', () => {
     const w = estTextWidth('9999', CRAFT_CELL_FONT_PX)
+    expect(w).toBeLessThanOrEqual(CRAFT_NUM_W)
     expect(CRAFT_MADE_R - w).toBeGreaterThan(CRAFT_NAME_L + CRAFT_NAME_W)
     expect(CRAFT_STOCK_R - w).toBeGreaterThan(CRAFT_MADE_R)
   })
@@ -489,17 +494,83 @@ describe('工房の表', () => {
   })
 
   /**
-   * `需要` の列 —— **いまの島では手に入らない材料の産地。**
+   * `需要` の列 —— **その品が高く売れる島**（PO 回答 2026-09-14）。
    *
-   * ⚠ **2島までを収める。**3島になる組み合わせは（レシピ×島）424組中2組しかないので、
-   *   そこは `…` に詰まってよい。**2島は 60組ある。**
+   * ⚠ **産地ではない。**⚠ **島は多くても1つ**（需要表が `向く土地` 1つにつき1行）なので、
+   *   繋ぎの字は要らない。**いちばん長い島名が収まればよい。**
    */
-  it('2島ぶんの産地が `需要` の列に収まる', () => {
-    const names = ISLANDS.map(i => i.name)
-    const worst = [...names].sort(
-      (a, b) => estTextWidth(b, CRAFT_CELL_FONT_PX) - estTextWidth(a, CRAFT_CELL_FONT_PX))
-      .slice(0, 2).join(CRAFT_DEMAND_SEP)
-    expect(estTextWidth(worst, CRAFT_CELL_FONT_PX)).toBeLessThanOrEqual(CRAFT_DEMAND_W)
+  it('いちばん長い島名が `需要` の列に収まる', () => {
+    for (const island of ISLANDS) {
+      expect(estTextWidth(island.name, CRAFT_CELL_FONT_PX)).toBeLessThanOrEqual(CRAFT_DEMAND_W)
+    }
+  })
+
+  /**
+   * ⚠ **`向く土地: どこでも` の品は売れる島が無いので空欄**（PO 了承済み 2026-09-14）。
+   *   **実測: 106レシピ中42本が空欄。**空欄が全部になっていたら、引き方を間違えている。
+   */
+  it('`需要` は出来上がる品の `向く土地` から引く（どこでもは空欄。106本中42本）', () => {
+    const blank = ALL_RECIPES.filter(
+      r => demandIsland(ALL_ITEMS.find(i => i.id === r.outputItemId)!.suitedLand) === undefined)
+    expect(blank.length).toBe(42)
+    expect(blank.length).toBeLessThan(ALL_RECIPES.length)
+  })
+
+  /**
+   * `材料` の列（#107。**PO 回答 2026-09-14「戻す」**）。
+   *
+   * ⚠ **幅は「残りぜんぶ」**なので、左の列を広げるとここが黙って短くなる。
+   *   **収まる本数を数えて見る**のはそのため。
+   */
+  it('材料が1つのレシピは、必ず `材料` の列に収まる', () => {
+    for (const recipe of ALL_RECIPES) {
+      if (recipe.ingredients.length !== 1) continue
+      const label = craftIngredientsLabel(recipe.ingredients.map(ing => ({
+        name: ALL_ITEMS.find(i => i.id === ing.itemId)!.display.name,
+        quantity: ing.quantity,
+      })))
+      expect(estTextWidth(label, CRAFT_CELL_FONT_PX), label).toBeLessThanOrEqual(CRAFT_ING_W)
+    }
+  })
+
+  /**
+   * ⚠ **全部は収まらない**（材料が3〜4つのレシピ）。**末尾が `…` に詰まる。**
+   *   **実測 2026-09-14: 1回ぶんで 106本中 77本。**
+   *   **ここが減ったら、左のどれかの列が広がっている。**
+   */
+  it('1回ぶんの材料が、106本中 77本は `材料` の列に収まる', () => {
+    const fit = ALL_RECIPES.filter(r => estTextWidth(
+      craftIngredientsLabel(r.ingredients.map(ing => ({
+        name: ALL_ITEMS.find(i => i.id === ing.itemId)!.display.name,
+        quantity: ing.quantity,
+      }))), CRAFT_CELL_FONT_PX) <= CRAFT_ING_W).length
+    expect(fit).toBe(77)
+  })
+
+  /**
+   * ⚠ **見出しの字も列に収まること。**列を桁ぴったりに詰めた（#107）ので、
+   *   **いちばん狭いのは見出しのほう**になった —— `作成数`（3文字 = 36px）は
+   *   幅 30px の列より広く、**右そろえで `商品` の右端まで 2px しか空いていない。**
+   *   ⚠ **`作成数` `在庫` は右そろえ**なので、左へはみ出す。
+   */
+  it('見出しの字が、それぞれの列の幅に収まる', () => {
+    const [name, made, stock, time, demand, ing] = CRAFT_COLS
+    expect(estTextWidth(name, CRAFT_HEAD_FONT_PX)).toBeLessThanOrEqual(CRAFT_NAME_W)
+    expect(estTextWidth(time, CRAFT_HEAD_FONT_PX)).toBeLessThanOrEqual(CRAFT_TIME_W)
+    expect(estTextWidth(demand, CRAFT_HEAD_FONT_PX)).toBeLessThanOrEqual(CRAFT_DEMAND_W)
+    expect(estTextWidth(ing, CRAFT_HEAD_FONT_PX)).toBeLessThanOrEqual(CRAFT_ING_W)
+    // 右そろえの2つは、左隣の列に食い込まないこと
+    expect(CRAFT_MADE_R - estTextWidth(made, CRAFT_HEAD_FONT_PX))
+      .toBeGreaterThan(CRAFT_NAME_L + CRAFT_NAME_W)
+    expect(CRAFT_STOCK_R - estTextWidth(stock, CRAFT_HEAD_FONT_PX)).toBeGreaterThan(CRAFT_MADE_R)
+  })
+
+  /** ⚠ **列と列のあいだは1つの値から**（詰め忘れが `材料` の `…` として出るのを防ぐ） */
+  it('列のあいだが `CRAFT_COL_GAP` でそろっている', () => {
+    expect(CRAFT_TIME_L - CRAFT_STOCK_R).toBe(CRAFT_COL_GAP)
+    expect(CRAFT_DEMAND_L - (CRAFT_TIME_L + CRAFT_TIME_W)).toBe(CRAFT_COL_GAP)
+    expect(CRAFT_ING_L - (CRAFT_DEMAND_L + CRAFT_DEMAND_W)).toBe(CRAFT_COL_GAP)
+    expect(CRAFT_QTY_L - (CRAFT_ING_L + CRAFT_ING_W)).toBe(CRAFT_COL_GAP)
   })
 
   /**

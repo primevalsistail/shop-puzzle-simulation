@@ -204,7 +204,6 @@ export class GameScene extends Phaser.Scene {
       this.registry_,
       this.recipeUnlocks,
       this.placeFrame,
-      () => this.world.getIsland(),
       () => this.onCraftMenuClosed(),
     )
     this.purchaseMenu = new PurchaseMenu(

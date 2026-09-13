@@ -775,9 +775,11 @@ export const CHAR_ART_W = 170
 /**
  * 工房（`CraftMenu`）の表（**PO 赤入れ 2026-09-13**「↓のように表示して」）。
  *
- * **商品 ／ 作成数 ／ 在庫 ／ 時間 ／ 需要 ／ 数量 ／ 作る**（列の名は `CRAFT_COLS`）。
- * ⚠ **材料の一覧と、儲け方の3ルート（#23）は図に列が無い**ので行から落ちている
- *   （→ #107 ／ #108）。**戻すなら列を足す話になる。**
+ * **商品 ／ 作成数 ／ 在庫 ／ 時間 ／ 需要 ／ 材料 ／ 数量 ／ 作る**（列の名は `CRAFT_COLS`）。
+ * ⚠ **`材料` は PO 回答で戻した列**（#107。2026-09-14）。**図には無いが、
+ *   「何が要るか」が画面から消えていた**ので8列目として足してある。
+ * ⚠ **儲け方の3ルート（#23）は出さない**（→ #108。PO 回答 2026-09-14）。
+ *   **`taxonomy/routes.ts` の `routeValues` は残してある**ので、戻すなら列を足す話になる。
  *
  * ⚠ **納品タブ（`DELIVERY_*`）と同じく左から順に決める。**
  *   商人タブ・改装タブが右端から決めているのは**右端にボタンが貼り付いているから**で、
@@ -798,7 +800,17 @@ export const CRAFT_ROWS_TOP = ROWS_TOP_NO_SUBTITLE + 30
 export const CRAFT_ROW_H = 40
 
 /** 列の名。⚠ **見出しの字はここだけ。**`CraftMenu.ts` に書かない */
-export const CRAFT_COLS = ['商品', '作成数', '在庫', '時間', '需要', '数量', '作る'] as const
+export const CRAFT_COLS =
+  ['商品', '作成数', '在庫', '時間', '需要', '材料', '数量', '作る'] as const
+
+/**
+ * 列と列のあいだ。⚠ **列ごとに別の値を置かない**（`材料` の幅がここから出るため）。
+ * ⚠ **`材料` 以外は「いちばん長い中身」ぴったりに詰めてある。**
+ *   余らせると、そのぶん `材料` が短くなって `…` に詰まる行が増える。
+ */
+export const CRAFT_COL_GAP = 8
+/** 右そろえの数の列（`作成数` ／ `在庫`）の幅。**4桁 = 28.2px**（`CRAFT_CELL_FONT_PX`） */
+export const CRAFT_NUM_W = 30
 
 /**
  * `商品` の左端と幅。**出来上がる品の名前だけ**（`×3(400)` は `作成数` と `在庫` に割れた）。
@@ -814,10 +826,15 @@ export const CRAFT_NAME_FONT_PX = 14
 /** 行の中の数字と島名の大きさ */
 export const CRAFT_CELL_FONT_PX = 11
 
-/** `作成数` の右端（右そろえ）。**`出来高 × 回数`** であって、1回ぶんではない */
-export const CRAFT_MADE_R = CRAFT_NAME_L + CRAFT_NAME_W + 44
+/**
+ * `作成数` の右端（右そろえ）。**`出来高 × 回数`** であって、1回ぶんではない。
+ *
+ * ⚠ **`材料` の列を足したとき 44px → 桁ぴったりに詰めた**（2026-09-14。#107）。
+ *   **空けておいた余白は `材料` へ回してある。**
+ */
+export const CRAFT_MADE_R = CRAFT_NAME_L + CRAFT_NAME_W + CRAFT_COL_GAP + CRAFT_NUM_W
 /** `在庫` の右端（右そろえ）。**出来上がる品の在庫** */
-export const CRAFT_STOCK_R = CRAFT_MADE_R + 56
+export const CRAFT_STOCK_R = CRAFT_MADE_R + CRAFT_COL_GAP + CRAFT_NUM_W
 /**
  * `時間` の左端と幅。**`craftTimeLabel` が作る `◯分`**。
  *
@@ -825,25 +842,25 @@ export const CRAFT_STOCK_R = CRAFT_MADE_R + 56
  *   作れる回数のあいだは必ず4桁に収まる。**それ以上を手で打つと `…` に詰まる**が、
  *   そのときは `作る` が押せない状態なので実害は無い。
  *
- * ⚠ **`（営業◯分）` を消しても幅は詰めていない**（PO 指示 2026-09-14）。
- *   **`需要` の左端はここから導いている**ので、詰めると表全体が左へ寄り、
- *   **`需要` と `数量` のあいだに穴が開く**（`数量` と `作る` は右端に固定）。
- *   **穴の場所が変わるだけなので、動かさない。**
+ * ⚠ **`（営業◯分）` を消したぶんは、いま `材料` が使っている**（2026-09-14。#107）。
+ *   消した直後（118px のまま）は「詰めても穴の場所が変わるだけ」だったが、
+ *   **8列目が入って穴に置くものができた**ので、`9999分`（39.2px）ぴったりまで詰めた。
+ *   ⚠ **ここを広げると、そのぶん `材料` が短くなる。**
  */
-export const CRAFT_TIME_L = CRAFT_STOCK_R + 16
-export const CRAFT_TIME_W = 118
+export const CRAFT_TIME_L = CRAFT_STOCK_R + CRAFT_COL_GAP
+export const CRAFT_TIME_W = 42
 /**
- * `需要` の左端と幅。
+ * `需要` の左端と幅。**中身は「その品が高く売れる島」**（PO 回答 2026-09-14。Q1）。
  *
- * ⚠ **中身は「いまの島では手に入らない材料の産地」である**（これまで `＠` で付けていたもの）。
- *   **「売れる島」ではない。**→ 列名は PO 判断（`sessions/questions-craft-tab.md` Q1）。
- * ⚠ **2島まで収まる幅**（`ハルヴェラ・リナツィア` ＝ 121px）。
- *   **3島になる組み合わせは 424組中2組**しかないので、そこは `…` に詰まってよい。
+ * ⚠ **材料の産地ではない。**2026-09-13 に入れたときは `＠` を列にしたもので、
+ *   **PO の図の `ノアキータ` と字が一致していただけ**だった。
+ *   **出どころは `islands.ts` の `DEMAND_TABLE`**（品の `向く土地` → 島）。
+ * ⚠ **島は多くても1つ**（需要表が `向く土地` 1つにつき1行）。だから`・` の繋ぎは要らない。
+ *   **いちばん長い島名 `ミフユリア` = 55px** に合わせてある。
+ * ⚠ **`向く土地: どこでも` の品は行が無いので空欄**（106レシピ中42本。PO 了承済み）。
  */
-export const CRAFT_DEMAND_L = CRAFT_TIME_L + CRAFT_TIME_W + 8
-export const CRAFT_DEMAND_W = 129
-/** 産地が2つ以上あるときの繋ぎ。⚠ **幅の見積もりに入る**ので `layout.test.ts` と揃える */
-export const CRAFT_DEMAND_SEP = '・'
+export const CRAFT_DEMAND_L = CRAFT_TIME_L + CRAFT_TIME_W + CRAFT_COL_GAP
+export const CRAFT_DEMAND_W = 58
 
 /**
  * `作る` ボタン。**右端から決める。**
@@ -907,6 +924,40 @@ export const CRAFT_STEP_LABELS = {
   minusTen: '-10', minusOne: '-1', plusOne: '+1', plusTen: '+10', max: '最大',
 } as const
 export const CRAFT_STEP_FONT_PX = 11
+
+/**
+ * `材料` の列（**#107。PO 回答 2026-09-14「戻す」**）。
+ *
+ * ⚠ **幅は「残りぜんぶ」である。**左の5列を詰めて空けたところを、ここが全部使う。
+ *   **だから `数量` の列の左端から引く**（左から積むと、詰め忘れが `…` になって現れない）。
+ * ⚠ **いちばん右の文字の列なので、ここだけが可変。**
+ *   ほかの列は「いちばん長い中身」ぴったりに詰めてある。
+ *
+ * **実測（2026-09-14。106レシピ）**: 幅 175px に
+ * **`くるみのビスケット×2`（115px）のような材料1つは必ず収まる**／
+ * **材料2つは 43本中42本**／**全体では 106本中 77本**が収まり、
+ * **残りは末尾が `…` に詰まる**（材料3〜4つのレシピ。50本中29本）。
+ * ⚠ **`(在庫)` を付けると 106本中32本しか収まらない**ので、**手持ちの数は出していない**
+ *   （表にする前の `蕎麦の実×3(400)` から `(400)` が落ちている）。
+ */
+export const CRAFT_ING_L = CRAFT_DEMAND_L + CRAFT_DEMAND_W + CRAFT_COL_GAP
+export const CRAFT_ING_W = CRAFT_QTY_L - CRAFT_COL_GAP - CRAFT_ING_L
+/** 材料と材料のあいだ。⚠ **幅の見積もりに入る**ので `craftIngredientsLabel` と揃える */
+export const CRAFT_ING_SEP = '  '
+
+/**
+ * `材料` の列の字 —— **`蕎麦の実×3` を並べたもの。**
+ *
+ * ⚠ **数は「1回ぶん × 回数」**（`作成数` と同じ数え方）。**1回ぶんではない。**
+ * ⚠ **産地（`＠ノアキータ`）は付けない**（2026-09-14）。
+ *   **付けると 424組中 217組しか収まらない**（付けなければ 320組）。
+ * ⚠ **言い回しは PO の領分（#79）。**ここに置いてあるのは幅を測るため。
+ */
+export function craftIngredientsLabel(
+  parts: readonly { readonly name: string, readonly quantity: number }[],
+): string {
+  return parts.map(p => `${p.name}×${p.quantity}`).join(CRAFT_ING_SEP)
+}
 
 /**
  * 加工が**何分かかるか**を1行にする。
