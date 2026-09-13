@@ -151,7 +151,7 @@ export class InventoryPanel {
 
     const cx = PANEL_X + PANEL_WIDTH / 2
 
-    // 見出しの行 — 検索の入力欄 ＋ 件数（154品あるので位置が要る）
+    // 見出しの行 — 検索の入力欄 ＋ 件数（161品あるので位置が要る）
     this.search.place(
       SEARCH_X + SEARCH_W / 2, HEAD_Y, SEARCH_W, SEARCH_H, '名前で探す',
       q => { this.paging.setQuery(q); this.redraw() },

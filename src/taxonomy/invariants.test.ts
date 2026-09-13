@@ -182,7 +182,7 @@ describe('検索用の読み（#65）', () => {
   it('全品に読みがある（1品でも欠けると、その品だけ検索から黙って外れる）', () => {
     const missing = ALL_ITEMS.filter(i => !i.display.reading)
     expect(missing.map(i => i.id)).toEqual([])
-    expect(ALL_ITEMS).toHaveLength(154)
+    expect(ALL_ITEMS).toHaveLength(161)
   })
 
   it('読みはひらがな（と長音符）だけ', () => {

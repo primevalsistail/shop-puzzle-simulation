@@ -362,7 +362,7 @@ export class PurchaseMenu {
    * ⚠ **行そのものを暗くする。**買える行と同じ見た目で「あとN個」だけ違うと、
    *   **買えるのに在庫が無いだけ**に読める。
    * ⚠ **`この島の産` は出ない。**U2 待ちの品は必ず tier>=2 で、
-   *   **tier>=2 の品はすべて産地が `なし`**（実測・154品）。産地の島の行の 5.6px 問題には当たらない。
+   *   **tier>=2 の品はすべて産地が `なし`**（実測・161品）。産地の島の行の 5.6px 問題には当たらない。
    */
   private buildUpcomingRow(
     mat: ItemDef, salesLeft: number, y: number, objs: Phaser.GameObjects.GameObject[],

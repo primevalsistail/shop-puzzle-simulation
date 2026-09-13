@@ -1,5 +1,5 @@
 /**
- * レシピ **100本**
+ * レシピ **106本**
  *
  * ⚠ **#86 で7本足した**（小麦粉・うどん ／ 麻糸・麻布・染めの麻布・麻の上着 ／ 染料）。
  *
@@ -505,6 +505,51 @@ export const ALL_RECIPES: readonly RecipeDef[] = [
     outputItemId: 'sword', outputQuantity: 1,
     ingredients: [{ itemId: 'iron', quantity: 2 }, { itemId: 'reindeer_hide', quantity: 1 }, { itemId: 'file', quantity: 1 }],
     durationMinutes: 300,
+  },
+  // ⚠ **#89 金属で開いた品。**段は **鉄鉱石（tier1）＋ 松の薪（tier2）→ 鉄（tier3）→ ここ（tier4）**。
+  //   ⚠ **所要分は tier4 の上限 356分より下に置いてある**（`depth.test.ts`
+  //   「着手できる最小の手際で所要が1日に収まる」。tier4 は 2^((20−12)/5) ≈ 3.03倍 まで伸びる）。
+  //   ⚠ **高い品になっているのは材料（鉄）と所要分と `贅沢さ` のせい。**
+  //   **新しい倍率も例外も作っていない。**
+  {
+    id: 'recipe_kitchen_knife', display: { name: '包丁をつくる' },
+    outputItemId: 'kitchen_knife', outputQuantity: 2,
+    ingredients: [{ itemId: 'iron', quantity: 1 }, { itemId: 'birch', quantity: 1 }],
+    durationMinutes: 180,
+  },
+  {
+    id: 'recipe_shears', display: { name: 'はさみをつくる' },
+    outputItemId: 'shears', outputQuantity: 2,
+    ingredients: [{ itemId: 'iron', quantity: 2 }],
+    durationMinutes: 240,
+  },
+  {
+    id: 'recipe_iron_pot', display: { name: '鍋をつくる' },
+    outputItemId: 'iron_pot', outputQuantity: 2,
+    ingredients: [{ itemId: 'iron', quantity: 3 }],
+    durationMinutes: 300,
+  },
+  {
+    id: 'recipe_nail', display: { name: '釘をつくる' },
+    outputItemId: 'nail', outputQuantity: 4,
+    ingredients: [{ itemId: 'iron', quantity: 1 }],
+    durationMinutes: 120,
+  },
+  // ⚠ **#89 粘土で開いた品。**段は **粘土（tier1）＋ 松の薪（tier2）→ ここ（tier3）**。
+  //   **焼く工程を薪で表している**ので、ハルヴェラの粘土とミフユリアの松が揃わないと作れない。
+  //   ⚠ **薪は「窯を焚く」ぶんであって、値打ちの4つ目の出どころではない。**
+  //   売値は既存の式のまま（材料費 ＋ 加工利益）。
+  {
+    id: 'recipe_clay_plate', display: { name: '皿を焼く' },
+    outputItemId: 'clay_plate', outputQuantity: 4,
+    ingredients: [{ itemId: 'clay', quantity: 3 }, { itemId: 'pine_firewood', quantity: 1 }],
+    durationMinutes: 240,
+  },
+  {
+    id: 'recipe_clay_jar', display: { name: '壺を焼く' },
+    outputItemId: 'clay_jar', outputQuantity: 2,
+    ingredients: [{ itemId: 'clay', quantity: 5 }, { itemId: 'pine_firewood', quantity: 2 }],
+    durationMinutes: 360,
   },
   // ══════ 道具の10品 ══════
   {

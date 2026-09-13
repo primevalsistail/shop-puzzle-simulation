@@ -99,7 +99,7 @@ describe('materialNeeds — 本数と数', () => {
  * **画面に収まるかを実データで見る。**
  * 島ごとの素材が多すぎると、一覧が「全部足りない」になって読めなくなる。
  */
-describe('実データ（154品 / 100レシピ）', () => {
+describe('実データ（161品 / 106レシピ）', () => {
   const needs = materialNeeds(ALL_RECIPES)
   const byId = new Map(ALL_ITEMS.map(i => [i.id, i]))
 
@@ -125,7 +125,7 @@ describe('実データ（154品 / 100レシピ）', () => {
 })
 
 /**
- * ⚠ **100本中67本が `outputQuantity` 2個以上。**
+ * ⚠ **106本中73本が `outputQuantity` 2個以上。**
  *   割らずに数えると、要る素材を段ごとに最大4倍に見積もる。
  */
 describe('1回で複数できるレシピ', () => {

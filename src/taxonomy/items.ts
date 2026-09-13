@@ -1,5 +1,5 @@
 /**
- * 実アイテム **154品**（素材54 ＋ 加工品100）
+ * 実アイテム **161品**（素材55 ＋ 加工品106）
  *
  * ⚠ **#86 で 麻・藍・小麦 の3素材と、そこから伸びる加工品7品を足した**（135品 → 145品）。
  *   足さなかった理由は「無くても成立している」だったが、それは**商品として扱わない**という判断で
@@ -18,7 +18,7 @@
  *
  * ⚠ 数値（basePrice）は一度置いたもので、調整していない。
  *
- * ⚠ **`display.reading`（検索用の読み）も手で書くデータ**（#65）。**全154品に必ず置く。**
+ * ⚠ **`display.reading`（検索用の読み）も手で書くデータ**（#65）。**全161品に必ず置く。**
  *   ひらがなだけ（カタカナの品も `あすぱらがす` のようにひらがなで書く）。**画面には出さない。**
  *   判定は `invariants.test.ts`「検索用の読み（#65）」。
  */
@@ -26,7 +26,7 @@
 import type { ItemDef } from './axes.js'
 
 export const ALL_ITEMS: readonly ItemDef[] = [
-  // ══════ 素材（tier1）54品 ══════
+  // ══════ 素材（tier1）55品 ══════
 
   // ── ハルヴェラ島（春） ──
   {
@@ -94,6 +94,16 @@ export const ALL_ITEMS: readonly ItemDef[] = [
     mainKind: '飲みもの', origin: 'ハルヴェラ', luxury: '日用', suitedLand: '温暖な土地',
     shape: [[1], [1]], basePrice: 30,
     originReason: '羊毛と同じ羊から。子が生まれて乳が出はじめるのが春',
+  },
+  // ⚠ **#89 で足した素材。**鉄鉱石（#87）と同じく **island-goods.md §2-B**
+  //   （土地から掘り出すものには PO が島を指名して産地を付ける）で島を決めている。
+  //   **`なし` に落とすと U4 でどの島の商人にも並び、この系統から航海の理由が消える。**
+  //   ⚠ **旬の話は書かない。**旬では島が決まらないから指名で決めた、という品である。
+  {
+    id: 'clay', display: { name: '粘土', reading: 'ねんど', color: 0xc08457 },
+    mainKind: '道具', origin: 'ハルヴェラ', luxury: '日用', suitedLand: 'どこでも',
+    shape: [[1, 1]], basePrice: 14,
+    originReason: '川べりの土を掘って採る。旬では島が決まらないので、島は指名で決めた',
   },
 
   // ── リナツィア島（夏） ──
@@ -372,7 +382,7 @@ export const ALL_ITEMS: readonly ItemDef[] = [
     originReason: 'かもめは季節を問わず船について回る',
   },
 
-  // ══════ 加工品（tier2以上）100品 ══════
+  // ══════ 加工品（tier2以上）106品 ══════
   // 産地はすべて `なし`。**加工品は旬を持たないため**（island-goods.md §2）。
   // 「主材料の産地」を採らなかった理由は crafted-goods.md §5 を見ること。
 
@@ -867,6 +877,56 @@ export const ALL_ITEMS: readonly ItemDef[] = [
     id: 'sword', display: { name: '剣', reading: 'けん', color: 0x9aa3b2 },
     mainKind: '道具', origin: 'なし', luxury: '贅沢', suitedLand: 'どこでも',
     shape: [[1], [1], [1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  // ⚠ **#89 金属で開いた品（包丁・はさみ・鍋・釘）。**#87 で入った **鉄**（tier3）から伸ばしている。
+  //   **主種類は `道具`**（「手に持って使うもの」）。**金属のためのタグも主種類も足していない。**
+  //   ⚠ **値打ちの出どころは「材料」「所要分」「贅沢さ」の3つだけ。**
+  //   新しい倍率も例外も作っていない。売値は既存の式のまま derive.ts が積む。
+  //   ⚠ **`向く土地` は4品とも `どこでも`。**気候に答える品ではないので `どこでも`
+  //   （axes.ts の「用途が一つに定まらないもの」側）。**取りこぼしではない。**
+  {
+    id: 'kitchen_knife', display: { name: '包丁', reading: 'ほうちょう', color: 0xa8b2bd },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: 'どこでも',
+    shape: [[1], [1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'shears', display: { name: 'はさみ', reading: 'はさみ', color: 0x8895a4 },
+    mainKind: '道具', origin: 'なし', luxury: '上等', suitedLand: 'どこでも',
+    shape: [[1], [1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'iron_pot', display: { name: '鍋', reading: 'なべ', color: 0x5d646d },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: 'どこでも',
+    shape: [[1, 1], [1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  {
+    id: 'nail', display: { name: '釘', reading: 'くぎ', color: 0x7f8794 },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: 'どこでも',
+    shape: [[1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  // ⚠ **#89 粘土で開いた品（皿・壺）。**粘土（ハルヴェラ）を **松の薪**（ミフユリアの松から）で焼く。
+  //   鉄と同じく**2島を回らないと作れない**ので、指名した産地が航海の理由として効いている。
+  //   ⚠ **「器」を品名にしていない** —— 複数の品を含む語だから（island-goods.md §0-B）。
+  //   **皿・壺のように、1つの品を指す名前だけを置く。**
+  //   ⚠ `皿` は `木の椀` を含まない（椀と皿は別物）。`壺` も `松の桶` を含まない。
+  //   **どちらも §0-B の1段目に当たらない**ので、りんご／柿／ぶどうと同じ並びの関係になる。
+  {
+    id: 'clay_plate', display: { name: '皿', reading: 'さら', color: 0xd8cbb4 },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: 'どこでも',
+    shape: [[1, 1]],
+    originReason: '船倉で作る品。旬を持たないので産地なし',
+  },
+  // ⚠ `壺` の `向く土地` だけ `実りの土地`。axes.ts が「蓄える」の**手段**（塩・容れ物）を
+  //   この値に入れているため。**蓄えた結果（保存食）ではない**ので、定義どおりに当たる。
+  {
+    id: 'clay_jar', display: { name: '壺', reading: 'つぼ', color: 0x7a5a42 },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: '実りの土地',
+    shape: [[1, 1], [1, 1]],
     originReason: '船倉で作る品。旬を持たないので産地なし',
   },
   // ══════ 道具 10品 ══════

@@ -268,14 +268,17 @@ describe('導出', () => {
     }
   })
 
-  it('154品ある（素材54 ＋ 加工品100）', () => {
+  it('161品ある（素材55 ＋ 加工品106）', () => {
     // 110品/60本 → 宿題B で道具10品＋10本 → Phase 4 後に実りの土地を2品＋2本
     // → **段5 で tier5〜7 を13品＋13本**（tier5=7・tier6=4・tier7=2）。
     // → **#86 で素材3品（麻・藍・小麦）＋加工品7品＋レシピ7本。**
     //   **素材が増えたのはここが初めて**（それまでの追加はすべて tier2 以上だった）。
-    expect(ALL_ITEMS).toHaveLength(154)
-    expect(ALL_ITEMS.filter(i => i.basePrice !== undefined)).toHaveLength(54)
-    expect(ALL_RECIPES).toHaveLength(100)
+    // → **#87 で素材1品（鉄鉱石）＋加工品8品＋レシピ8本**（魔法の品4・鉄・武器3）。
+    // → **#89 で素材1品（粘土）＋加工品6品＋レシピ6本**
+    //   （鉄から 包丁・はさみ・鍋・釘 ／ 粘土から 皿・壺）。
+    expect(ALL_ITEMS).toHaveLength(161)
+    expect(ALL_ITEMS.filter(i => i.basePrice !== undefined)).toHaveLength(55)
+    expect(ALL_RECIPES).toHaveLength(106)
   })
 })
 
