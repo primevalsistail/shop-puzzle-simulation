@@ -34,6 +34,11 @@ export class Tutorial {
 
   constructor(private scene: Phaser.Scene) {}
 
+  /** 出ているか。**`GameScene` が `<input>` を隠すために見る**（depth 500 で全部を覆う） */
+  isShown(): boolean {
+    return this.container !== null
+  }
+
   shouldShow(): boolean {
     try {
       return !localStorage.getItem(TUTORIAL_KEY)

@@ -39,6 +39,22 @@ export function tryAddDom(
   }
 }
 
+/**
+ * 画面に載せた `<input>` をまとめて隠す／戻す。
+ *
+ * ⚠ **`<input>` は HTML なので、必ず canvas より上に出る。**
+ *   Phaser 側の depth をいくつにしても、**上に出した窓の下へは回らない。**
+ *   **上に重ねる画面（セーブ／できごと／幕／案内）を開いている間は、まとめて隠すしかない。**
+ *
+ * ⚠ **入れ物ごと隠す。**欄を1つずつ隠すと、**欄を増やしたときに忘れる**
+ *   （いまは4画面が `createInput()` を呼んでいる）。
+ */
+export function setDomInputsVisible(scene: Phaser.Scene, visible: boolean): void {
+  const container = scene.game.domContainer
+  if (!container) return
+  container.style.display = visible ? '' : 'none'
+}
+
 export interface InputOptions {
   readonly width: number
   readonly height: number

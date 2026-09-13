@@ -30,6 +30,7 @@ import { DeliveryTab } from '../ui/DeliveryTab.js'
 import { TradeMenu } from '../ui/TradeMenu.js'
 import { Tutorial } from '../ui/Tutorial.js'
 import { SaveLoadMenu } from '../ui/SaveLoadMenu.js'
+import { setDomInputsVisible } from '../ui/domInput.js'
 import { CharacterStrip } from '../ui/CharacterStrip.js'
 import { PlaceFrame } from '../ui/PlaceFrame.js'
 import { MessageWindow } from '../ui/MessageWindow.js'
@@ -104,6 +105,10 @@ export class GameScene extends Phaser.Scene {
   private inventoryPanel!: InventoryPanel
   private craftMenu!: CraftMenu
   private saveLoadMenu!: SaveLoadMenu
+  /** 幕（目標達成・GAME OVER）が出たか。**戻らないので真のまま** */
+  private curtainShown = false
+  /** いま `<input>` を隠しているか。**毎フレーム DOM を触らないための控え** */
+  private domInputsHidden = false
   private hud!: HUD
   private purchaseMenu!: PurchaseMenu
   private upgradeMenu!: UpgradeMenu
@@ -426,6 +431,38 @@ export class GameScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     this.timeManager.update(delta)
     this.craftingSystem.update(delta)
+    this.syncDomInputs()
+  }
+
+  /**
+   * 上に重ねる画面が開いている間、`<input>` を隠す。
+   *
+   * ⚠ **`<input>` は HTML なので、必ず canvas より上に出る。**
+   *   **depth では下へ回せない**ので、隠すしかない（`domInput.ts` の注記）。
+   * ⚠ **開く側・閉じる側に足さないこと。**入口は5箇所以上あり、**どれか1つを必ず忘れる。**
+   *   ここで毎フレーム見れば、画面を増やしても `isOverlayOpen()` だけ直せばよい。
+   */
+  private syncDomInputs(): void {
+    const hide = this.isOverlayOpen()
+    if (hide === this.domInputsHidden) return
+    this.domInputsHidden = hide
+    setDomInputsVisible(this, !hide)
+  }
+
+  /**
+   * **`CONTENT_DEPTH`（100）より上に出る画面が開いているか。**
+   *
+   * ⚠ **`isShelfBlocked()` と別物。**あちらは**時間と配置を止める**判定で、
+   *   **行った先（`PlaceFrame`）も入る。**こちらは `<input>` を隠す判定なので、
+   *   **行った先とマイセットは入れない** —— **欄があるのがその2つだから。**
+   * ⚠ **depth 100 より上に画面を足したら、ここに足すこと**
+   *   （いまは できごと120 ／ セーブ150 ／ 幕200 ／ 案内500）。
+   */
+  private isOverlayOpen(): boolean {
+    return this.messageWindow.isShown()
+      || this.saveLoadMenu.isVisible()
+      || this.tutorial.isShown()
+      || this.curtainShown
   }
 
   private setupBackground(): void {
@@ -1395,6 +1432,7 @@ export class GameScene extends Phaser.Scene {
 
   private showGoalComplete(): void {
     const { width, height } = this.scale
+    this.curtainShown = true
     const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setDepth(200)
     const title = this.add.text(width / 2, height / 2 - 80, '🎉 目標達成！', {
       fontSize: '52px', color: '#ffdd44', fontStyle: 'bold',
@@ -1426,6 +1464,7 @@ export class GameScene extends Phaser.Scene {
 
   private showGameOver(): void {
     const { width, height } = this.scale
+    this.curtainShown = true
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.85).setDepth(200)
     this.add.text(width / 2, height / 2 - 40, 'GAME OVER', {
       fontSize: '52px', color: '#ff4444', fontStyle: 'bold',
