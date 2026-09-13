@@ -56,7 +56,7 @@ export const DEMAND_TABLE: readonly DemandRow[] = [
 
 /**
  * 海。どの島のものでもなく四島に共通してある。
- * → island-goods.md §4。産地 `なし` の品はここから来る
+ * → island-goods.md §3。産地 `なし` の品はここから来る
  */
 export const SEA = {
   /**
