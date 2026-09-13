@@ -14,6 +14,7 @@ import { WorldState } from '../components/progress/WorldState.js'
 import { DeliveryOrders } from '../components/progress/DeliveryOrders.js'
 import { PeddlerStock } from '../components/progress/PeddlerStock.js'
 import { StoryEventScheduler } from '../components/progress/StoryEventScheduler.js'
+import { STORY_EVENTS } from '../components/progress/StoryEvents.js'
 import type { StoryChoice } from '../components/progress/StoryEvents.js'
 import { RecipeUnlocks, groupLabel } from '../components/progress/RecipeUnlocks.js'
 import { Upgrades } from '../components/progress/Upgrades.js'
@@ -368,6 +369,7 @@ export class GameScene extends Phaser.Scene {
       },
       applyShelfSize: () => this.applyShelfSize(),
       isMenuOpen: () => this.isShelfBlocked(),
+      raiseStoryEvent: (id: string) => this.raiseStoryEvent(id),
     })
 
     if (this.tutorial.shouldShow()) {
@@ -1078,6 +1080,22 @@ export class GameScene extends Phaser.Scene {
     //   すでに進んでいる時計は止めない
     this.stopAdvancing()
     this.messageWindow.show(def, choice => this.resolveStoryChoice(choice))
+  }
+
+  /**
+   * できごとを名指しで起こす。**確認用の道具から呼ぶためだけにある**（#51 で消える）。
+   *
+   * ⚠ **できごとの中身をここに書かないこと。**`STORY_EVENTS` から引いて、
+   *   **普通に起きたときと同じ道**（`stopAdvancing` → 窓）を通す。
+   *   別の道を作ると、確認用で見えたものと本番で起きるものが食い違う。
+   */
+  private raiseStoryEvent(id: string): boolean {
+    if (this.messageWindow.isShown()) return false
+    const def = STORY_EVENTS.find(e => e.id === id)
+    if (!def) return false
+    this.stopAdvancing()
+    this.messageWindow.show(def, choice => this.resolveStoryChoice(choice))
+    return true
   }
 
   /**

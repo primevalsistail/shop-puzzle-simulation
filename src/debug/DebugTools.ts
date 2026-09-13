@@ -31,6 +31,13 @@ export interface DebugDeps {
   readonly applyShelfSize: () => void
   /** メニューが開いている間はキーを効かせない */
   readonly isMenuOpen: () => boolean
+  /**
+   * できごとを名指しで起こす（#24）。起こせたら `true`。
+   *
+   * ⚠ **id を渡すだけ。**できごとの中身は `STORY_EVENTS` にあり、ここには持たない
+   *   （ここは丸ごと消える場所なので、仕様を置くと外した瞬間に壊れる）。
+   */
+  readonly raiseStoryEvent: (id: string) => boolean
 }
 
 const MONEY_STEP = 1_000_000
@@ -78,6 +85,12 @@ export function installDebugTools(scene: Phaser.Scene, deps: DebugDeps): void {
         for (const item of all) deps.inventory.add(item.id, ITEM_STEP)
         return `全${all.length}品を ${ITEM_STEP}個ずつ`
       },
+    },
+    {
+      key: 'P', label: '行商人を呼ぶ',
+      run: () => deps.raiseStoryEvent('peddler_visit')
+        ? '行商人バレンを呼んだ'
+        : '行商人は呼べなかった（窓が開いている）',
     },
     {
       key: 'U', label: '強化を全系統1段',
