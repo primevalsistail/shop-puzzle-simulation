@@ -12,6 +12,12 @@ const SLOT_COUNT = 3
 const DEPTH = 150
 const MW = 480  // menu width
 const MH = 310  // menu height
+/**
+ * 確認の面。**枠の一覧（480×310）を使い回さない**（PO 指示 2026-09-13「大きすぎる」）。
+ * ⚠ **入るのは見出し1行と、ボタンの列だけ。**枠が3つ並ぶ高さは要らない。
+ */
+const CONFIRM_MW = 360
+const CONFIRM_MH = 150
 
 type Push = (...objs: Phaser.GameObjects.GameObject[]) => void
 
@@ -24,7 +30,7 @@ export class SaveLoadMenu {
    *   **`onSave()` / `onLoad()` を呼ぶのは確認の「する」側を押したときだけ。**
    *
    *   - **上書き**（中身のある枠へのセーブ。PO 指示 2026-09-13）—— 枠の記録が消える
-   *   - **ロード**（PO 指示 2026-09-14）—— **いま遊んでいる分が消える**
+   *   - **ロード**（PO 指示 2026-09-14）—— **いま遊んでいる分が消える**（理由。画面には出さない）
    *
    *   ⚠ **空の枠へのセーブだけは今までどおり即実行する**（消えるものが無い）。
    */
@@ -71,16 +77,19 @@ export class SaveLoadMenu {
       .setInteractive().setDepth(DEPTH)
     push(overlay)
 
-    // Panel
+    // Panel ── ⚠ **確認のときは小さい面**（枠が3つ並ぶ高さは要らない）
+    const confirming = this.confirmSlot !== null
+    const mw = confirming ? CONFIRM_MW : MW
+    const mh = confirming ? CONFIRM_MH : MH
     push(
-      this.scene.add.rectangle(cx, cy, MW, MH, 0x16213e)
+      this.scene.add.rectangle(cx, cy, mw, mh, 0x16213e)
         .setStrokeStyle(2, 0x5566cc).setDepth(DEPTH),
     )
 
     // Title
     const title = this.mode === 'save' ? 'セーブ' : 'ロード'
     push(
-      this.scene.add.text(cx, cy - MH / 2 + 26, title, {
+      this.scene.add.text(cx, cy - mh / 2 + 26, title, {
         fontSize: '20px', color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(DEPTH),
     )
@@ -146,43 +155,28 @@ export class SaveLoadMenu {
   /**
    * 上書き（セーブ）と読み込み（ロード）の確認。
    *
-   * ⚠ **いま入っている記録を出す。**枠の番号だけだと、どの記録を潰すのか分からない
-   *   （枠の一覧は消えているので、押した直前の行はもう見えない）。
-   * ⚠ **ロードでは「いま遊んでいる分が消える」ことも書く。**
-   *   **失われるのは枠の中身ではなく手元の進み**なので、記録の行だけでは伝わらない。
+   * ⚠ **出すのは見出し1行とボタンだけ**（PO 指示 2026-09-14「不要」）。
+   *   **記録の中身（Day・所持金・日時）も、ロードの警告（`いま遊んでいる分は消えます`）も出さない。**
+   *   押す直前に枠の一覧でその行を見ているので、ここで繰り返しても判断は変わらない。
+   *   ⚠ **`いま遊んでいる分が消える` は 2026-09-14 に一度出して、同じ日に外した。**
+   *   **足し直すなら PO に聞くこと**（`construction/plans/load-confirm.md`）。
    */
   private buildConfirm(cx: number, cy: number, push: Push): void {
     const slot = this.confirmSlot as number
-    const meta = this.getSlotMeta(slot)
     const saving = this.mode === 'save'
 
     const head = saving
       ? `スロット ${slot + 1} に上書きします`
       : `スロット ${slot + 1} を読み込みます`
     push(
-      this.scene.add.text(cx, cy - 24, head, {
+      this.scene.add.text(cx, cy - 8, head, {
         fontSize: '16px', color: '#ffffff',
       }).setOrigin(0.5).setDepth(DEPTH),
     )
-    if (meta) {
-      push(
-        this.scene.add.text(cx, cy + 6,
-          `${saving ? 'いまの記録' : '読む記録'}: ${this.formatMeta(meta)}`, {
-            fontSize: '12px', color: '#cccccc',
-          }).setOrigin(0.5).setDepth(DEPTH),
-      )
-    }
-    if (!saving) {
-      push(
-        this.scene.add.text(cx, cy + 34, 'いま遊んでいる分は消えます', {
-          fontSize: '13px', color: '#ffcc55',
-        }).setOrigin(0.5).setDepth(DEPTH),
-      )
-    }
 
     // ⚠ **閉じてから呼ぶこと。**先に呼ぶと、結末が別の画面を開いたときに
     //   確認の面がその上に残る（`MessageWindow.show()` と同じ順）。
-    const by = cy + MH / 2 - 30
+    const by = cy + CONFIRM_MH / 2 - 30
     if (saving) {
       this.button(push, cx - 75, by, '上書きする', 0x6a3a3a, 0x8a4a4a, () => {
         this.close()

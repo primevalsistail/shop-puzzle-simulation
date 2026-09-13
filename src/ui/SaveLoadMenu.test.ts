@@ -74,10 +74,37 @@ describe('上書きとロードの確認', () => {
     expect(methodBody('private buildConfirm(')).toContain('this.onLoad(slot)')
   })
 
-  it('確認には「読み込む」と、いま遊んでいる分が消えることが出る', () => {
+  /**
+   * ⚠ **出すのは見出し1行とボタンだけ**（PO 指示 2026-09-14「不要」）。
+   *   **記録の中身も、`いま遊んでいる分は消えます` も出さない。**
+   *   後者は同じ日に足して同じ日に外している。**足し直すなら PO に聞くこと。**
+   */
+  it('確認に出す文字は、見出しとボタンの名前だけ', () => {
     const confirm = methodBody('private buildConfirm(')
     expect(confirm).toContain("'読み込む'")
-    expect(confirm).toContain('いま遊んでいる分は消えます')
+    expect(confirm).not.toContain('いま遊んでいる分は消えます')
+    expect(confirm).not.toContain('formatMeta')
+  })
+
+  /**
+   * ⚠ **確認の面は枠の一覧より小さい**（PO 指示 2026-09-13「大きすぎる」）。
+   *   一覧の `MH` をそのまま使うと、見出し1行のまわりが空く
+   */
+  it('確認のときは小さい面を使う', () => {
+    const build = methodBody('private build(): void')
+    expect(build).toContain('confirming ? CONFIRM_MW : MW')
+    expect(build).toContain('confirming ? CONFIRM_MH : MH')
+    // 面の中身も、その高さから位置を取る（一覧の高さを混ぜない）
+    const confirm = methodBody('private buildConfirm(')
+    expect(confirm).toContain('CONFIRM_MH / 2')
+    expect(confirm).not.toMatch(/(?<!CONFIRM_)MH \/ 2/)
+  })
+
+  /** ⚠ **記録の中身は出さない**（PO 指示 2026-09-13「不要」） */
+  it('確認に記録（Day・所持金・日時）を出さない', () => {
+    const confirm = methodBody('private buildConfirm(')
+    expect(confirm).not.toContain('formatMeta')
+    expect(confirm).not.toContain('getSlotMeta')
   })
 
   /** ⚠ **1行メソッドなので `methodBody()` では区切れない。**行ごと縛る */
