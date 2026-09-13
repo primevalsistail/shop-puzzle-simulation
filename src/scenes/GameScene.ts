@@ -26,6 +26,8 @@ import { CraftMenu } from '../ui/CraftMenu.js'
 import { HUD } from '../ui/HUD.js'
 import { PurchaseMenu } from '../ui/PurchaseMenu.js'
 import { UpgradeMenu } from '../ui/UpgradeMenu.js'
+import { DeliveryTab } from '../ui/DeliveryTab.js'
+import { TradeMenu } from '../ui/TradeMenu.js'
 import { Tutorial } from '../ui/Tutorial.js'
 import { SaveLoadMenu } from '../ui/SaveLoadMenu.js'
 import { CharacterStrip } from '../ui/CharacterStrip.js'
@@ -34,8 +36,8 @@ import { MessageWindow } from '../ui/MessageWindow.js'
 import {
   LEFT_PANEL_R, RIGHT_PANEL_L, LOG_T, SCREEN_W, SCREEN_H,
   BTN_PANEL_L, BTN_PANEL_W, BTN_ICON_W, BTN_ICON_H, BTN_ACTION_H,
-  BTN_Y_ADVANCE, BTN_Y_SPEED, BTN_Y_CRAFT, BTN_Y_PURCHASE,
-  BTN_Y_UPGRADE, BTN_Y_ICON,
+  BTN_Y_ADVANCE, BTN_Y_SPEED, BTN_Y_CRAFT, BTN_Y_TRADE, BTN_Y_ICON,
+  TRADE_TITLE,
   CHAR_ART_CX, CHAR_ART_CY, CHAR_ART_W, CHAR_ART_H, craftTimeLabel,
 } from '../ui/layout.js'
 import { MessageLog } from '../ui/MessageLog.js'
@@ -106,6 +108,16 @@ export class GameScene extends Phaser.Scene {
   private hud!: HUD
   private purchaseMenu!: PurchaseMenu
   private upgradeMenu!: UpgradeMenu
+  private deliveryTab!: DeliveryTab
+  /** 「取引」（#96）。**商人・改装・納品の3タブを束ねる器** */
+  private tradeMenu!: TradeMenu
+  /**
+   * 棚から「これを補充したい」と来た品（`restock`）。**`取引 → 商人` に入るとき1度だけ使う。**
+   *
+   * ⚠ **タブに入る時点でしか読めない。**`open()` の引数で渡すと、
+   *   **改装から商人へ戻るたびに同じ品へ飛ぶ。**
+   */
+  private restockFocus: string | null = null
   private tutorial!: Tutorial
   private characterStrip!: CharacterStrip
   private messageLog!: MessageLog
@@ -215,12 +227,44 @@ export class GameScene extends Phaser.Scene {
       this,
       this.economy,
       this.upgrades,
-      this.placeFrame,
-      () => this.updateStatus(),
       () => this.applyShelfSize(),
       // ⚠ **1段買ったら持ち物一覧を作り直す**（#76）。利益率を買うと**一覧に出る売値が変わる**。
       //   左パネルは改装の画面を開いている間も見えているので、閉じるまで待たない
       () => this.refreshInventoryPanel(),
+    )
+
+    this.deliveryTab = new DeliveryTab(this, () => {
+      const order = this.deliveryOrders.getActive()
+      if (!order) return { order: null, itemName: '', held: 0 }
+      const item = this.registry_.getItem(order.itemId)
+      return {
+        order,
+        itemName: item.display.name,
+        held: this.inventory.getQuantity(order.itemId),
+      }
+    })
+
+    // ⚠ **並びは `TRADE_TABS`（商人 → 改装 → 納品）と同じ。**片方だけ並べ替えると
+    //   タブの名と中身が入れ替わり、テストでは落ちない
+    this.tradeMenu = new TradeMenu(
+      this.placeFrame,
+      [
+        {
+          enter: () => {
+            const listing = this.merchantListing()
+            const focus = this.restockFocus
+            this.restockFocus = null
+            this.purchaseMenu.enter(
+              listing.stocked.slice(), this.world.getIsland(), listing.upcoming,
+              focus ?? undefined,
+            )
+          },
+          leave: () => this.purchaseMenu.leave(),
+        },
+        { enter: () => this.upgradeMenu.enter(), leave: () => this.upgradeMenu.leave() },
+        { enter: () => this.deliveryTab.enter(), leave: () => this.deliveryTab.leave() },
+      ],
+      () => this.onTradeClosed(),
     )
 
     this.presetMenu = new PresetMenu(
@@ -438,8 +482,7 @@ export class GameScene extends Phaser.Scene {
     const yAdv = BTN_Y_ADVANCE
     const ySpeed = BTN_Y_SPEED
     const yCraft = BTN_Y_CRAFT
-    const yPurch = BTN_Y_PURCHASE
-    const yUpg = BTN_Y_UPGRADE
+    const yTrade = BTN_Y_TRADE
     const yIcon = BTN_Y_ICON
     const iconGap = (PW - 5 * IW) / 4
 
@@ -494,10 +537,10 @@ export class GameScene extends Phaser.Scene {
       return bg
     }
 
-    makeAction(yUpg, '改装', '⬆', 0x3a5a8a, 0x4a7ab0, () => this.openUpgradeMenu())
-    // ⚠ **行った先の見出しと同じ名にすること**（`PlaceFrame.show('商人のところ')`）。
-    //   同じ場所を2つの名で呼ばない（`クラフト`→`工房` と同じ直し。束M）
-    makeAction(yPurch, '商人のところ', '🛒', 0x6a5a2a, 0x8a7a3a, () => this.openPurchaseMenu())
+    // ⚠ **行った先の見出しと同じ名にすること**（`PlaceFrame.show(TRADE_TITLE)`）。
+    //   同じ場所を2つの名で呼ばない（`クラフト`→`工房` と同じ直し。束M）。
+    //   ⚠ **`改装` と `商人のところ` はここにもう無い**（#96）。どちらも「取引」の中のタブ
+    makeAction(yTrade, TRADE_TITLE, '🛒', 0x6a5a2a, 0x8a7a3a, () => this.openTrade())
     // ⚠ **行商人はここに並べない**（#90）。**向こうから来る**ので、
     //   いつでも押せるボタンとして置くと「そこに在る店」になり、来訪という形が消える。
     //   開くのはできごとの窓の「見る」だけ（`resolveStoryChoice`）
@@ -847,6 +890,9 @@ export class GameScene extends Phaser.Scene {
 
     // 島が変われば商人の品揃えも需要も変わるので、開いているメニューは閉じる
     if (before.island !== after.island) {
+      // ⚠ **「取引」ごと閉じる**（#96）。品揃えも需要も改装の所持金も島で変わる
+      if (this.tradeMenu.isVisible()) this.tradeMenu.close()
+      // 行商人は「取引」の外の場所（#9・#90）なので、別に閉じる
       if (this.purchaseMenu.isVisible()) this.purchaseMenu.close()
       this.settleDelivery(after.island)
       this.issueOrder()
@@ -921,10 +967,8 @@ export class GameScene extends Phaser.Scene {
     // ⚠ **「もうすぐ買える」側へは飛ばさない。**そこからは買えないので、
     //   補充の答えにならない。作れるならこの下で工房へ回る（#66）
     if (listing.stocked.some(i => i.id === itemId)) {
-      this.stopAdvancing()
-      this.purchaseMenu.open(
-        listing.stocked.slice(), this.world.getIsland(), listing.upcoming, itemId,
-      )
+      this.restockFocus = itemId
+      this.openTrade(0)
       return
     }
 
@@ -941,7 +985,7 @@ export class GameScene extends Phaser.Scene {
   /**
    * 棚に手が出せない状態か。
    *
-   * **場所へ行っている間**（商人のところ・工房・改装。#58）と、
+   * **場所へ行っている間**（取引・工房・行商人。#58・#96）と、
    * **セーブ／ロードが開いている間**（ここだけダイアログのまま。PO 判断 Q2）と、
    * **できごとの窓が開いている間**（#24。選択を求めている以上、時間は止める）。
    *
@@ -1032,15 +1076,14 @@ export class GameScene extends Phaser.Scene {
     this.updateStatus()
   }
 
-  private openUpgradeMenu(): void {
+  /**
+   * 「取引」へ行く（#96）。**商人・改装・納品はここの中のタブ。**
+   *
+   * @param tab どのタブで開くか（`TRADE_TABS` の並び）。既定は `商人`
+   */
+  private openTrade(tab = 0): void {
     this.stopAdvancing()
-    this.upgradeMenu.open()
-  }
-
-  private openPurchaseMenu(): void {
-    this.stopAdvancing()
-    const listing = this.merchantListing()
-    this.purchaseMenu.open(listing.stocked.slice(), this.world.getIsland(), listing.upcoming)
+    this.tradeMenu.open(tab)
   }
 
   /**
@@ -1150,6 +1193,17 @@ export class GameScene extends Phaser.Scene {
     )
   }
 
+  /**
+   * 「取引」から店に戻ったとき（#96）。
+   *
+   * ⚠ **持ち物一覧を作り直す。**商人で買えば中身が増え、改装で利益率を買えば売値が変わる。
+   */
+  private onTradeClosed(): void {
+    this.refreshInventoryPanel()
+    this.updateStatus()
+  }
+
+  /** 行商人（#9）から店に戻ったとき。**「取引」の外の場所なので別に持つ** */
   private onPurchaseMenuClosed(): void {
     this.refreshInventoryPanel()
     this.updateStatus()

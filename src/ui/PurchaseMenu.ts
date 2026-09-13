@@ -66,7 +66,10 @@ interface Row {
 }
 
 /**
- * 島の商人のところ。**ダイアログではなく「行く場所」**（#58）。
+ * 島の商人。**「取引」の `商人` タブ**（#96。それまでは `商人のところ` という独立した場所だった）。
+ *
+ * ⚠ **枠は自分で出さない**（`enter` / `leave`）。**例外は行商人**（`openPeddler`）で、
+ *   あちらは「取引」の中ではなく、できごとの窓から行く独立した場所のまま。
  *
  * ⚠ **品揃えは固定ではない。**`merchantListing` が現在地と累計販売数から出す（#30・#66）。
  *   ハルヴェラ・累計販売0の時点で **18品**。売るほど U2 で増えるので、
@@ -91,6 +94,14 @@ export class PurchaseMenu {
   private peddler: PeddlerStock | null = null
   private container: Phaser.GameObjects.Container | null = null
   private isOpen = false
+  /**
+   * 枠（`PlaceFrame`）を自分で出したか。
+   *
+   * **行商人は自分の場所を持つ**ので true。**島の商人は「取引」の1タブ**（#96）なので false で、
+   * ⚠ **枠を出すのも片付けるのも `TradeMenu` の仕事。**ここで `frame.hide()` を呼ぶと
+   *   タブを切り替えただけで店に帰ってしまう。
+   */
+  private ownsFrame = false
   private materials: ItemDef[] = []
   private islandName: IslandName = 'ハルヴェラ'
   private paging = new ListPaging(VISIBLE_COUNT)
@@ -141,11 +152,13 @@ export class PurchaseMenu {
    * @param materials いま買える品（`merchantListing().stocked`）
    * @param upcoming  もうすぐ買える品（同 `.upcoming`）。**買えない行**として並ぶ（#66）
    */
-  open(
+  enter(
     materials: ItemDef[], islandName: IslandName,
     upcoming: readonly UpcomingStock[] = [], focusId?: string,
   ): void {
-    this.enter('商人のところ', materials, islandName, null, upcoming, focusId)
+    if (this.isOpen) return
+    this.ownsFrame = false
+    this.begin(materials, islandName, null, upcoming, focusId)
   }
 
   /**
@@ -158,16 +171,23 @@ export class PurchaseMenu {
    *                   行の `N品に要る` の `⚠ 切らしている` がこの島の産かどうかを見る
    */
   openPeddler(stock: PeddlerStock, materials: ItemDef[], islandName: IslandName): void {
-    this.enter(PEDDLER_TITLE, materials, islandName, stock)
+    if (this.isOpen) return
+    this.ownsFrame = true
+    this.frame.show(PEDDLER_TITLE, () => this.close())
+    this.begin(materials, islandName, stock)
   }
 
-  private enter(
-    title: string,
+  /**
+   * 中身を組み立てる。**枠（`PlaceFrame`）には触らない。**
+   *
+   * ⚠ **枠を出すのは呼ぶ側。**行商人は自分で枠を持つが、
+   *   島の商人は「取引」の1タブ（`TradeMenu`）なので、**枠はタブの器が持っている。**
+   */
+  private begin(
     materials: ItemDef[], islandName: IslandName,
     peddler: PeddlerStock | null,
     upcoming: readonly UpcomingStock[] = [], focusId?: string,
   ): void {
-    if (this.isOpen) return
     this.isOpen = true
     this.peddler = peddler
     // ⚠ **買えるものが先。**買えない行が上に来ると、開いた瞬間に「何も買えない」と読まれる
@@ -179,7 +199,6 @@ export class PurchaseMenu {
     this.paging.setQuery('')
     this.needs = this.materialNeeds()
     if (focusId) this.paging.jumpTo(this.shown().findIndex(m => m.id === focusId), this.shown().length)
-    this.frame.show(title, () => this.close())
     this.search.place(
       CONTENT_R - SEARCH_W / 2, FILTER_Y, SEARCH_W, SEARCH_H, '名前で探す',
       q => { this.paging.setQuery(q); this.rebuild() },
@@ -188,7 +207,13 @@ export class PurchaseMenu {
     this.rebuild()
   }
 
-  close(): void {
+  /**
+   * 中身だけ捨てる。**枠には触らない**（タブを切り替えるときに通る）。
+   *
+   * ⚠ **`<input>` を必ず捨てること。**検索も個数も `search` と `container` にぶら下がっている。
+   *   残すとタブを行き来するたびに増える（工房で一度踏んだ事故）。
+   */
+  leave(): void {
     if (!this.isOpen) return
     this.isOpen = false
     this.peddler = null
@@ -196,6 +221,15 @@ export class PurchaseMenu {
     this.container = null
     this.rows = []
     this.search.destroy()
+  }
+
+  /** 枠ごと閉じる。**枠を自分で出したとき（行商人）だけ枠を片付ける** */
+  close(): void {
+    if (!this.isOpen) return
+    const owned = this.ownsFrame
+    this.leave()
+    this.ownsFrame = false
+    if (!owned) return
     this.frame.hide()
     this.onClose()
   }

@@ -103,6 +103,64 @@ const NO_SUBTITLE_SHIFT = FILTER_Y - FILTER_Y_NO_SUBTITLE
 /** 見出しの下の1行が無い場所の、一覧の上端 */
 export const ROWS_TOP_NO_SUBTITLE = ROWS_TOP - NO_SUBTITLE_SHIFT
 
+// ─── 見出しの行に並ぶもの（`PlaceFrame` が置く） ─────────────────
+/** 見出しの文字の大きさ。**太字** */
+export const TITLE_FONT_PX = 24
+/** 「←  店に戻る」ボタンの幅。**見出しの行の右端に置く** */
+export const BACK_BTN_W = 120
+
+/**
+ * 「取引」の中の3タブ（#96）。**`商人` → `改装` → `納品`**（#96 本文の順）。
+ *
+ * ⚠ **見出しと同じ行に置く。**下に1行足すと、その28px ぶん一覧の上端が下がり、
+ *   仕入れの行（56px）が **8行 → 7行** に減る。**タブを足すために品が1つ見えなくなる**のは割に合わない。
+ * ⚠ **見出し（左）と「店に戻る」（右）のあいだに収まること**（`layout.test.ts` が見ている）。
+ * ⚠ **文言は #96 本文の語をそのまま使う。**言い回しを発明しない（#79）。
+ */
+export const TRADE_TITLE = '取引'
+export const TRADE_TABS = ['商人', '改装', '納品'] as const
+export type TradeTabName = typeof TRADE_TABS[number]
+
+export const TAB_W = 84
+export const TAB_H = 26
+export const TAB_GAP = 6
+export const TAB_FONT_PX = 14
+
+/** `count` 個のタブを中央ぞろえで並べたときの、`index` 番目の中心 x */
+export function tabCx(index: number, count: number): number {
+  const total = count * TAB_W + (count - 1) * TAB_GAP
+  return PLACE_CX - total / 2 + TAB_W / 2 + index * (TAB_W + TAB_GAP)
+}
+
+/**
+ * 納品タブ（#96）の行の文字の大きさ。
+ *
+ * ⚠ **帯（`OrderBar`）と同じ情報しか出さない**（#98 で作り直すまで器だけ）。
+ *   `deliveryTabLines` が帯の1行を全角空白で折るだけなので、**文言は1語も増えていない。**
+ */
+export const DELIVERY_TAB_FONT_PX = 20
+/** 納品タブの行の高さ */
+export const DELIVERY_TAB_LINE_H = 34
+
+/**
+ * 帯の1行を、納品タブの複数行に折る。
+ *
+ * ⚠ **切るのは全角空白だけ。**`orderLineText` が区切りに使っている字で、
+ *   ここで語を足したり言い換えたりしない（文言は PO の領分。#79）。
+ */
+export function deliveryTabLines(barLine: string): readonly string[] {
+  return barLine.split('　')
+}
+
+/**
+ * 注文が1件も無いときに納品タブへ出す1行。
+ *
+ * ⚠ **帯は無いとき消える**（`OrderBar`）が、**タブは自分で開いて来る場所**なので、
+ *   まっさらだと壊れて見える（`PurchaseMenu` の「商人は、いま何も並べていません」と同じ扱い。#48）。
+ * ⚠ **言い回しは仮置き。**画面に出す文言は PO が決める（#79）。
+ */
+export const DELIVERY_TAB_EMPTY = 'いま受けている注文はありません'
+
 /**
  * その行の高さなら何行入るか。
  *
@@ -370,10 +428,12 @@ export const BTN_Y_CRAFT   = BTN_Y_SPEED   - BTN_SPEED_H / 2  - BTN_GAP - BTN_AC
  *   開くのは**できごとの窓の「見る」**だけ（`MessageWindow` ／ `STORY_EVENTS`）。
  *   ⚠ **行が1つ減ったぶん、列の上端が下がってキャラ絵の枠が広がる。**
  *   それも `CHAR_ART_B` が列から引いているので、写しを作らないこと。
+ *
+ * ⚠ **`改装` と `商人のところ` はもう無い**（#96）。2つを `取引` の1行にまとめ、
+ *   中を3タブにした（`TRADE_TABS`）。**ここでも行が1つ減り、キャラ絵の枠が 202 → 249px に広がる。**
  */
-export const BTN_Y_PURCHASE = BTN_Y_CRAFT - BTN_ACTION_H / 2 - BTN_GAP - BTN_ACTION_H / 2
-export const BTN_Y_UPGRADE = BTN_Y_PURCHASE - BTN_ACTION_H / 2 - BTN_GAP - BTN_ACTION_H / 2
-export const BTN_Y_ICON    = BTN_Y_UPGRADE - BTN_ACTION_H / 2 - BTN_GAP - BTN_ICON_H / 2
+export const BTN_Y_TRADE   = BTN_Y_CRAFT - BTN_ACTION_H / 2 - BTN_GAP - BTN_ACTION_H / 2
+export const BTN_Y_ICON    = BTN_Y_TRADE - BTN_ACTION_H / 2 - BTN_GAP - BTN_ICON_H / 2
 
 /**
  * キャラ絵の枠（#21・#15 の置き場所）。**HUD の下から、ボタン列の上まで。**

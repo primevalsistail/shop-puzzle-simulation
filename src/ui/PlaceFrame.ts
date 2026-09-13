@@ -2,11 +2,25 @@ import Phaser from 'phaser'
 import {
   PLACE_L, PLACE_W, PLACE_H, PLACE_CX, PLACE_CY,
   CONTENT_L, CONTENT_R, TITLE_Y, TITLE_RULE_Y,
+  TITLE_FONT_PX, BACK_BTN_W, TAB_W, TAB_H, TAB_FONT_PX, tabCx,
 } from './layout.js'
 
 /** 枠の深さ。**中身は `CONTENT_DEPTH` に載せる** */
 const FRAME_DEPTH = 90
 export const CONTENT_DEPTH = 100
+
+/**
+ * 場所の中の切り替え（#96 の「取引」）。**枠が持つ。**
+ *
+ * ⚠ **中身の側に持たせないこと。**タブは見出しの行に並ぶので、
+ *   中身が作り直されるたびに消えたり増えたりする（`<input>` と同じ事故）。
+ */
+export interface FrameTabs {
+  readonly labels: readonly string[]
+  /** 開いたときに選ばれているタブ */
+  readonly active: number
+  readonly onSelect: (index: number) => void
+}
 
 /**
  * 「行く場所」の枠（#58）。
@@ -25,6 +39,10 @@ export class PlaceFrame {
   private objects: Phaser.GameObjects.GameObject[] = []
   /** いま居る場所の出口。**null なら店に居る** */
   private back: (() => void) | null = null
+  /** タブの部品。**`objects` にも入っているので、片付けは `hide()` がまとめてやる** */
+  private tabBgs: Phaser.GameObjects.Rectangle[] = []
+  private tabLabels: Phaser.GameObjects.Text[] = []
+  private activeTab = 0
 
   constructor(
     private scene: Phaser.Scene,
@@ -44,7 +62,7 @@ export class PlaceFrame {
    * すでにどこかに居るなら、**先にそこを出てから**移る
    * （ダイアログだった頃は仕入れとクラフトを同時に開けて重なっていた）。
    */
-  show(title: string, onBack: () => void): void {
+  show(title: string, onBack: () => void, tabs?: FrameTabs): void {
     this.requestBack()
 
     const bg = this.scene.add
@@ -55,15 +73,15 @@ export class PlaceFrame {
       .setDepth(FRAME_DEPTH)
 
     const heading = this.scene.add.text(CONTENT_L, TITLE_Y, title, {
-      fontSize: '24px', color: '#ffffff', fontStyle: 'bold',
+      fontSize: `${TITLE_FONT_PX}px`, color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0, 0.5).setDepth(FRAME_DEPTH)
 
     const backBg = this.scene.add
-      .rectangle(CONTENT_R - 60, TITLE_Y, 120, 30, 0x2a2a4a)
+      .rectangle(CONTENT_R - BACK_BTN_W / 2, TITLE_Y, BACK_BTN_W, 30, 0x2a2a4a)
       .setStrokeStyle(1, 0x6666aa)
       .setInteractive({ useHandCursor: true })
       .setDepth(FRAME_DEPTH)
-    const backLabel = this.scene.add.text(CONTENT_R - 60, TITLE_Y, '←  店に戻る', {
+    const backLabel = this.scene.add.text(CONTENT_R - BACK_BTN_W / 2, TITLE_Y, '←  店に戻る', {
       fontSize: '14px', color: '#ccddff',
     }).setOrigin(0.5).setDepth(FRAME_DEPTH)
     backBg.on('pointerdown', () => this.requestBack())
@@ -77,7 +95,48 @@ export class PlaceFrame {
 
     this.objects = [bg, heading, backBg, backLabel, rule]
     this.back = onBack
+    if (tabs) this.buildTabs(tabs)
     this.setShopVisible(false)
+  }
+
+  /**
+   * 見出しの行にタブを並べる。**見出し（左）と「店に戻る」（右）のあいだ。**
+   *
+   * ⚠ **押しても作り直さない。**`setActiveTab` が色だけ塗り替える。
+   *   作り直すと、中身が載せている `<input>` まで巻き添えで作り直される。
+   */
+  private buildTabs(tabs: FrameTabs): void {
+    this.activeTab = tabs.active
+    tabs.labels.forEach((label, i) => {
+      const cx = tabCx(i, tabs.labels.length)
+      const bg = this.scene.add.rectangle(cx, TITLE_Y, TAB_W, TAB_H, 0x2a2a4a)
+        .setStrokeStyle(1, 0x6666aa)
+        .setInteractive({ useHandCursor: true })
+        .setDepth(FRAME_DEPTH)
+      const text = this.scene.add.text(cx, TITLE_Y, label, {
+        fontSize: `${TAB_FONT_PX}px`, color: '#ccddff',
+      }).setOrigin(0.5).setDepth(FRAME_DEPTH)
+      bg.on('pointerdown', () => tabs.onSelect(i))
+      this.tabBgs.push(bg)
+      this.tabLabels.push(text)
+      this.objects.push(bg, text)
+    })
+    this.paintTabs()
+  }
+
+  /** いま選ばれているタブを塗り替える。**部品は作り直さない** */
+  setActiveTab(index: number): void {
+    this.activeTab = index
+    this.paintTabs()
+  }
+
+  private paintTabs(): void {
+    this.tabBgs.forEach((bg, i) => {
+      const on = i === this.activeTab
+      bg.setFillStyle(on ? 0x4a4a7a : 0x2a2a4a)
+      bg.setStrokeStyle(on ? 2 : 1, on ? 0xffdd88 : 0x6666aa)
+      this.tabLabels[i].setColor(on ? '#ffffff' : '#99aacc')
+    })
   }
 
   /**
@@ -101,6 +160,8 @@ export class PlaceFrame {
     if (this.objects.length === 0 && this.back === null) return
     for (const obj of this.objects) obj.destroy()
     this.objects = []
+    this.tabBgs = []
+    this.tabLabels = []
     this.back = null
     this.setShopVisible(true)
   }

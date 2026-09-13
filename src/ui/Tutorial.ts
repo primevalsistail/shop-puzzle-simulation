@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 import { GOAL_TUTORIAL_LINE } from './goal.js'
+import { TRADE_TITLE } from './layout.js'
 
 const TUTORIAL_KEY = 'shop_puzzle_tutorial_done'
 
@@ -18,10 +19,12 @@ const STEPS = [
     body: '「工房」ボタンから材料を使って\n品を作ることができます。\n\n作っている間は店が閉まり、\nその分だけ時間が進みます。\n\n日をまたぐ加工は始められません。',
   },
   {
-    title: '商人のところ',
+    // ⚠ **ボタンの名と同じにすること**（#96 で `商人のところ` は `取引` の中のタブになった）。
+    //   ここだけ古い名が残ると、**押すボタンが画面に無い**と読まれる
+    title: TRADE_TITLE,
     // ⚠ **目標額をここに書かない**（#73）。`goal.ts` が `GameService.GOAL_AMOUNT` から出す。
     //   **初日に必ず見る画面**なので、ここが実際の条件と違うと遊び始めから嘘になる
-    body: `「商人のところ」ボタンから材料を買えます。\n\n${GOAL_TUTORIAL_LINE}`,
+    body: `「${TRADE_TITLE}」ボタンから材料を買えます。\n\n${GOAL_TUTORIAL_LINE}`,
   },
 ]
 

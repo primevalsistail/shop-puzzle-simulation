@@ -2,7 +2,6 @@ import Phaser from 'phaser'
 import type { EconomyManager } from '../components/economy/EconomyManager.js'
 import type { Upgrades, UpgradeKind } from '../components/progress/Upgrades.js'
 import { UPGRADE_KINDS, MAX_STAGE } from '../components/progress/Upgrades.js'
-import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
 import { PLACE_CX, CONTENT_L, CONTENT_R, SUBTITLE_Y, ROWS_TOP } from './layout.js'
 import { money } from './money.js'
@@ -19,15 +18,15 @@ const WHAT_IT_DOES: Record<UpgradeKind, string> = {
 }
 
 /**
- * 改装。**ダイアログではなく「行く場所」**（#58）。
+ * 改装。**「取引」の `改装` タブ**（#96。それまでは独立した「行く場所」だった。#58）。
  *
  * ⚠ **所持金は目標と同じ通貨。**払えば目標が遠のくので、
  *   「いま買うか、目標まで我慢するか」がここでの判断になる。
  *   だから**いまの所持金と費用を並べて見せる。**
  *
- * ⚠ **場所の名前は「改装」**（PO 判断 2026-09-12 ／ `sessions/questions-58-places.md` Q1）。
+ * ⚠ **名前は「改装」**（PO 判断 2026-09-12 ／ `sessions/questions-58-places.md` Q1）。
  *   中身は 棚・来客・利益率・手際 の4系統で、**改装と呼べるのは棚だけ**である点は
- *   質問票に記録してある。名前を変えるならここと `GameScene` のボタン1つ。
+ *   質問票に記録してある。⚠ **名前は `layout.ts` の `TRADE_TABS` 1箇所だけが持つ。**
  */
 export class UpgradeMenu {
   private container: Phaser.GameObjects.Container | null = null
@@ -37,8 +36,6 @@ export class UpgradeMenu {
     private scene: Phaser.Scene,
     private economy: EconomyManager,
     private upgrades: Upgrades,
-    private frame: PlaceFrame,
-    private onClose: () => void,
     /** 棚を買ったときに盤面を広げる */
     private onShelfExpanded: () => void,
     /**
@@ -51,24 +48,24 @@ export class UpgradeMenu {
     private onBought: () => void = () => {},
   ) {}
 
-  open(): void {
+  /**
+   * タブに入る。**中身だけ作る。**
+   *
+   * ⚠ **枠（`PlaceFrame`）には触らない。**枠を出すのも片付けるのも `TradeMenu` の仕事で、
+   *   ここで `frame.show()` を呼ぶと**タブを切り替えただけで枠が作り直される。**
+   */
+  enter(): void {
     if (this.isOpen) return
     this.isOpen = true
-    this.frame.show('改装', () => this.close())
     this.build()
   }
 
-  close(): void {
+  /** タブを出る。**中身だけ捨てる**（枠には触らない） */
+  leave(): void {
     if (!this.isOpen) return
     this.isOpen = false
     this.container?.destroy()
     this.container = null
-    this.frame.hide()
-    this.onClose()
-  }
-
-  isVisible(): boolean {
-    return this.isOpen
   }
 
   private rebuild(): void {

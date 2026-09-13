@@ -14,7 +14,10 @@ import {
   rowsThatFit, TITLE_RULE_Y, FILTER_BAND_H, FILTER_Y_NO_SUBTITLE, ROWS_TOP_NO_SUBTITLE,
   peddlerRemainText, peddlerSubtitleText, PEDDLER_REMAIN_FONT_PX, PEDDLER_TITLE,
   CHAR_ART_T, CHAR_ART_B, CHAR_ART_H, BTN_Y_ICON, BTN_ICON_H, BTN_Y_ADVANCE, BTN_ACTION_H,
-  BTN_PANEL_L, BTN_PANEL_W, BTN_ICON_W, BTN_Y_UPGRADE,
+  BTN_PANEL_L, BTN_PANEL_W, BTN_ICON_W, BTN_Y_TRADE,
+  TITLE_FONT_PX, BACK_BTN_W, TAB_W, TAB_H, TAB_GAP, TAB_FONT_PX, tabCx,
+  TRADE_TITLE, TRADE_TABS,
+  DELIVERY_TAB_FONT_PX, DELIVERY_TAB_LINE_H, DELIVERY_TAB_EMPTY, deliveryTabLines,
   MSG_WIN_L, MSG_WIN_R, MSG_WIN_T, MSG_WIN_B, MSG_WIN_PAD, MSG_TEXT_MAX_W,
   MSG_SPEAKER_FONT_PX, MSG_SPEAKER_Y, MSG_TEXT_FONT_PX, MSG_TEXT_TOP, MSG_LINE_H,
   MSG_LINES_MAX, MSG_CHOICE_W, MSG_CHOICE_H, MSG_CHOICE_GAP, MSG_CHOICE_FONT_PX,
@@ -28,6 +31,10 @@ import { PEDDLER_MAX_PER_KIND, peddlerPrice } from '../components/progress/Peddl
 import { money } from './money.js'
 import { PRESET_COUNT, PRESET_NAME_MAX, describePreset } from '../components/floor/ShelfPresets.js'
 import { ROUTE } from '../taxonomy/islands.js'
+import { salePrice } from '../taxonomy/derive.js'
+import { orderLineText } from './OrderBar.js'
+import { ORDER_QUANTITY, ORDER_REWARD_RATE } from '../components/progress/DeliveryOrders.js'
+import type { DeliveryOrder } from '../components/progress/DeliveryOrders.js'
 
 /**
  * **受入条件2（棚を覆わない）を機械で見る。**
@@ -479,18 +486,19 @@ describe('右パネルのボタン列とキャラ絵の枠（#9 で行を1つ足
   })
 
   /**
-   * ⚠ **縮めないこと。**#9 で行を足したときに 200 → 155px になり、#24 で外して 202px に戻った。
+   * ⚠ **縮めないこと。**#9 で行を足したときに 200 → 155px になり、#24 で外して 202px に戻り、
+   *   **#96 で `改装` と `商人のところ` を `取引` の1行にまとめて 249px まで広がった。**
    *   **#15 の絵はこの大きさで入る**ので、ここを下回る変更は絵が入らなくなるという意味になる。
    *   ⚠ **#7（自由航行）は行を足さずに済ませてある** —— 次の寄港地は
    *   HUD の中で目標の進みのバーと入れ替わるので、ボタン列も HUD の枠も伸びない。
    */
-  it('キャラ絵の枠が 202px から縮んでいない（#24 で戻した大きさ）', () => {
-    expect(CHAR_ART_H).toBeGreaterThanOrEqual(202)
+  it('キャラ絵の枠が 249px から縮んでいない（#96 で広がった大きさ）', () => {
+    expect(CHAR_ART_H).toBeGreaterThanOrEqual(249)
   })
 
   it('ボタン列がメッセージ欄に食い込まない', () => {
     expect(BTN_Y_ADVANCE + BTN_ACTION_H / 2).toBeLessThanOrEqual(LOG_T)
-    expect(BTN_Y_UPGRADE).toBeGreaterThan(BTN_Y_ICON)
+    expect(BTN_Y_TRADE).toBeGreaterThan(BTN_Y_ICON)
   })
 
   it('アイコン5つが列の幅に収まる', () => {
@@ -637,5 +645,95 @@ describe('できごとの文字が窓に収まる', () => {
           .toBeLessThanOrEqual(MSG_CHOICE_W - 16)
       }
     }
+  })
+})
+
+/**
+ * **「取引」の3タブ（#96）。**タブは見出しの行に並ぶので、
+ * **見出しと「← 店に戻る」のどちらにも重ならない**ことをここで見る。
+ *
+ * ⚠ **目で見ても数px の重なりは分からない。**`PurchaseMenu` の行と同じ扱いで、機械が見る。
+ */
+describe('「取引」の3タブ（#96）', () => {
+  const tabsL = () => tabCx(0, TRADE_TABS.length) - TAB_W / 2
+  const tabsR = () => tabCx(TRADE_TABS.length - 1, TRADE_TABS.length) + TAB_W / 2
+
+  it('タブは見出しの右で始まる', () => {
+    const headingR = CONTENT_L + estTextWidth(TRADE_TITLE, TITLE_FONT_PX, true)
+    expect(tabsL()).toBeGreaterThan(headingR)
+  })
+
+  it('タブは「← 店に戻る」に届かない', () => {
+    expect(tabsR()).toBeLessThan(CONTENT_R - BACK_BTN_W)
+  })
+
+  it('タブの名がタブの枠に収まる', () => {
+    for (const label of TRADE_TABS) {
+      expect(estTextWidth(label, TAB_FONT_PX), label).toBeLessThanOrEqual(TAB_W - 8)
+    }
+  })
+
+  /** ⚠ **見出しの行を越えて、下の横線に掛からないこと** */
+  it('タブが見出しの行に収まり、横線を跨がない', () => {
+    expect(TITLE_Y - TAB_H / 2).toBeGreaterThan(PLACE_T)
+    expect(TITLE_Y + TAB_H / 2).toBeLessThan(TITLE_RULE_Y)
+  })
+
+  it('タブどうしが重ならない', () => {
+    for (let i = 1; i < TRADE_TABS.length; i++) {
+      expect(tabCx(i, TRADE_TABS.length) - tabCx(i - 1, TRADE_TABS.length))
+        .toBe(TAB_W + TAB_GAP)
+    }
+  })
+
+  /**
+   * ⚠ **行を1つ足していないこと。**タブを見出しの行ではなく下に置くと、
+   *   一覧の上端が下がって**仕入れの行（56px）が8行から7行に減る。**
+   *   タブを足すために品が1つ見えなくなるのは割に合わない（`layout.ts` の注記）。
+   */
+  it('タブを足しても仕入れの一覧の行数が減っていない', () => {
+    expect(rowsThatFit(56)).toBe(8)
+  })
+})
+
+/**
+ * **納品タブ（#96）。**⚠ **帯（`OrderBar`）と同じ情報を出すだけ。**
+ * 出す文字列は帯の1行を全角空白で折ったものなので、**文言は1語も増えていない。**
+ */
+describe('納品タブ（#96）', () => {
+  it('帯の1行を折るだけで、語を足していない', () => {
+    const bar = orderLineText('たけのこ', {
+      itemId: 'x' as never, island: 'リナツィア' as never,
+      quantity: 10, reward: 1200, issuedDay: 1,
+    }, 3)
+    expect(deliveryTabLines(bar).join('　')).toBe(bar)
+    expect(deliveryTabLines(bar)).toEqual([
+      '納品 たけのこ ×10 → リナツィア島', '手持ち 3/10', '報酬 1,200レン',
+    ])
+  })
+
+  /** ⚠ **注文に出うるどの品でも、枠の幅に収まること**（帯と同じ検査） */
+  it('どの注文でも、折った行が枠からはみ出さない', () => {
+    const orderable = ALL_ITEMS.filter(i => i.origin !== 'なし')
+    let worst = { w: 0, text: '' }
+    for (const item of orderable) {
+      const reward = Math.round(salePrice(item.id) * ORDER_QUANTITY * ORDER_REWARD_RATE)
+      for (const island of ROUTE) {
+        const order: DeliveryOrder = {
+          itemId: item.id, island, quantity: ORDER_QUANTITY, reward, issuedDay: 1,
+        }
+        for (const line of deliveryTabLines(orderLineText(item.display.name, order, 999))) {
+          const w = estTextWidth(line, DELIVERY_TAB_FONT_PX)
+          if (w > worst.w) worst = { w, text: line }
+        }
+      }
+    }
+    expect(worst.w, worst.text).toBeLessThanOrEqual(CONTENT_R - CONTENT_L - 32)
+  })
+
+  /** 3行が一覧の領域に収まる（ページ送りの行に食い込まない） */
+  it('3行が一覧の領域に収まる', () => {
+    expect(ROWS_TOP + 24 + 2 * DELIVERY_TAB_LINE_H).toBeLessThanOrEqual(ROWS_BOTTOM)
+    expect(estTextWidth(DELIVERY_TAB_EMPTY, 14)).toBeLessThanOrEqual(CONTENT_R - CONTENT_L)
   })
 })
