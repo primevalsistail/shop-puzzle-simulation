@@ -13,7 +13,7 @@ import type { ItemDef, RecipeDef } from './axes.js'
 import { ALL_ITEMS, getItem } from './items.js'
 import { ALL_RECIPES, RECIPES_BY_OUTPUT } from './recipes.js'
 import { craftProfit, dumpAll, ingredientCost, originReach, salePrice, tier } from './derive.js'
-import { SIGNATURE_PAIRS, PAIR_RULES, DEMAND_RULES, UNLOCK_RULES, combine } from './rules.js'
+import { SIGNATURE_SETS, SET_RULES, DEMAND_RULES, UNLOCK_RULES, combine } from './rules.js'
 import { evalCondition, evaluate, type GameState, type Placement } from './evaluate.js'
 
 const EMPTY_SALES = new Map<string, number>()
@@ -127,14 +127,14 @@ describe('INV-4 規則はアイテムを知らない', () => {
   }
 
   it('層1・島の需要・入荷解禁の規則データに ItemId が現れない', () => {
-    for (const rule of [...PAIR_RULES, ...DEMAND_RULES, ...UNLOCK_RULES]) {
+    for (const rule of [...SET_RULES, ...DEMAND_RULES, ...UNLOCK_RULES]) {
       const found = collectStrings(rule).filter(s => KNOWN_ITEM_IDS.has(s))
       expect(found, `rule ${rule.id} references item ids`).toEqual([])
     }
   })
 
   it('層2（名物コンビ）は既定で空である', () => {
-    expect(SIGNATURE_PAIRS).toEqual([])
+    expect(SIGNATURE_SETS).toEqual([])
   })
 
   it('層2を空にしても評価結果が変わらない（層2を全部消しても成立する）', () => {
@@ -143,7 +143,7 @@ describe('INV-4 規則はアイテムを知らない', () => {
       { slotId: 's2', itemId: 'grape_wine', x: 2, y: 0 },
     ]
     const withLayer2 = evaluate(placements, STATE)
-    // SIGNATURE_PAIRS が空である以上、層2を通る経路は結果に寄与しない
+    // SIGNATURE_SETS が空である以上、層2を通る経路は結果に寄与しない
     expect(withLayer2.firedRules.every(id => !id.startsWith('SIG'))).toBe(true)
     expect(withLayer2.perSlot.size).toBe(2)
   })

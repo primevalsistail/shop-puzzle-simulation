@@ -15,7 +15,10 @@ import {
   type GameState, type Placement,
 } from './evaluate.js'
 import { ROUTE } from './islands.js'
-import { MAX_TIER, SAME_ORIGIN_RULE, shopWideWeight } from './rules.js'
+import { MAX_TIER, SET_RULES, shopWideWeight, type SetRule } from './rules.js'
+
+/** ⚠ **規則は ID で引かない**（#59 で名指しを解いた）。テストだけが、見たい1本を ID で取り出す */
+const ruleOf = (id: string): SetRule => SET_RULES.find(r => r.id === id)!
 
 const noSales = new Map<string, number>()
 const at = (島: GameState['現在地'], sales = noSales): GameState =>
@@ -70,6 +73,38 @@ describe('取り合わせ 層1', () => {
     const r = evaluate(p, at('ハルヴェラ'))
     expect(r.firedRules).toContain('R4')
     expect(r.perSlot.get('lux')!.値段).toBeLessThan(1)
+  })
+
+  it('R4 — ⚠ 値が下がるのは贅沢な品だけ。日用品は下がらない（甲乙の非対称）', () => {
+    const p: Placement[] = [
+      { slotId: 'lux',   itemId: 'grape_wine', x: 0, y: 0 },  // 贅沢
+      { slotId: 'daily', itemId: 'rice',       x: 0, y: 2 },  // 日用
+    ]
+    const r = evaluate(p, at('ハルヴェラ'))
+    // ⚠ **`members` が順序のある列であることが、この非対称を持っている唯一の場所。**
+    //   集合にすると日用品まで値下がりする（→ rules.ts `SetRule` の注記）
+    expect(r.perSlot.get('daily')!.値段).toBe(1)
+    // 店全体ぶんも「贅沢な品の tier で按分したぶん」しか無い（1回しか発火していない）
+    expect(r.firedRules.filter(id => id === 'R4')).toHaveLength(1)
+  })
+
+  it('甲乙の非対称は、規則を足しても保たれる（甲だけが効き目を受ける）', () => {
+    const 片側だけ: SetRule = {
+      id: 'T1', description: '判定用: 食料の隣に飲みものを置くと、食料だけ値が上がる',
+      members: [
+        { axis: '主種類', op: '==', value: '食料' },
+        { axis: '主種類', op: '==', value: '飲みもの' },
+      ],
+      adjacent: true,
+      effect: { kind: '値段', multiplier: 1.5 },
+    }
+    const p: Placement[] = [
+      { slotId: 'food',  itemId: 'buckwheat_bread', x: 0, y: 0 },
+      { slotId: 'drink', itemId: 'grape_wine',      x: 2, y: 0 },
+    ]
+    const r = evaluate(p, at('ハルヴェラ'), undefined, undefined, [片側だけ])
+    expect(r.perSlot.get('food')!.値段).toBeGreaterThan(1)
+    expect(r.perSlot.get('drink')!.値段).toBe(1)
   })
 
   it('離れて置けば取り合わせは効かない', () => {
@@ -175,6 +210,128 @@ describe('店全体に効く効き目', () => {
   })
 })
 
+describe('同棚セット（S1・S2。#59）— 隣り合っていなくても効く', () => {
+  /** ⚠ **どれも離して置く。**隣接のボーナス（R1〜R6）は1本も発火しない配置 */
+  const 離して = (ids: string[]): Placement[] =>
+    ids.map((itemId, i) => ({ slotId: `s${i}`, itemId, x: i * 5, y: i * 5 }))
+
+  it('S1 — 奮発する品が3つ揃えば、離れていても値が付く', () => {
+    const p = 離して(['snap_pea', 'strawberry', 'mugwort'])   // すべて 上等以上・1升
+    const r = evaluate(p, at('ハルヴェラ'))
+    expect(r.firedRules).toContain('S1')
+    // ⚠ **当たった品それぞれが甲になる。**3つとも値が上がる
+    for (const slot of ['s0', 's1', 's2']) {
+      expect(finalModifiers(r, slot).値段, slot).toBeGreaterThan(1)
+    }
+    // 隣接のボーナスは1本も効いていない（離して置いてあるため）
+    expect(r.firedRules.some(id => /^R[1-6]$/.test(id))).toBe(false)
+  })
+
+  it('S1 — 2つでは揃わない（3つ目が要る）', () => {
+    const r = evaluate(離して(['snap_pea', 'strawberry']), at('ハルヴェラ'))
+    expect(r.firedRules).not.toContain('S1')
+  })
+
+  it('S2 — 同じ土地に向く品が3つ揃えば、離れていても売れやすい', () => {
+    const p = 離して(['chili', 'rabbit_fur', 'reindeer_meat'])   // すべて 寒い土地
+    expect(evaluate(p, at('ハルヴェラ')).firedRules).toContain('S2')
+  })
+
+  it('S2 — 向く土地が揃わなければ効かない（`揃える` は値の一致を見る）', () => {
+    const p = 離して(['chili', 'rabbit_fur', 'strawberry'])   // 寒い・寒い・温暖
+    expect(evaluate(p, at('ハルヴェラ')).firedRules).not.toContain('S2')
+  })
+
+  it('⚠ 同棚セットを足しても、隣接のボーナスは今までどおり効く', () => {
+    const p: Placement[] = [
+      { slotId: 'food',  itemId: 'buckwheat_bread', x: 0, y: 0 },
+      { slotId: 'drink', itemId: 'grape_wine',      x: 2, y: 0 },
+    ]
+    const r = evaluate(p, at('ハルヴェラ'))
+    expect(r.firedRules).toContain('R1')
+    expect(r.perSlot.get('food')!.売れやすさ).toBeGreaterThan(1)
+  })
+})
+
+describe('規則を1本足すのに、評価器を触らなくてよい（#59 の受入条件7）', () => {
+  it('同棚の規則を足すと、離れて置いた品に効く', () => {
+    const 足した: SetRule = {
+      id: 'T2', description: '判定用: 飲みものが2つあれば、離れていても売れやすい',
+      members: [
+        { axis: '主種類', op: '==', value: '飲みもの' },
+        { axis: '主種類', op: '==', value: '飲みもの' },
+      ],
+      adjacent: false,
+      effect: { kind: '売れやすさ', multiplier: 1.5 },
+    }
+    const p: Placement[] = [
+      { slotId: 'a', itemId: 'grape_wine', x: 0, y: 0 },
+      { slotId: 'b', itemId: 'grape_wine', x: 9, y: 9 },
+    ]
+    const r = evaluate(p, at('ハルヴェラ'), undefined, undefined, [足した])
+    expect(r.firedRules.filter(id => id === 'T2')).toHaveLength(2)   // 2つとも甲になる
+  })
+
+  it('名物コンビ（層2）は同じ器で書ける。品IDを並べるだけ', () => {
+    const 名物: SetRule = {
+      id: 'SIG_T', description: '判定用: 蕎麦のパンと葡萄酒',
+      members: ['buckwheat_bread', 'grape_wine'],
+      adjacent: true,
+      effect: { kind: '売れやすさ', multiplier: 1.5 },
+    }
+    const 隣り: Placement[] = [
+      { slotId: 'a', itemId: 'buckwheat_bread', x: 0, y: 0 },
+      { slotId: 'b', itemId: 'grape_wine',      x: 2, y: 0 },
+    ]
+    const 離れ: Placement[] = [
+      { slotId: 'a', itemId: 'buckwheat_bread', x: 0, y: 0 },
+      { slotId: 'b', itemId: 'grape_wine',      x: 9, y: 9 },
+    ]
+    expect(evaluate(隣り, at('ハルヴェラ'), undefined, undefined, [名物]).firedRules).toContain('SIG_T')
+    expect(evaluate(離れ, at('ハルヴェラ'), undefined, undefined, [名物]).firedRules).not.toContain('SIG_T')
+  })
+
+  it('入荷解禁を1本足すと、ID を書き足さずに効く（`r.id === \'U1\'` を解いた）', () => {
+    const crafted = ALL_ITEMS.find(i => tier(i.id) === 2)!
+    // いまの U1・U2 では並ばない品
+    expect(passesStockGates(crafted, at('ハルヴェラ'))).toBe(false)
+    const 足した = [{
+      id: 'U9', description: '判定用: tier2 も並ぶ',
+      condition: { axis: 'tier', op: '<=', value: 2 } as const,
+      stockedBy: '島の商人' as const,
+    }]
+    expect(passesStockGates(crafted, at('ハルヴェラ'), 足した)).toBe(true)
+  })
+
+  it('⚠ 行商人だけの解禁は作れない（`stockedBy` が読まれている証拠）', () => {
+    const crafted = ALL_ITEMS.find(i => tier(i.id) === 2)!
+    const 行商人だけ = [{
+      id: 'U9', description: '判定用: 行商人だけが並べる',
+      condition: { axis: 'tier', op: '<=', value: 2 } as const,
+      stockedBy: '行商人バレン' as const,
+    }]
+    expect(passesStockGates(crafted, at('ハルヴェラ'), 行商人だけ)).toBe(false)
+  })
+
+  it('隣接の規則を3件で書くと落ちる（隣り合わせに3件目は無い）', () => {
+    const 壊れた: SetRule = {
+      id: 'T3', description: '判定用: 隣接なのに3件',
+      members: [
+        { axis: 'tier', op: '>=', value: 1 },
+        { axis: 'tier', op: '>=', value: 1 },
+        { axis: 'tier', op: '>=', value: 1 },
+      ],
+      adjacent: true,
+      effect: { kind: '値段', multiplier: 1.1 },
+    }
+    const p: Placement[] = [
+      { slotId: 'a', itemId: 'apple', x: 0, y: 0 },
+      { slotId: 'b', itemId: 'lemon', x: 1, y: 0 },
+    ]
+    expect(() => evaluate(p, at('ハルヴェラ'), undefined, undefined, [壊れた])).toThrow(/2件/)
+  })
+})
+
 describe('tier による按分（方針5・A案）', () => {
   it('tier1 の効き目は9割が店全体へ、1割がその区画へ行く', () => {
     // apple（tier1・ノアキータ）と rice（tier1・ノアキータ）で R5 が1回発火する
@@ -183,7 +340,7 @@ describe('tier による按分（方針5・A案）', () => {
       { slotId: 'b', itemId: 'apple', x: 2, y: 0 },
     ]
     const r = evaluate(p, at('ハルヴェラ'))
-    const e = SAME_ORIGIN_RULE.effect.multiplier - 1
+    const e = ruleOf('R5').effect.multiplier - 1
     // 店全体は「区画数で割る」ので、2区画なら e × 0.9 ÷ 2
     expect(r.shopWide.集客 - 1).toBeCloseTo(e * 0.9 / 2, 10)
     expect(r.perSlot.get('a')!.集客 - 1).toBeCloseTo(e * 0.1, 10)

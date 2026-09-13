@@ -12,11 +12,11 @@ import type { IslandName } from './islands.js'
 import { getItem } from './items.js'
 import { originReach, tier } from './derive.js'
 import type {
-  Condition, Effect, EffectKind, PairRule, Predicate, UnlockRule,
+  Condition, Effect, EffectKind, Predicate, SetMember, SetRule, UnlockRule,
 } from './rules.js'
 import {
-  combine, DEMAND_RULES, FOREIGN_ORIGIN_RULE, PAIR_RULES,
-  SAME_ORIGIN_RULE, shopWideWeight, SIGNATURE_PAIRS, UNLOCK_RULES,
+  combine, DEMAND_RULES, FOREIGN_ORIGIN_RULE, SET_RULES,
+  shopWideWeight, SIGNATURE_SETS, UNLOCK_RULES,
 } from './rules.js'
 
 // ─── 評価の文脈 ───────────────────────────────────────
@@ -170,19 +170,134 @@ class Accumulator {
   }
 }
 
-function applyPairRule(
-  rule: PairRule,
+// ─── セットの判定（層1・層2・同棚をまとめて扱う） ─────
+/**
+ * `members` の1件に、置いてある品が当たるか。
+ * **品ID（層2）は文字列、軸の条件（層1）はオブジェクト。**両者の違いはここだけ。
+ */
+function memberMatches(
+  m: SetMember, p: Placement, state: GameState, lookup: (id: ItemId) => ItemDef,
+): boolean {
+  if (typeof m === 'string') return p.itemId === m
+  return evalCondition(m, { item: lookup(p.itemId), state })
+}
+
+/**
+ * `揃える` が指す軸の値。**突き合わせるのは「値が同じかどうか」だけ。**
+ *
+ * ⚠ **産地は「材料を遡った産地」**（#37。条件式の `産地` 述語と同じ値を見ること。
+ *   ここだけ品に書いてある産地を読むと、R5 が条件と突き合わせで違う産地を見ることになる）。
+ */
+function axisValue(axis: NonNullable<SetRule['揃える']>, item: ItemDef): string | number {
+  switch (axis) {
+    case '主種類':   return item.mainKind
+    case '産地':     return originReach(item)
+    case '向く土地': return item.suitedLand
+    case '贅沢さ':   return item.luxury
+    case 'tier':     return tier(item.id)
+  }
+}
+
+/** `揃える` を持つ規則は、揃えた品の値が全部同じであること */
+function agrees(
+  rule: SetRule, members: readonly Placement[], lookup: (id: ItemId) => ItemDef,
+): boolean {
+  const axis = rule.揃える
+  if (!axis) return true
+  const values = members.map(p => axisValue(axis, lookup(p.itemId)))
+  return values.every(v => v === values[0])
+}
+
+/**
+ * 隣り合わせの2区画に、隣接のセットを当てる。返すのは**効き目がかかる区画（甲）**。
+ *
+ * ⚠ **甲乙は順不同で当てる**（隣り合わせに向きはない）。当たった側が甲になり、
+ *   **甲だけが効き目を受ける** —— R4 で日用品が値下がりしないのはこれ。
+ */
+function matchAdjacent(
+  rule: SetRule,
   a: Placement, b: Placement,
   state: GameState,
   lookup: (id: ItemId) => ItemDef,
-): [Placement, Placement][] {
-  const ctxA = { item: lookup(a.itemId), state }
-  const ctxB = { item: lookup(b.itemId), state }
-  const hits: [Placement, Placement][] = []
-  // 甲乙は順不同で当てる（隣り合わせに向きはない）
-  if (evalCondition(rule.甲, ctxA) && evalCondition(rule.乙, ctxB)) hits.push([a, b])
-  if (evalCondition(rule.甲, ctxB) && evalCondition(rule.乙, ctxA)) hits.push([b, a])
+): Placement[] {
+  if (rule.members.length !== 2) {
+    throw new Error(`${rule.id}: 隣接の規則は members を2件（甲・乙）で書く`)
+  }
+  const [甲, 乙] = rule.members
+  const 当たる = (x: Placement, y: Placement): boolean =>
+    memberMatches(甲, x, state, lookup) && memberMatches(乙, y, state, lookup) &&
+    agrees(rule, [x, y], lookup)
+
+  const hits: Placement[] = []
+  if (当たる(a, b)) hits.push(a)
+  // ⚠ `組ごとに1回` の規則（R5）はここで打ち切る。甲乙が同じ条件だと**1組で2回効いてしまう**
+  if (rule.組ごとに1回 && hits.length > 0) return hits
+  if (当たる(b, a)) hits.push(b)
   return hits
+}
+
+/**
+ * **要る数だけ「別々の区画」を取れるか**（距離は見ない）。
+ *
+ * ⚠ **候補は先頭 k 件しか見ない**（k = `members` の数）。使う区画は k を超えないので、
+ *   k+1 件目以降を見ても答えは変わらない —— **盤面が大きくなっても重くならない。**
+ */
+function canAssign(lists: readonly (readonly Placement[])[], used: Set<string>, i = 0): boolean {
+  if (i >= lists.length) return true
+  for (const p of lists[i]) {
+    if (used.has(p.slotId)) continue
+    used.add(p.slotId)
+    if (canAssign(lists, used, i + 1)) return true
+    used.delete(p.slotId)
+  }
+  return false
+}
+
+/**
+ * 同棚のセット（`adjacent: false`）を当てる。**隣接を見ず、盤面に置いてあればよい**（#59）。
+ *
+ * 返すのは効き目がかかる区画（甲）。⚠ **当たった品それぞれが甲になる**
+ * （`組ごとに1回` なら、組の先頭1つだけ）。
+ */
+function matchSameShelf(
+  rule: SetRule,
+  placements: readonly Placement[],
+  state: GameState,
+  lookup: (id: ItemId) => ItemDef,
+): Placement[] {
+  // `揃える` があれば、まず値ごとに分ける。以降は「同じ値の品だけ」で揃える話になる
+  const groups: (readonly Placement[])[] = rule.揃える
+    ? [...groupByAxis(placements, rule.揃える, lookup).values()]
+    : [placements]
+
+  const k = rule.members.length
+  const hits: Placement[] = []
+  for (const group of groups) {
+    if (group.length < k) continue
+    const candidates = rule.members.map(m => group.filter(p => memberMatches(m, p, state, lookup)))
+    const rest = candidates.slice(1).map(c => c.slice(0, k))
+    for (const 甲 of candidates[0]) {
+      if (!canAssign(rest, new Set([甲.slotId]))) continue
+      hits.push(甲)
+      if (rule.組ごとに1回) break
+    }
+  }
+  return hits
+}
+
+function groupByAxis(
+  placements: readonly Placement[],
+  axis: NonNullable<SetRule['揃える']>,
+  lookup: (id: ItemId) => ItemDef,
+): Map<string, Placement[]> {
+  const groups = new Map<string, Placement[]>()
+  for (const p of placements) {
+    const key = String(axisValue(axis, lookup(p.itemId)))
+    const list = groups.get(key) ?? []
+    list.push(p)
+    groups.set(key, list)
+  }
+  return groups
 }
 
 /**
@@ -202,6 +317,14 @@ export function evaluate(
    *   盤面が回転を持つ側（`FloorGrid`）は、実際の占有升目で出した組をここへ渡すこと（#30）。
    */
   pairs: readonly [Placement, Placement][] = adjacentPairs(placements, lookup),
+  /**
+   * 当てる取り合わせ／セット。**層1・層2・同棚を1つの列で渡す。**
+   *
+   * ⚠ **既定を使うかぎり、規則を1本足すのに評価器を触らなくてよい**（#59）。
+   *   差し替えられるようにしてあるのは、**層2（名物コンビ）が既定で空**だからで、
+   *   **空のままでも層2の経路をテストできるようにするため**（INV-4 を崩さずに確かめる）。
+   */
+  sets: readonly SetRule[] = [...SET_RULES, ...SIGNATURE_SETS],
 ): EvaluationResult {
   const perSlotAcc = new Map<string, Accumulator>()
   const shopAcc = new Accumulator()
@@ -244,32 +367,25 @@ export function evaluate(
     }
   }
 
-  // ── 取り合わせ 層1（隣接） ──
+  // ── 取り合わせ ──
+  // ⚠ **層1・層2・同棚を1つの列で回す**（#59）。層2（名物コンビ）は既定が空なので、
+  //   全部消しても上の結果は変わらない（INV-4）。**規則を1本足すのに、ここは触らない。**
+
+  // 隣接のセット（R1〜R6・名物コンビ）
   for (const [a, b] of pairs) {
-    for (const rule of PAIR_RULES) {
-      for (const [target] of applyPairRule(rule, a, b, state, lookup)) {
-        put(rule.effect, target.slotId, rule.id, target.itemId)
+    for (const rule of sets) {
+      if (!rule.adjacent) continue
+      for (const 甲 of matchAdjacent(rule, a, b, state, lookup)) {
+        put(rule.effect, 甲.slotId, rule.id, 甲.itemId)
       }
-    }
-    // R5「同じ島の産」。値の一致を見るので、条件（産地 != なし）に加えて評価器が突き合わせる。
-    // ⚠ 突き合わせるのは**材料を遡った産地**（#37）。1島に定まる加工品はここで島の棚に加わり、
-    //   2島以上が混ざる品は `なし` になるので、条件（産地 != なし）の側で落ちる
-    const ia = lookup(a.itemId)
-    const ib = lookup(b.itemId)
-    const okA = evalCondition(SAME_ORIGIN_RULE.甲, { item: ia, state })
-    const okB = evalCondition(SAME_ORIGIN_RULE.乙, { item: ib, state })
-    if (okA && okB && originReach(ia) === originReach(ib)) {
-      put(SAME_ORIGIN_RULE.effect, a.slotId, SAME_ORIGIN_RULE.id, a.itemId)
     }
   }
 
-  // ── 取り合わせ 層2（名物コンビ）。既定は空。全部消しても上の結果は変わらない（INV-4） ──
-  for (const [a, b] of pairs) {
-    for (const rule of SIGNATURE_PAIRS) {
-      const match =
-        (a.itemId === rule.甲 && b.itemId === rule.乙) ||
-        (b.itemId === rule.甲 && a.itemId === rule.乙)
-      if (match) put(rule.effect, a.slotId, rule.id, a.itemId)
+  // 同棚のセット（S1・S2）。**離れていても、盤面に置いてあれば効く**
+  for (const rule of sets) {
+    if (rule.adjacent) continue
+    for (const 甲 of matchSameShelf(rule, placements, state, lookup)) {
+      put(rule.effect, 甲.slotId, rule.id, 甲.itemId)
     }
   }
 
@@ -305,7 +421,7 @@ export function finalModifiers(result: EvaluationResult, slotId: string): Modifi
  * どちらも**軸どうしの比較**を要求し、条件言語にそれが無いので書けない（→ issue #31）。
  * **規則データに置くと嘘になる**ので置いていない。
  *
- * ⚠ U1・U2 は **IDで名指し**して拾っている。**U3 を足しても無視される。**
+ * ⚠ **解禁は `stockedBy` で絞って拾う**（#59）。**IDでの名指しはもう無い。**
  */
 export function stockedByIslandMerchant(
   items: readonly ItemDef[],
@@ -331,8 +447,13 @@ export function handledByIslandMerchant(item: ItemDef, state: GameState): boolea
 /**
  * 入荷解禁（U1・U2）を通るか。**場所の条件（U3・U4）は見ない。**
  *
- * ⚠ 評価器は `r.id === 'U1'` と**IDで名指し**して拾う（`rules.ts` の注記）。
- *   規則を足しても、ここに名前を書かないかぎり無視される。
+ * ⚠ **`stockedBy` で絞ってから「どれか1本でも通るか」を見る**（#59 で `r.id === 'U1'` を解いた）。
+ *   **規則を1本足せば、ここを触らずに効く。**以前は ID で名指ししていたので、
+ *   U3 を足しても無視された（#31 の申し送り）。
+ *
+ * ⚠ **行商人バレンも「島の商人」の関を通す。**行商人だけの解禁を作らないため
+ *   （作ると「どこでも買えない品が行商人からだけ買える」経路ができる。#9 → `stockedByPeddler`）。
+ *   **`StockedBy` に `'行商人バレン'` の規則を書いても、ここは読まない。**
  */
 export function passesStockGates(
   item: ItemDef,
@@ -340,9 +461,7 @@ export function passesStockGates(
   rules: readonly UnlockRule[] = UNLOCK_RULES,
 ): boolean {
   const ctx = { item, state }
-  const passesTierGate = rules.some(r => r.id === 'U1' && evalCondition(r.condition, ctx))
-  const passesSalesGate = rules.some(r => r.id === 'U2' && evalCondition(r.condition, ctx))
-  return passesTierGate || passesSalesGate
+  return rules.some(r => r.stockedBy === '島の商人' && evalCondition(r.condition, ctx))
 }
 
 /**
