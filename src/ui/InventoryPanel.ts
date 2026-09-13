@@ -237,7 +237,9 @@ export class InventoryPanel {
       const nameText = this.scene.add.text(PANEL_X + 54, y - 20, item.display.name, {
         fontSize: '13px', color: '#ffffff',
       })
-      const qtyText = this.scene.add.text(PANEL_X + 54, y - 2, this.countLabel(item.id), {
+      // ⚠ **個数と売値は同じ行**（PO 指示 2026-09-14）。行は**品名と、この1行の2行だけ。**
+      //   個数は左、売値は右端にそろえる
+      const qtyText = this.scene.add.text(PANEL_X + 54, y + 2, this.countLabel(item.id), {
         fontSize: '11px', color: this.storedOnShelf.has(item.id) ? '#88bbaa' : '#aaaaaa',
       })
       // 値段は持ち物ではなく導出値。表示のたびに出す（ItemRegistry の注記を参照）
@@ -253,10 +255,12 @@ export class InventoryPanel {
       // ⚠ **`derive.ts` に引数を足して解決していない。**強化の段は**品の性質ではない**ので、
       //   導出（`salePrice`）は品だけを見るまま置き、**倍率は表示側で渡す。**
       //   `finalPrice` はもとから倍率を受け取る形なので、掛ける関数は1本も増やしていない
-      const priceText = this.scene.add.text(PANEL_X + 54, y + 16,
-        `売${money(this.registry.finalPriceOf(item.id, this.marginOf()))}`, {
+      // ⚠ **`売` の字は付けない**（PO 指示 2026-09-14）。この一覧に出る額は売値しか無い
+      const priceText = this.scene.add.text(
+        PANEL_X + 54 + ITEM_WIDTH - 66, y + 2,
+        money(this.registry.finalPriceOf(item.id, this.marginOf())), {
         fontSize: '11px', color: '#778899',
-      })
+      }).setOrigin(1, 0)
       this.allObjects.push(nameText, qtyText, priceText)
       this.quantityTexts.set(item.id, qtyText)
 

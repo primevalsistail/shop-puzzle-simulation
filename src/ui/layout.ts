@@ -103,6 +103,18 @@ const NO_SUBTITLE_SHIFT = FILTER_Y - FILTER_Y_NO_SUBTITLE
 /** 見出しの下の1行が無い場所の、一覧の上端 */
 export const ROWS_TOP_NO_SUBTITLE = ROWS_TOP - NO_SUBTITLE_SHIFT
 
+/**
+ * 画面に出す時間帯の名（PO 指示 2026-09-14「閉店・開店に変更」）。
+ *
+ * ⚠ **`DayPhase`（`作業` / `営業` / `睡眠`）はそのまま。**あれは**時間の仕組みが読む値**で、
+ *   客が来るかどうかも加工が進むかどうかもあれで決まる。**画面に出す語だけをここで変える。**
+ * ⚠ **画面には2つしか出さない。**開いているか、いないか。
+ *   `睡眠` を別の語で出すと、**プレイヤーから見て閉まっていることは同じなのに語が3つになる。**
+ */
+export function phaseLabel(phase: '作業' | '営業' | '睡眠'): string {
+  return phase === '営業' ? '開店' : '閉店'
+}
+
 // ─── 見出しの行に並ぶもの（`PlaceFrame` が置く） ─────────────────
 /** 見出しの文字の大きさ。**太字** */
 export const TITLE_FONT_PX = 24

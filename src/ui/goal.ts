@@ -18,23 +18,6 @@ import { GOAL_AMOUNT } from '../services/GameService.js'
 import { money } from './money.js'
 
 /**
- * 目標までの進み（0〜1）。**測るのは所持金**で、累計売上ではない。
- *
- * ⚠ **この値は減る。**所持金は改装や仕入れで使えば減るので、バーも縮む。
- *   **それが実際のクリア条件**（`GameService.onMinutePassed`）なので、縮むのが正しい。
- *   「払えば目標が遠のく」という改装画面の文言とも、ここで初めて辻褄が合う。
- * ⚠ **0 で下げ止める。**負の幅で図形を描かせない。
- */
-export function goalRatio(currentMoney: number): number {
-  return Math.min(1, Math.max(0, currentMoney / GOAL_AMOUNT))
-}
-
-/** 進捗バーの右下に出す `目標 N%`。⚠ **切り上げない。**届く前に 100% と出さないため */
-export function goalBarLabel(currentMoney: number): string {
-  return `目標 ${Math.floor(goalRatio(currentMoney) * 100)}%`
-}
-
-/**
  * チュートリアル最後の行。⚠ **初日に必ず見る画面**なので、ここが実際の条件と違うと
  * **遊び始めた瞬間から嘘をつく**ことになる。
  */

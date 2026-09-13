@@ -3,9 +3,8 @@ import { phaseOf } from '../components/core/TimeManager.js'
 import type { Location } from '../components/progress/WorldState.js'
 import type { IslandName } from '../taxonomy/islands.js'
 import { money } from './money.js'
-import { goalRatio, goalBarLabel } from './goal.js'
 import {
-  HUD_PANEL_W, HUD_MONEY_FONT_PX, HUD_BAR_W,
+  HUD_PANEL_W, HUD_MONEY_FONT_PX, HUD_BAR_W, phaseLabel,
   HUD_NEXT_PORT_FONT_PX, HUD_NEXT_PORT_H, nextPortLabel,
 } from './layout.js'
 
@@ -18,9 +17,6 @@ export class HUD {
   private phaseText!: Phaser.GameObjects.Text
   private placeText!: Phaser.GameObjects.Text
   private moneyText!: Phaser.GameObjects.Text
-  private barBg!: Phaser.GameObjects.Rectangle
-  private barFill!: Phaser.GameObjects.Rectangle
-  private barLabel!: Phaser.GameObjects.Text
   /** 次の寄港地を選ぶところ（#7）。⚠ **クリア後にだけ出す** */
   private nextPortBg!: Phaser.GameObjects.Rectangle
   private nextPortText!: Phaser.GameObjects.Text
@@ -49,7 +45,7 @@ export class HUD {
     // Row 1 — 区分（左・小）＋ 時刻（右・大）
     // ⚠ **この行に長い文字を足さないこと。**時刻が 26px で右寄せなので、
     //   左の文字と重なる（幅は 174px しかない）
-    this.phaseText = this.scene.add.text(px - PW / 2 + 10, py - 47, 'D1 作業', {
+    this.phaseText = this.scene.add.text(px - PW / 2 + 10, py - 47, `D1 ${phaseLabel('作業')}`, {
       fontSize: '12px', color: '#7788aa',
     }).setOrigin(0, 0.5).setDepth(5)
 
@@ -74,21 +70,12 @@ export class HUD {
       fontSize: `${HUD_MONEY_FONT_PX}px`, color: '#ffdd44', fontStyle: 'bold',
     }).setOrigin(0.5, 0.5).setDepth(5)
 
-    // Row 4 — 目標までの進み（#73。**所持金 ÷ 目標額**。累計売上ではない）
+    // Row 4（#7）— 次の寄港地。**クリア後だけ出す。**
+    // ⚠ **目標までの進みのバーは消した**（PO 指示 2026-09-14「進捗要らない」）。
+    //   **どれだけ目標に近いかは、改装の「商船」の値段で分かる**（#97）。
+    // ⚠ **行を増やさないこと。**枠が下へ伸びてキャラ絵の枠（`CHAR_ART_T`）が縮む
     const barW = HUD_BAR_W
-    const barH = 8
-    const barY = py + 40
-    this.barBg = this.scene.add.rectangle(px, barY, barW, barH, 0x223344)
-      .setDepth(5)
-    this.barFill = this.scene.add.rectangle(px - barW / 2, barY, 0, barH, 0x44cc77)
-      .setOrigin(0, 0.5).setDepth(5)
-    this.barLabel = this.scene.add.text(px + PW / 2 - 8, barY + 12, goalBarLabel(0), {
-      fontSize: '11px', color: '#556677',
-    }).setOrigin(1, 0.5).setDepth(5)
-
-    // Row 4'（#7）— 次の寄港地。**目標が無くなったら、この場所がここに変わる**
-    // ⚠ **バーと入れ替える。**行を増やすと枠が下へ伸び、キャラ絵の枠（`CHAR_ART_T`）が縮む
-    const npY = barY + 6
+    const npY = py + 46
     this.nextPortBg = this.scene.add.rectangle(px, npY, barW, HUD_NEXT_PORT_H, 0x2a2a4a)
       .setStrokeStyle(1, 0x5566aa).setDepth(5).setVisible(false)
       .setInteractive({ useHandCursor: true })
@@ -114,9 +101,6 @@ export class HUD {
    */
   updateNextPort(next: IslandName | null): void {
     const on = next !== null
-    this.barBg.setVisible(!on)
-    this.barFill.setVisible(!on)
-    this.barLabel.setVisible(!on)
     this.nextPortBg.setVisible(on)
     this.nextPortText.setVisible(on)
     if (on) this.nextPortText.setText(nextPortLabel(next))
@@ -124,31 +108,6 @@ export class HUD {
 
   updateMoney(amount: number): void {
     this.moneyText.setText(money(amount))
-  }
-
-  /**
-   * 目標までの進み（#73）。**測るのは所持金で、累計売上ではない。**
-   *
-   * ⚠ **バーは縮む。**所持金は改装や仕入れで減るので、進みも戻る。
-   *   幅は毎回 `0〜barW` で置き直すので、縮んだぶんが残ることはない
-   *   （`goalRatio` が 0 で下げ止めるので、負の幅にもならない）。
-   * ⚠ **割合も文字もここで計算しない。**`goal.ts` が出したものを置くだけ。
-   *   ここに数字を書くと、また画面ごとに別の目標額を持つことになる（それが #73）。
-   */
-  updateGoal(currentMoney: number, isEndless: boolean): void {
-    if (isEndless) {
-      this.barFill.setFillStyle(0xffaa44)
-      this.barFill.width = (this.barBg.width)
-      this.barLabel.setText('∞ endless').setStyle({ color: '#ffaa44' })
-      return
-    }
-    const pct = goalRatio(currentMoney)
-    const barW = this.barBg.width
-    this.barFill.width = Math.round(barW * pct)
-    const color = pct > 0.8 ? 0x44ff88 : pct > 0.5 ? 0xffaa44 : 0x44cc77
-    this.barFill.setFillStyle(color)
-    const labelColor = pct > 0.8 ? '#44ff88' : pct > 0.5 ? '#ffaa44' : '#556677'
-    this.barLabel.setText(goalBarLabel(currentMoney)).setStyle({ color: labelColor })
   }
 
   /**
@@ -167,6 +126,8 @@ export class HUD {
     const m = String(minute).padStart(2, '0')
     this.timeText.setText(`${h}:${m}`)
     // 客が来るのは 10:00-20:00 の「営業」だけ（#25）
-    this.phaseText.setText(`D${day} ${phaseOf(hour)}`)
+    // ⚠ **画面に出すのは 開店 / 閉店 の2つだけ**（`layout.ts` の `phaseLabel`）。
+    //   `DayPhase` は時間の仕組みが読む値なので、そのまま
+    this.phaseText.setText(`D${day} ${phaseLabel(phaseOf(hour))}`)
   }
 }

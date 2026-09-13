@@ -41,7 +41,6 @@ import {
   CHAR_ART_CX, CHAR_ART_CY, CHAR_ART_W, CHAR_ART_H, craftTimeLabel,
 } from '../ui/layout.js'
 import { MessageLog } from '../ui/MessageLog.js'
-import { OrderBar } from '../ui/OrderBar.js'
 import { money } from '../ui/money.js'
 import { goalReachedLine } from '../ui/goal.js'
 import { installDebugTools } from '../debug/DebugTools.js'
@@ -122,7 +121,6 @@ export class GameScene extends Phaser.Scene {
   private characterStrip!: CharacterStrip
   private messageLog!: MessageLog
   /** いま受けている注文の1行（#28） */
-  private orderBar!: OrderBar
   /** 「行く場所」の枠（#58）。**いまどこに居るかはこれが持つ** */
   private placeFrame!: PlaceFrame
   /** 選択肢のあるできごとの窓（#24）。**開いている間は時間も配置も止まる** */
@@ -194,8 +192,6 @@ export class GameScene extends Phaser.Scene {
     this.characterStrip.create()
     this.messageLog = new MessageLog(this)
     this.messageLog.create()
-    this.orderBar = new OrderBar(this)
-    this.orderBar.create()
 
     this.craftMenu = new CraftMenu(
       this,
@@ -337,7 +333,6 @@ export class GameScene extends Phaser.Scene {
 
         // HUD・パネルを更新
         this.hud.updateMoney(data.money)
-        this.hud.updateGoal(data.money, this.gameService.isInEndlessMode())
         this.hud.updateTime(data.currentTime.day, data.currentTime.hour, data.currentTime.minute)
         this.hud.updateLocation(this.world.getLocation())
         this.refreshNextPort()
@@ -365,7 +360,6 @@ export class GameScene extends Phaser.Scene {
     this.hud.updateTime(t0.day, t0.hour, t0.minute)
     this.hud.updateLocation(this.world.getLocation())
     this.hud.updateMoney(this.economy.getMoney())
-    this.hud.updateGoal(this.economy.getMoney(), false)
     // 次の寄港地（#7）。**クリア前は出ない**（`refreshNextPort` が `null` を渡す）
     this.hud.onNextPort(() => this.cycleNextPort())
     this.refreshNextPort()
@@ -813,7 +807,6 @@ export class GameScene extends Phaser.Scene {
     //   所持金が変わる経路はすべて `EconomyManager` がこの出来事を出すので、ここ1箇所で足りる
     EventBus.on(GameEvents.ECONOMY_MONEY_CHANGED, (money: unknown) => {
       this.hud.updateMoney(money as number)
-      this.hud.updateGoal(money as number, this.gameService.isInEndlessMode())
     })
 
     EventBus.on(GameEvents.FLOOR_SLOT_PLACED, (slot: unknown) => {
@@ -1017,7 +1010,6 @@ export class GameScene extends Phaser.Scene {
     //   そこに居ないのだからおかしい（PO 2026-09-12）。
     //   場所の領域はこの帯に重なるので、隠さないと下から覗く
     this.characterStrip.setVisible(visible)
-    this.orderBar.setShopVisible(visible)
   }
 
   /** 時間が進んでいたら止める。場所へ移る前に必ず呼ぶ */
@@ -1295,19 +1287,9 @@ export class GameScene extends Phaser.Scene {
     // 現在地も渡す。**買値は島で変わる**ので、渡さないと仕入れ画面と食い違う（段4-6）
     this.inventoryPanel.render(items, quantities, onShelf)
     // ⚠ **帯の「手持ち」も持ち物の表示である。**別の経路で更新すると片方だけ古くなる
-    this.refreshOrderBar()
   }
 
-  /** 納品の帯を引き直す。**注文が無ければ帯ごと消える** */
-  private refreshOrderBar(): void {
-    const order = this.deliveryOrders.getActive()
-    if (!order) {
-      this.orderBar.update(null, '', 0)
-      return
-    }
-    const item = this.registry_.getItem(order.itemId)
-    this.orderBar.update(order, item.display.name, this.inventory.getQuantity(order.itemId))
-  }
+
 
   /**
    * この寄港ぶんの注文を出す（#28）。**納品先は次の島。**
@@ -1333,7 +1315,6 @@ export class GameScene extends Phaser.Scene {
         'event',
       )
     }
-    this.refreshOrderBar()
   }
 
   /**
@@ -1435,7 +1416,6 @@ export class GameScene extends Phaser.Scene {
       this.progress.setEndlessMode(true)
       // ⚠ **その場でバーを ∞ に切り替える**（#73）。所持金が動くまで待つと、
       //   目標を越えたあとも「目標 100%」がしばらく残る
-      this.hud.updateGoal(this.economy.getMoney(), true)
       // ⚠ **ここから航路を自分で決められる**（#7）。目標のバーがあった場所が
       //   「次の寄港地」に変わる（`HUD.updateNextPort`）
       this.world.beginFreeSailing()

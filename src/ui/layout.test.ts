@@ -29,10 +29,11 @@ import { STORY_EVENTS } from '../components/progress/StoryEvents.js'
 import { ALL_ITEMS } from '../taxonomy/items.js'
 import { PEDDLER_MAX_PER_KIND, peddlerPrice } from '../components/progress/PeddlerStock.js'
 import { money } from './money.js'
+import { orderLineText } from './delivery.js'
 import { PRESET_COUNT, PRESET_NAME_MAX, describePreset } from '../components/floor/ShelfPresets.js'
 import { ROUTE } from '../taxonomy/islands.js'
 import { salePrice } from '../taxonomy/derive.js'
-import { orderLineText } from './OrderBar.js'
+
 import { ORDER_QUANTITY, ORDER_REWARD_RATE } from '../components/progress/DeliveryOrders.js'
 import type { DeliveryOrder } from '../components/progress/DeliveryOrders.js'
 
@@ -697,7 +698,7 @@ describe('「取引」の3タブ（#96）', () => {
 })
 
 /**
- * **納品タブ（#96）。**⚠ **帯（`OrderBar`）と同じ情報を出すだけ。**
+ * **納品タブ（#96）。**⚠ **帯は消したので、納品を見る場所はここだけ。**
  * 出す文字列は帯の1行を全角空白で折ったものなので、**文言は1語も増えていない。**
  */
 describe('納品タブ（#96）', () => {
