@@ -27,6 +27,7 @@ import { HUD } from '../ui/HUD.js'
 import { PurchaseMenu } from '../ui/PurchaseMenu.js'
 import { UpgradeMenu } from '../ui/UpgradeMenu.js'
 import { DeliveryTab } from '../ui/DeliveryTab.js'
+import { orderIssuedText, orderDeliveredText, orderDiscardedText } from '../ui/delivery.js'
 import { TradeMenu } from '../ui/TradeMenu.js'
 import { Tutorial } from '../ui/Tutorial.js'
 import { SaveLoadMenu } from '../ui/SaveLoadMenu.js'
@@ -51,7 +52,6 @@ import type { DisplaySlot, GameTime, GridCell, GridSize, Rotation } from '../typ
 import { ALL_ITEMS } from '../taxonomy/items.js'
 import { ALL_RECIPES } from '../taxonomy/recipes.js'
 import { becameBuyable, merchantListing } from '../taxonomy/evaluate.js'
-import type { IslandName } from '../taxonomy/islands.js'
 import { materialNeeds } from '../taxonomy/materials.js'
 
 /** 初期の盤面。**棚の強化で広がる**（`Upgrades.gridSize()`） */
@@ -87,7 +87,7 @@ export class GameScene extends Phaser.Scene {
   private recipeUnlocks!: RecipeUnlocks
   private world!: WorldState
   private upgrades!: Upgrades
-  /** 納品の注文（#28）。**寄港ごとに1件、自動で出る** */
+  /** 納品のミッション（#28 → #98）。**1日の始まりに、確率で1件。10件まで** */
   private deliveryOrders!: DeliveryOrders
   /** 行商人バレンの積荷（#9）。**来た日ぶんを1回だけ引く** */
   private peddler!: PeddlerStock
@@ -125,7 +125,6 @@ export class GameScene extends Phaser.Scene {
   private tutorial!: Tutorial
   private characterStrip!: CharacterStrip
   private messageLog!: MessageLog
-  /** いま受けている注文の1行（#28） */
   /** 「行く場所」の枠（#58）。**いまどこに居るかはこれが持つ** */
   private placeFrame!: PlaceFrame
   /** 選択肢のあるできごとの窓（#24）。**開いている間は時間も配置も止まる** */
@@ -232,16 +231,22 @@ export class GameScene extends Phaser.Scene {
       () => this.refreshInventoryPanel(),
     )
 
-    this.deliveryTab = new DeliveryTab(this, () => {
-      const order = this.deliveryOrders.getActive()
-      if (!order) return { order: null, itemName: '', held: 0 }
-      const item = this.registry_.getItem(order.itemId)
-      return {
-        order,
-        itemName: item.display.name,
-        held: this.inventory.getQuantity(order.itemId),
-      }
-    })
+    this.deliveryTab = new DeliveryTab(
+      this,
+      () => ({
+        // ⚠ **消えた品IDを弾く。**`getItem` は無いIDで例外を投げるので、
+        //   品が入れ替わった頃のセーブで画面が落ちる（行商人と同じ扱い。#30）
+        rows: this.deliveryOrders.list()
+          .filter(o => this.registry_.has(o.itemId))
+          .map(order => ({
+            order,
+            itemName: this.registry_.getItem(order.itemId).display.name,
+            held: this.inventory.getQuantity(order.itemId),
+          })),
+      }),
+      id => this.deliverOrder(id),
+      id => this.discardOrder(id),
+    )
 
     // ⚠ **並びは `TRADE_TABS`（商人 → 改装 → 納品）と同じ。**片方だけ並べ替えると
     //   タブの名と中身が入れ替わり、テストでは落ちない
@@ -312,7 +317,9 @@ export class GameScene extends Phaser.Scene {
         this.world.setDay(data.currentTime.day)  // 現在地は日付から決まる（#2）
         this.upgrades.restore(data.upgrades ?? {})
         this.shelfPresets.restore(data.shelfPresets)
-        this.deliveryOrders.restore(data.orders)
+        // ⚠ **引いた日ごと戻す**（#98）。戻さずに引き直せると、
+        //   **欲しい依頼が出るまでロードし直せる**（行商人の積荷と同じ事故）
+        this.deliveryOrders.restore(data.orders, data.orderDay ?? 0)
         // ⚠ **積荷ごと戻す。**戻さずに引き直すと、**欲しい品が出るまでロードし直せる**
         //   （10種類・各10個という上限が意味を失う。`PeddlerStock` の注記）
         this.peddler.restore(data.peddler)
@@ -338,9 +345,9 @@ export class GameScene extends Phaser.Scene {
         this.hud.updateTime(data.currentTime.day, data.currentTime.hour, data.currentTime.minute)
         this.hud.updateLocation(this.world.getLocation())
         this.refreshNextPort()
-        // ⚠ **注文が無かった頃のセーブは空で来る。**寄港中は必ず1件ある状態なので、
-        //   空なら**その寄港ぶんを出し直す**（出し直さないと、次の島へ着くまで納品が消える）
-        if (!this.deliveryOrders.getActive()) this.issueOrder()
+        // ⚠ **引いた日が無かった頃のセーブは 0 で来る。**その日ぶんをここで引く。
+        //   同じ日を引いたあとのセーブなら `rollDaily` は何もしない（1日1回。#98）
+        this.rollMission(data.currentTime.day)
         // ⚠ **行商人が無かった頃のセーブは日が 0 で来る。**その日ぶんをここで引く。
         //   同じ日の積荷が入っていれば `refresh` は何もしない（1日1回。`PeddlerStock`）
         this.visitPeddler(data.currentTime.day)
@@ -365,8 +372,8 @@ export class GameScene extends Phaser.Scene {
     // 次の寄港地（#7）。**クリア前は出ない**（`refreshNextPort` が `null` を渡す）
     this.hud.onNextPort(() => this.cycleNextPort())
     this.refreshNextPort()
-    // 初日ぶんの注文。**寄港したら必ず1件ある**（#28）
-    this.issueOrder()
+    // 初日ぶんのミッション（#98）。⚠ **確率なので、出ない日もある**
+    this.rollMission(t0.day)
     // 初日ぶんの行商人と、その日のできごと（#24・#90）
     this.visitPeddler(t0.day)
     this.storyEvents.ensureDay(t0.day)
@@ -921,13 +928,14 @@ export class GameScene extends Phaser.Scene {
       if (this.tradeMenu.isVisible()) this.tradeMenu.close()
       // 行商人は「取引」の外の場所（#9・#90）なので、別に閉じる
       if (this.purchaseMenu.isVisible()) this.purchaseMenu.close()
-      this.settleDelivery(after.island)
-      this.issueOrder()
     }
 
     // ⚠ **島が変わったあとに引く。**次の寄港地は島が変わった時点で変わるので、
     //   先に引くと「1日だけ、いまの次の島の産を積んだ行商人」が出る（#9）
     this.visitPeddler(day)
+    // ⚠ **納品のミッションも島が変わったあと**（#98）。候補は**いまの島で買える品**から出るので、
+    //   先に引くと**もう居ない島の品ぞろえ**で選ぶことになる
+    this.rollMission(day)
     // その日ぶんのできごとを引く（#24）。**当たった日だけ、その日のどこかで起きる**
     this.storyEvents.ensureDay(day)
 
@@ -1326,57 +1334,52 @@ export class GameScene extends Phaser.Scene {
 
 
   /**
-   * この寄港ぶんの注文を出す（#28）。**納品先は次の島。**
+   * **その日ぶんのミッションを引く**（#98）。**1日の始まりに、確率で1件。**
    *
+   * ⚠ **同じ日に2度引かない**（`DeliveryOrders.rollDaily`）。**ロードもここを通る**ので、
+   *   通さずに引き直すと**欲しい依頼が出るまでロードし直せる。**
    * ⚠ **知らせは `event` で出す。**`info` は同じ文が続くと抑止されるので、
-   *   注文のような「1回きりで、見落とすと困る」知らせには使わない。
+   *   ミッションのような「1回きりで、見落とすと困る」知らせには使わない。
+   * ⚠ **窓は出さない**（#24 の既決「飛ばせない会話を周期的に発生させない」）。
+   *   **受け取ったことはログで伝え、中身は納品タブで見る。**
    */
-  private issueOrder(): void {
-    const order = this.deliveryOrders.issue(
+  private rollMission(day: number): void {
+    const order = this.deliveryOrders.rollDaily(
       this.registry_.getAllItems(),
       this.world.getState(),
-      this.world.getLocation().next,
-      this.timeManager.getCurrentTime().day,
-      // ⚠ **作れる品も候補に入れる**（#85）。買えるものだけだと候補が
-      //   「産地＝この島の素材」に限られ、20回の寄港で目標の 0.2% にしかならなかった
+      day,
+      // ⚠ **作れる品も候補に入れる**（#85・#98「レシピが開放されているもの」）。
+      //   買えるものだけだと候補が「この島の素材」に限られ、報酬が目標の 0.2% にしかならなかった
       new Set(this.recipeUnlocks.unlockedRecipes().map(r => r.outputItemId)),
     )
-    if (order) {
-      const item = this.registry_.getItem(order.itemId)
-      this.messageLog.addMessage(
-        `${order.island}島へ ${item.display.name} ×${order.quantity} の注文が入った`
-        + `（納めると ${money(order.reward)}）`,
-        'event',
-      )
-    }
+    if (!order) return
+    const item = this.registry_.getItem(order.itemId)
+    this.messageLog.addMessage(orderIssuedText(item.display.name, order), 'event')
   }
 
   /**
-   * 納品先に着いた（#28）。**積んであれば自動で納まる。**
+   * **納品ボタンを押した**（#98）。**島も日付も関係しない。手持ちが足りているかだけ。**
    *
-   * ⚠ **果たせなくても罰は無い**（PO 判断 Q4=A）。注文が流れるだけ。
+   * ⚠ **納まったかどうかを返す。**返さないと、`DeliveryTab` が
+   *   **足りないまま押されたときにも表を作り直す**ことになる。
    */
-  private settleDelivery(island: IslandName): void {
-    // ⚠ **自由航行では、注文の宛先と着いた島が食い違いうる**（#7）。
-    //   `settleArrival` は宛先が違えば何も返さないので、ここで流れたことを出す。
-    //   出さないと、**続く `issueOrder()` が黙って上書きし、注文が消えたことに気づけない。**
-    const pending = this.deliveryOrders.getActive()
-    if (pending && pending.island !== island) {
-      const missed = this.registry_.getItem(pending.itemId)
-      this.messageLog.addMessage(
-        `${missed.display.name} ×${pending.quantity} の注文は流れた`, 'event',
-      )
-      return
-    }
-    const result = this.deliveryOrders.settleArrival(island)
-    if (!result) return
-    const item = this.registry_.getItem(result.order.itemId)
-    this.messageLog.addMessage(
-      result.delivered
-        ? `${item.display.name} ×${result.order.quantity} を納めた　+${money(result.order.reward)}`
-        : `${item.display.name} ×${result.order.quantity} の注文は流れた`,
-      'event',
-    )
+  private deliverOrder(id: string): boolean {
+    const order = this.deliveryOrders.deliver(id)
+    if (!order) return false
+    const item = this.registry_.getItem(order.itemId)
+    this.messageLog.addMessage(orderDeliveredText(item.display.name, order), 'event')
+    // ⚠ **持ち物も所持金も動く。**左パネルと HUD を追いつかせないと、納めた品が残って見える
+    this.hud.updateMoney(this.economy.getMoney())
+    this.refreshInventoryPanel()
+    return true
+  }
+
+  /** **廃棄ボタンを押した**（#98）。⚠ **罰は無い。**上限10件を自分で空けるための操作 */
+  private discardOrder(id: string): void {
+    const order = this.deliveryOrders.discard(id)
+    if (!order) return
+    const item = this.registry_.getItem(order.itemId)
+    this.messageLog.addMessage(orderDiscardedText(item.display.name, order), 'event')
   }
 
   private showSalePopup(revenue: number, slot: DisplaySlot): void {

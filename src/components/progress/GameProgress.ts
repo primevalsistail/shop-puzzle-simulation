@@ -31,7 +31,7 @@ export class GameProgress {
     private upgrades: Upgrades,
     /** マイセット（#27）。⚠ 積まないとロードで覚えた型が消える */
     private presets: ShelfPresets,
-    /** 納品の注文（#28）。⚠ **必須。**任意にすると渡し忘れてもコンパイルが通り、ロードで注文が消える */
+    /** 納品のミッション（#28 → #98）。⚠ **必須。**任意にすると渡し忘れてもコンパイルが通り、ロードで消える */
     private orders: DeliveryOrders,
     /** 行商人の積荷（#9）。⚠ **必須。**`orders` と同じ理由（渡し忘れが静かに通る） */
     private peddler: PeddlerStock,
@@ -49,6 +49,8 @@ export class GameProgress {
       floor: this.floorGrid.getAllSlots(),
       shelfPresets: this.presets.toRecord(),
       orders: this.orders.toRecord(),
+      // ⚠ **引いた日も積む**（#98）。積まないと、**欲しい依頼が出るまでロードし直せる**
+      orderDay: this.orders.rolledDay(),
       peddler: this.peddler.toRecord(),
       // 自由航行の航路（#7）。⚠ **積まないとロードで順どおりの島へ戻る**
       voyage: this.world.voyageRecord(),

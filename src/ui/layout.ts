@@ -178,34 +178,20 @@ export const TAB_SUBTITLE_FONT_PX = 15
 export const TAB_NOTE_FONT_PX = 12
 
 /**
- * 納品タブ（#96）の行の文字の大きさ。
+ * 納品タブ（#96 → **#98 で表になった**）。
  *
- * ⚠ **帯（`OrderBar`）と同じ情報しか出さない**（#98 で作り直すまで器だけ）。
- *   `deliveryTabLines` が帯の1行を全角空白で折るだけなので、**文言は1語も増えていない。**
- * ⚠ **1行目だけ `TAB_ROW_TITLE_FONT_PX`、残りは `TAB_ROW_SUB_FONT_PX`**（3タブで揃える）。
+ * ⚠ **列の寸法はここではなく、下の「納品タブの表」**（`DELIVERY_NAME_L` …）にある。
+ *   商人タブ（`ROW_*`）・改装タブ（`UPGRADE_*`）と同じ場所に並べてあるため。
  */
-export const DELIVERY_TAB_FONT_PX = TAB_ROW_TITLE_FONT_PX
-/** 納品タブの行の高さ。⚠ **文字を下げたぶん詰める**（間延びして見えるため） */
-export const DELIVERY_TAB_LINE_H = 24
 
 /**
- * 帯の1行を、納品タブの複数行に折る。
+ * ミッションが1件も無いときに納品タブへ出す1行。
  *
- * ⚠ **切るのは全角空白だけ。**`orderLineText` が区切りに使っている字で、
- *   ここで語を足したり言い換えたりしない（文言は PO の領分。#79）。
- */
-export function deliveryTabLines(barLine: string): readonly string[] {
-  return barLine.split('　')
-}
-
-/**
- * 注文が1件も無いときに納品タブへ出す1行。
- *
- * ⚠ **帯は無いとき消える**（`OrderBar`）が、**タブは自分で開いて来る場所**なので、
- *   まっさらだと壊れて見える（`PurchaseMenu` の「商人は、いま何も並べていません」と同じ扱い。#48）。
+ * ⚠ **まっさらにしない。タブは自分で開いて来る場所**なので、空だと壊れて見える
+ *   （`PurchaseMenu` の「商人は、いま何も並べていません」と同じ扱い。#48）。
  * ⚠ **言い回しは仮置き。**画面に出す文言は PO が決める（#79）。
  */
-export const DELIVERY_TAB_EMPTY = 'いま受けている注文はありません'
+export const DELIVERY_TAB_EMPTY = 'いま受けている依頼はありません'
 
 /**
  * その行の高さなら何行入るか。
@@ -511,6 +497,65 @@ export const UPGRADE_WHAT_IT_DOES: Record<UpgradeKind, string> = {
 export function upgradeSubLine(kind: UpgradeKind, delta: string | null): string {
   return delta === null ? UPGRADE_WHAT_IT_DOES[kind] : `${UPGRADE_WHAT_IT_DOES[kind]}　${delta}`
 }
+
+// ─── 納品タブの表 ──────────────────────────────────────────────
+/**
+ * 納品タブ（`DeliveryTab`）の表（**PO 赤入れ 2026-09-13**）。
+ *
+ * **商品 ／ 依頼者 ／ 数量 ／ 報酬 ／ 納品**（列の名は `ui/delivery.ts` の `DELIVERY_COLS`）。
+ * ⚠ **島の列は無い**（#98「納品先の島は無くす」）。**`廃棄` だけが絵に無く、右端に足してある。**
+ *
+ * ⚠ **右端から順に決める**（商人タブの `ROW_*` と同じ作り）。
+ *   こうしておくと領域の幅が変わっても、ボタンが品名に食い込まない。
+ * ⚠ **写しを作らないこと。**`DeliveryTab.ts` はここを読むだけで、自分の数を持たない。
+ */
+/** 見出しの行（`商品` `依頼者` …）の y */
+export const DELIVERY_HEAD_Y = ROWS_TOP + 10
+export const DELIVERY_HEAD_FONT_PX = 12
+/** 1件目の行の上端。⚠ **見出しの行と重ならないこと**（`layout.test.ts` が見ている） */
+export const DELIVERY_ROWS_TOP = ROWS_TOP + 30
+/**
+ * 1行の高さ。
+ *
+ * ⚠ **`MISSION_CAP`（10件）が全部入ること。**入らないと**下の行に手が届かない** ——
+ *   商人タブと違い、**この表にはページ送りが無い**（10件で打ち止めなので要らない）。
+ *   `layout.test.ts` が `rowsThatFit` で見ている。
+ */
+export const DELIVERY_ROW_H = 40
+
+/**
+ * ⚠ **左から順に決める。商人タブ（`ROW_*`）・改装タブ（`UPGRADE_*`）とは逆である。**
+ *
+ * **PO が描いた表は左に寄っている**（赤入れ 2026-09-13。6列で領域の半分ほど）。
+ * あの2つが右端から決めているのは、**右端にボタンが貼り付いていて、
+ * 左の品名が伸びると食い込むから。**この表は**全部の列が短い**ので、
+ * 右端に散らすと**読む目が横に飛ぶ。**⚠ **右に余白が残るのは、この表では正しい。**
+ */
+/** `商品` の左端。⚠ **いちばん長い品名が `依頼者` に届かないこと**（`layout.test.ts`） */
+export const DELIVERY_NAME_L = CONTENT_L + 16
+export const DELIVERY_NAME_W = 190
+/**
+ * `依頼者` の左端。⚠ **4人ぶんの名（`フィエラ` がいちばん長い）が
+ *   `数量` の列に届かないこと**（`layout.test.ts` が見ている）。
+ */
+export const DELIVERY_CLIENT_L = DELIVERY_NAME_L + DELIVERY_NAME_W
+export const DELIVERY_CLIENT_W = 110
+/** `数量` の右端（右そろえ）。**必要な数**であって、手持ちではない */
+export const DELIVERY_QTY_W = 60
+export const DELIVERY_QTY_R = DELIVERY_CLIENT_L + DELIVERY_CLIENT_W + DELIVERY_QTY_W
+/** `報酬` の右端（右そろえ）。⚠ **いちばん高い報酬が収まること**（`layout.test.ts`） */
+export const DELIVERY_REWARD_W = 110
+export const DELIVERY_REWARD_R = DELIVERY_QTY_R + 20 + DELIVERY_REWARD_W
+
+export const DELIVERY_BTN_H = 26
+/** `納品` ボタン。⚠ **納められないとき `手持ち/必要` に変わる**ので、その幅も要る */
+export const DELIVERY_BTN_W = 72
+export const DELIVERY_BTN_L = DELIVERY_REWARD_R + 20
+/** `廃棄` ボタン。⚠ **`納品` から離すこと。**押し間違えると依頼が消える */
+export const DELIVERY_DISCARD_W = 56
+export const DELIVERY_DISCARD_L = DELIVERY_BTN_L + DELIVERY_BTN_W + 16
+/** ボタンの字の大きさ。⚠ **2つのボタンで揃える**（隣り合うので） */
+export const DELIVERY_BTN_FONT_PX = 13
 
 /**
  * 商人のところの「**もうすぐ買える**」行に出す文字（#66）。

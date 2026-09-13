@@ -26,7 +26,13 @@ import {
   UPGRADE_BTN_W, UPGRADE_BTN_L, UPGRADE_BTN_R, UPGRADE_COST_W, UPGRADE_COST_L,
   UPGRADE_COST_R, UPGRADE_COST_FONT_PX,
   UPGRADE_LABEL, UPGRADE_REASON_FUNDS, UPGRADE_MAXED, upgradeSubLine,
-  DELIVERY_TAB_FONT_PX, DELIVERY_TAB_LINE_H, DELIVERY_TAB_EMPTY, deliveryTabLines,
+  DELIVERY_TAB_EMPTY, DELIVERY_HEAD_Y, DELIVERY_HEAD_FONT_PX,
+  DELIVERY_ROWS_TOP, DELIVERY_ROW_H,
+  DELIVERY_NAME_L, DELIVERY_NAME_W, DELIVERY_CLIENT_L, DELIVERY_CLIENT_W,
+  DELIVERY_QTY_R, DELIVERY_QTY_W, DELIVERY_REWARD_R, DELIVERY_REWARD_W,
+  DELIVERY_BTN_L, DELIVERY_BTN_W, DELIVERY_BTN_H, DELIVERY_BTN_FONT_PX,
+  DELIVERY_DISCARD_L, DELIVERY_DISCARD_W,
+  TAB_ROW_TITLE_FONT_PX,
   MSG_WIN_L, MSG_WIN_R, MSG_WIN_T, MSG_WIN_B, MSG_WIN_PAD, MSG_TEXT_MAX_W,
   MSG_SPEAKER_FONT_PX, MSG_SPEAKER_Y, MSG_TEXT_FONT_PX, MSG_TEXT_TOP, MSG_LINE_H,
   MSG_LINES_MAX, MSG_CHOICE_W, MSG_CHOICE_H, MSG_CHOICE_GAP, MSG_CHOICE_FONT_PX,
@@ -38,14 +44,18 @@ import { STORY_EVENTS } from '../components/progress/StoryEvents.js'
 import { ALL_ITEMS } from '../taxonomy/items.js'
 import { PEDDLER_MAX_PER_KIND, peddlerPrice } from '../components/progress/PeddlerStock.js'
 import { money } from './money.js'
-import { orderLineText } from './delivery.js'
+import {
+  DELIVERY_COLS, DELIVERY_BTN_LABEL, DISCARD_BTN_LABEL, deliveryShortLabel,
+} from './delivery.js'
 import { PRESET_COUNT, PRESET_NAME_MAX, describePreset } from '../components/floor/ShelfPresets.js'
 import { ROUTE } from '../taxonomy/islands.js'
 import { Upgrades, UPGRADE_KINDS, MAX_STAGE, effectDeltaLabel } from '../components/progress/Upgrades.js'
 import { salePrice } from '../taxonomy/derive.js'
 
-import { ORDER_QUANTITY, ORDER_REWARD_RATE } from '../components/progress/DeliveryOrders.js'
-import type { DeliveryOrder } from '../components/progress/DeliveryOrders.js'
+import {
+  MISSION_CAP, ORDER_REWARD_RATE, orderQuantity,
+} from '../components/progress/DeliveryOrders.js'
+import { ISLANDS } from '../taxonomy/islands.js'
 
 /**
  * **受入条件2（棚を覆わない）を機械で見る。**
@@ -883,43 +893,115 @@ describe('改装タブの行（PO 赤入れ 2026-09-13）', () => {
 })
 
 /**
- * **納品タブ（#96）。**⚠ **帯は消したので、納品を見る場所はここだけ。**
- * 出す文字列は帯の1行を全角空白で折ったものなので、**文言は1語も増えていない。**
+ * **納品タブ（#96 の器 → #98 で表になった）。**
+ *
+ * **PO が描いた表**（赤入れ 2026-09-13）は **商品 ／ 依頼者 ／ 数量 ／ 報酬 ／ 納品**。
+ * ⚠ **島の列は無い**（#98「納品先の島は無くす」）。**`廃棄` だけが絵に無く、右端に足してある。**
+ *
+ * ⚠ **列は隣と重なった瞬間に読めなくなる。**ここで見ているのは
+ *   **いちばん長い品名・4人ぶんの依頼者名・いちばん高い報酬**という、実データの最悪値である。
  */
-describe('納品タブ（#96）', () => {
-  it('帯の1行を折るだけで、語を足していない', () => {
-    const bar = orderLineText('たけのこ', {
-      itemId: 'x' as never, island: 'リナツィア' as never,
-      quantity: 10, reward: 1200, issuedDay: 1,
-    }, 3)
-    expect(deliveryTabLines(bar).join('　')).toBe(bar)
-    expect(deliveryTabLines(bar)).toEqual([
-      '納品 たけのこ ×10 → リナツィア島', '手持ち 3/10', '報酬 1,200レン',
-    ])
-  })
-
-  /** ⚠ **注文に出うるどの品でも、枠の幅に収まること**（帯と同じ検査） */
-  it('どの注文でも、折った行が枠からはみ出さない', () => {
-    const orderable = ALL_ITEMS.filter(i => i.origin !== 'なし')
-    let worst = { w: 0, text: '' }
-    for (const item of orderable) {
-      const reward = Math.round(salePrice(item.id) * ORDER_QUANTITY * ORDER_REWARD_RATE)
-      for (const island of ROUTE) {
-        const order: DeliveryOrder = {
-          itemId: item.id, island, quantity: ORDER_QUANTITY, reward, issuedDay: 1,
-        }
-        for (const line of deliveryTabLines(orderLineText(item.display.name, order, 999))) {
-          const w = estTextWidth(line, DELIVERY_TAB_FONT_PX)
-          if (w > worst.w) worst = { w, text: line }
-        }
-      }
+describe('納品タブの表（#98 ／ PO 赤入れ 2026-09-13）', () => {
+  /** 表に出しうる、いちばん高い報酬 */
+  function worstReward(): { text: string; id: string } {
+    let best = { r: 0, id: '' }
+    for (const item of ALL_ITEMS) {
+      const r = Math.round(salePrice(item.id) * orderQuantity(item.id) * ORDER_REWARD_RATE)
+      if (r > best.r) best = { r, id: item.id }
     }
-    expect(worst.w, worst.text).toBeLessThanOrEqual(CONTENT_R - CONTENT_L - 32)
+    return { text: money(best.r), id: best.id }
+  }
+
+  it('列は左から 商品 → 依頼者 → 数量 → 報酬 → 納品 → 廃棄 の順に並ぶ', () => {
+    expect(DELIVERY_COLS).toEqual(['商品', '依頼者', '数量', '報酬', '納品', '廃棄'])
+    expect(DELIVERY_NAME_L).toBeLessThan(DELIVERY_CLIENT_L)
+    expect(DELIVERY_CLIENT_L).toBeLessThan(DELIVERY_QTY_R - DELIVERY_QTY_W)
+    expect(DELIVERY_QTY_R).toBeLessThan(DELIVERY_REWARD_R - DELIVERY_REWARD_W)
+    expect(DELIVERY_REWARD_R).toBeLessThan(DELIVERY_BTN_L)
+    expect(DELIVERY_BTN_L + DELIVERY_BTN_W).toBeLessThan(DELIVERY_DISCARD_L)
   })
 
-  /** 3行が一覧の領域に収まる（ページ送りの行に食い込まない） */
-  it('3行が一覧の領域に収まる', () => {
-    expect(ROWS_TOP + 24 + 2 * DELIVERY_TAB_LINE_H).toBeLessThanOrEqual(ROWS_BOTTOM)
-    expect(estTextWidth(DELIVERY_TAB_EMPTY, 14)).toBeLessThanOrEqual(CONTENT_R - CONTENT_L)
+  it('右端が枠から出ない', () => {
+    expect(DELIVERY_NAME_L).toBeGreaterThanOrEqual(CONTENT_L)
+    expect(DELIVERY_DISCARD_L + DELIVERY_DISCARD_W).toBeLessThanOrEqual(CONTENT_R)
+  })
+
+  /** ⚠ **161品のどれが出ても、品名が `依頼者` の列に届かないこと** */
+  it('いちばん長い品名が依頼者の列に届かない', () => {
+    let worst = { w: 0, name: '' }
+    for (const item of ALL_ITEMS) {
+      const w = estTextWidth(item.display.name, TAB_ROW_TITLE_FONT_PX)
+      if (w > worst.w) worst = { w, name: item.display.name }
+    }
+    expect(worst.w, worst.name).toBeLessThanOrEqual(DELIVERY_NAME_W - 8)
+  })
+
+  it('依頼者4人の名が数量の列に届かない', () => {
+    for (const island of ISLANDS) {
+      expect(estTextWidth(island.merchant, TAB_ROW_SUB_FONT_PX), island.merchant)
+        .toBeLessThanOrEqual(DELIVERY_CLIENT_W - 8)
+    }
+  })
+
+  it('いちばん高い報酬が報酬の列に収まる', () => {
+    const worst = worstReward()
+    expect(estTextWidth(worst.text, TAB_ROW_SUB_FONT_PX), `${worst.id} ${worst.text}`)
+      .toBeLessThanOrEqual(DELIVERY_REWARD_W)
+  })
+
+  it('いちばん多い数量が数量の列に収まる', () => {
+    const most = Math.max(...ALL_ITEMS.map(i => orderQuantity(i.id)))
+    expect(estTextWidth(String(most), TAB_ROW_SUB_FONT_PX)).toBeLessThanOrEqual(DELIVERY_QTY_W)
+  })
+
+  /**
+   * ⚠ **納品ボタンは字が2通りある** —— 納められるときは `納品`、
+   *   足りないときは **`手持ち/必要`**（手持ちの列が無いので、ここが唯一の出しどころ）。
+   *   **どちらもボタンに収まること。**
+   */
+  it('納品ボタンの字は、どちらの出方でもボタンに収まる', () => {
+    expect(estTextWidth(DELIVERY_BTN_LABEL, DELIVERY_BTN_FONT_PX))
+      .toBeLessThanOrEqual(DELIVERY_BTN_W - 8)
+    // 手持ちは在庫の上限（999）まで、必要な数は tier1 の上限まで出うる
+    const worst = deliveryShortLabel(999, Math.max(...ALL_ITEMS.map(i => orderQuantity(i.id))))
+    expect(estTextWidth(worst, DELIVERY_BTN_FONT_PX), worst)
+      .toBeLessThanOrEqual(DELIVERY_BTN_W - 8)
+    expect(estTextWidth(DISCARD_BTN_LABEL, DELIVERY_BTN_FONT_PX))
+      .toBeLessThanOrEqual(DELIVERY_DISCARD_W - 8)
+  })
+
+  it('見出しの語が、それぞれの列の幅に収まる', () => {
+    const [item, client, qty, reward, deliver, discard] = DELIVERY_COLS
+    const w = (t: string) => estTextWidth(t, DELIVERY_HEAD_FONT_PX)
+    expect(w(item)).toBeLessThanOrEqual(DELIVERY_NAME_W)
+    expect(w(client)).toBeLessThanOrEqual(DELIVERY_CLIENT_W)
+    expect(w(qty)).toBeLessThanOrEqual(DELIVERY_QTY_W)
+    expect(w(reward)).toBeLessThanOrEqual(DELIVERY_REWARD_W)
+    expect(w(deliver)).toBeLessThanOrEqual(DELIVERY_BTN_W)
+    expect(w(discard)).toBeLessThanOrEqual(DELIVERY_DISCARD_W)
+  })
+
+  /**
+   * ⚠ **上限（`MISSION_CAP`）まで全部入ること。**
+   *   **この表にはページ送りが無い**ので、入らない行は**手が届かない。**
+   */
+  it(`${MISSION_CAP}件が一覧の領域に収まる`, () => {
+    expect(rowsThatFit(DELIVERY_ROW_H, DELIVERY_ROWS_TOP)).toBeGreaterThanOrEqual(MISSION_CAP)
+    expect(DELIVERY_ROWS_TOP + MISSION_CAP * DELIVERY_ROW_H).toBeLessThanOrEqual(ROWS_BOTTOM)
+  })
+
+  it('見出しの行が、1件目の行に重ならない', () => {
+    expect(DELIVERY_HEAD_Y + DELIVERY_HEAD_FONT_PX / 2)
+      .toBeLessThanOrEqual(DELIVERY_ROWS_TOP)
+    expect(DELIVERY_HEAD_Y - DELIVERY_HEAD_FONT_PX / 2).toBeGreaterThanOrEqual(ROWS_TOP)
+  })
+
+  it('行の高さにボタンが収まる', () => {
+    expect(DELIVERY_BTN_H).toBeLessThanOrEqual(DELIVERY_ROW_H - 6)
+  })
+
+  it('1件も無いときの1行が枠に収まる', () => {
+    expect(estTextWidth(DELIVERY_TAB_EMPTY, TAB_ROW_SUB_FONT_PX))
+      .toBeLessThanOrEqual(CONTENT_R - CONTENT_L)
   })
 })

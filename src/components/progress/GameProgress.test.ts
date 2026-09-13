@@ -87,6 +87,38 @@ describe('GameProgress', () => {
     vi.unstubAllGlobals()
   })
 
+  /**
+   * ⚠ **引いた日を積まないと、欲しい依頼が出るまでロードし直せる**（#98）。
+   *   **1日1件しか出ないことが、島を無くしたあとの唯一の歯止め**なので、ここが抜けると効かなくなる。
+   */
+  it('納品ミッションを引いた日がセーブに載り、読み直すと同じ日は引き直せない', () => {
+    const store: Record<string, string> = {}
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store[k] ?? null,
+      setItem: (k: string, v: string) => { store[k] = v },
+    })
+    const eco = new EconomyManager()
+    const inv = new Inventory()
+    const reg = new ItemRegistry(ALL_ITEMS)
+    const grid = new FloorGrid({ width: 6, height: 5 }, reg)
+    const world = new WorldState()
+    world.setDay(1)
+    const orders = new DeliveryOrders(inv, eco)
+    orders.rollDaily(ALL_ITEMS, world.getState(), 1, new Set(), () => 0)
+
+    const gp = new GameProgress(eco, inv, grid, makeTimeManagerMock(), world, new Upgrades(), new ShelfPresets(), orders, new PeddlerStock())
+    gp.save(0)
+    const data = gp.load(0)!
+    expect(data.orderDay).toBe(1)
+    expect(data.orders).toHaveLength(1)
+
+    const restored = new DeliveryOrders(inv, eco)
+    restored.restore(data.orders, data.orderDay)
+    expect(restored.rollDaily(ALL_ITEMS, world.getState(), 1, new Set(), () => 0)).toBeNull()
+    expect(restored.list()).toHaveLength(1)
+    vi.unstubAllGlobals()
+  })
+
   /** ⚠ 航路が入る前のセーブがすでに手元にある。読めなくなってはいけない（`orders` と同じ） */
   it('航路の無い古いセーブも読める', () => {
     const world = new WorldState()

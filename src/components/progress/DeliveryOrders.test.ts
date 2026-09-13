@@ -1,11 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { DeliveryOrders, ORDER_QUANTITY, orderQuantity } from './DeliveryOrders.js'
+import {
+  DeliveryOrders, ORDER_QUANTITY, MISSION_CAP, orderQuantity, rollQuantity,
+} from './DeliveryOrders.js'
 import { WorldState } from './WorldState.js'
 import { Inventory } from '../economy/Inventory.js'
 import { EconomyManager } from '../economy/EconomyManager.js'
 import { EventBus } from '../../services/EventBus.js'
 import { ALL_ITEMS } from '../../taxonomy/items.js'
 import { ALL_RECIPES } from '../../taxonomy/recipes.js'
+import { ISLANDS } from '../../taxonomy/islands.js'
 import { stockedByIslandMerchant } from '../../taxonomy/evaluate.js'
 import { salePrice, tier } from '../../taxonomy/derive.js'
 import type { DeliveryOrder } from './DeliveryOrders.js'
@@ -16,173 +19,152 @@ function setup() {
   return { inventory, economy, orders: new DeliveryOrders(inventory, economy) }
 }
 
-/** Day1 ＝ ハルヴェラ寄港中。納品先は次の寄港地（リナツィア） */
-function world(day = 1): { state: ReturnType<WorldState['getState']>; next: string } {
+/** Day1 ＝ ハルヴェラ寄港中 */
+function world(day = 1): ReturnType<WorldState['getState']> {
   const w = new WorldState()
   w.setDay(day)
-  return { state: w.getState(), next: w.getLocation().next }
+  return w.getState()
 }
 
-describe('DeliveryOrders — 注文の選び方（#28）', () => {
+/**
+ * `rollDaily` が引く順に値を返す。**当たり・先頭の品・個数1・先頭の依頼者**。
+ *
+ * ⚠ **引く順は 確率 → 品 → 個数 → 依頼者。**`DeliveryOrders.rollDaily` と揃えること。
+ */
+const ALWAYS = () => 0
+/** 必ず外れる（`MISSION_CHANCE` 以上） */
+const NEVER = () => 0.99
+
+describe('DeliveryOrders — 1日1件の確率（#98）', () => {
   beforeEach(() => EventBus.removeAllListeners())
 
-  it('注文は「納品先（次の島）の商人が並べない品」からしか出ない', () => {
+  it('当たれば1件増え、外れれば増えない', () => {
     const { orders } = setup()
-    const { state, next } = world()
-    const there = new Set(stockedByIslandMerchant(ALL_ITEMS, { ...state, 現在地: next as never }).map(i => i.id))
+    expect(orders.rollDaily(ALL_ITEMS, world(), 1, new Set(), ALWAYS)).not.toBeNull()
+    expect(orders.list()).toHaveLength(1)
 
-    const candidates = orders.candidates(ALL_ITEMS, state, next as never)
-    expect(candidates.length).toBeGreaterThan(0)
-    expect(candidates.every(i => !there.has(i.id))).toBe(true)
+    expect(orders.rollDaily(ALL_ITEMS, world(2), 2, new Set(), NEVER)).toBeNull()
+    expect(orders.list()).toHaveLength(1)
   })
 
-  it('注文は「いまの島で買える品」からしか出ない（果たしようのない注文を出さない）', () => {
+  /** ⚠ これが歯止めそのもの。引き直せると欲しい品が出るまでロードできる */
+  it('同じ日に2度引かない（外れた日でも引き直せない）', () => {
     const { orders } = setup()
-    const { state, next } = world()
-    const here = new Set(stockedByIslandMerchant(ALL_ITEMS, state).map(i => i.id))
-
-    expect(orders.candidates(ALL_ITEMS, state, next as never).every(i => here.has(i.id))).toBe(true)
+    expect(orders.rollDaily(ALL_ITEMS, world(), 1, new Set(), NEVER)).toBeNull()
+    // 同じ日に「当たり」で呼び直しても出ない
+    expect(orders.rollDaily(ALL_ITEMS, world(), 1, new Set(), ALWAYS)).toBeNull()
+    expect(orders.list()).toHaveLength(0)
+    // 日が変われば引ける
+    expect(orders.rollDaily(ALL_ITEMS, world(2), 2, new Set(), ALWAYS)).not.toBeNull()
   })
 
-  /**
-   * ⚠ U2（100個売ると買えるようになる）で「発注時は買えないが納品時には買える」が起きないこと。
-   *   候補が**産地 ＝ 発注元の島**の品に限られるので、納品先では U3 が先に落とす。
-   */
-  it('候補は産地が発注元の島の品だけになる（U2 で納品先に並ぶようにならない）', () => {
-    const { orders } = setup()
-    const { state, next } = world()
-    const candidates = orders.candidates(ALL_ITEMS, state, next as never)
-    expect(candidates.every(i => i.origin === state.現在地)).toBe(true)
+  it('引いた日はセーブに積まれ、戻すと同じ日は引き直せない', () => {
+    const a = setup()
+    a.orders.rollDaily(ALL_ITEMS, world(), 1, new Set(), ALWAYS)
 
-    // 100個売って U2 を通したあとでも、納品先の品揃えには入らない
-    const sold = new Map(candidates.map(i => [i.id, 1000] as const))
-    const there = stockedByIslandMerchant(ALL_ITEMS, { 現在地: next as never, 累計販売数: sold })
-    expect(candidates.some(i => there.some(t => t.id === i.id))).toBe(false)
+    const b = setup()
+    b.orders.restore(JSON.parse(JSON.stringify(a.orders.toRecord())), a.orders.rolledDay())
+
+    expect(b.orders.rolledDay()).toBe(1)
+    expect(b.orders.rollDaily(ALL_ITEMS, world(), 1, new Set(), ALWAYS)).toBeNull()
+    expect(b.orders.list()).toHaveLength(1)
   })
 
-  it('4島どこにいても候補があり、報酬は売値×個数に比例する', () => {
+  it(`${MISSION_CAP}件たまるとそれ以上増えない。廃棄すると翌日また入る`, () => {
     const { orders } = setup()
+    for (let day = 1; day <= MISSION_CAP + 3; day++) {
+      orders.rollDaily(ALL_ITEMS, world(day), day, new Set(), ALWAYS)
+    }
+    expect(orders.list()).toHaveLength(MISSION_CAP)
+
+    orders.discard(orders.list()[0].id)
+    expect(orders.list()).toHaveLength(MISSION_CAP - 1)
+
+    const day = MISSION_CAP + 4
+    expect(orders.rollDaily(ALL_ITEMS, world(day), day, new Set(), ALWAYS)).not.toBeNull()
+    expect(orders.list()).toHaveLength(MISSION_CAP)
+  })
+
+  /** ⚠ 上限でも「引いた」ことにしないと、1件納めた直後のロードでその日にもう1件引ける */
+  it('上限に達している日も「引いた」ことになる', () => {
+    const { orders } = setup()
+    for (let day = 1; day <= MISSION_CAP; day++) {
+      orders.rollDaily(ALL_ITEMS, world(day), day, new Set(), ALWAYS)
+    }
+    const day = MISSION_CAP + 1
+    orders.rollDaily(ALL_ITEMS, world(day), day, new Set(), ALWAYS)
+    expect(orders.rolledDay()).toBe(day)
+  })
+})
+
+describe('DeliveryOrders — 中身（島は無い・依頼者がいる）', () => {
+  beforeEach(() => EventBus.removeAllListeners())
+
+  it('島を持たない（#98 で納品先を無くした）', () => {
+    const { orders } = setup()
+    const order = orders.rollDaily(ALL_ITEMS, world(), 1, new Set(), ALWAYS)!
+    expect(Object.keys(order)).not.toContain('island')
+  })
+
+  it('依頼者は四島の商人のいずれか', () => {
+    const merchants = ISLANDS.map(i => i.merchant)
+    const { orders } = setup()
+    for (let day = 1; day <= 8; day++) {
+      const order = orders.rollDaily(ALL_ITEMS, world(day), day, new Set(), () => (day % 4) / 4)
+      if (order) expect(merchants).toContain(order.client)
+    }
+  })
+
+  it('4島どこにいても候補があり、報酬は売値×個数×3', () => {
     for (const day of [1, 11, 21, 31]) {
-      const { state, next } = world(day)
-      const order = orders.issue(ALL_ITEMS, state, next as never, day, new Set(), () => 0)
+      const { orders } = setup()
+      const order = orders.rollDaily(ALL_ITEMS, world(day), day, new Set(), ALWAYS)
       expect(order, `Day${day}`).not.toBeNull()
-      expect(order!.island).toBe(next)
-      expect(order!.quantity).toBe(ORDER_QUANTITY)
-      expect(order!.reward).toBe(Math.round(salePrice(order!.itemId) * ORDER_QUANTITY * 3))
-      // 候補は素材（tier1）。作り方を知らなくても揃えられる
+      expect(order!.reward).toBe(Math.round(salePrice(order!.itemId) * order!.quantity * 3))
+      // 作り方を知らない時点の候補は素材（tier1）だけ
       expect(tier(order!.itemId)).toBe(1)
     }
   })
 
-  it('注文は1件だけ。次を出すと前のは流れる', () => {
-    const { orders } = setup()
-    const { state, next } = world()
-    const first = orders.issue(ALL_ITEMS, state, next as never, 1, new Set(), () => 0)!
-    const second = orders.issue(ALL_ITEMS, state, next as never, 1, new Set(), () => 0.99)!
-    expect(first.itemId).not.toBe(second.itemId)
-    expect(orders.getActive()).toEqual(second)
-    expect(orders.toRecord()).toHaveLength(1)
+  it('個数は 1〜上限（tier で決まる）のあいだ', () => {
+    for (const item of ALL_ITEMS) {
+      const max = orderQuantity(item.id)
+      expect(rollQuantity(item.id, () => 0)).toBe(1)
+      expect(rollQuantity(item.id, () => 0.999)).toBe(max)
+      expect(rollQuantity(item.id, () => 0.5)).toBeGreaterThanOrEqual(1)
+      expect(rollQuantity(item.id, () => 0.5)).toBeLessThanOrEqual(max)
+    }
+  })
+
+  it('深い品ほど個数の上限が減る（10個だと作る時間が足りない）', () => {
+    const t1 = ALL_ITEMS.find(i => tier(i.id) === 1)!
+    const t7 = ALL_ITEMS.find(i => tier(i.id) === 7)!
+    expect(orderQuantity(t1.id)).toBe(ORDER_QUANTITY)
+    expect(orderQuantity(t7.id)).toBe(1)
+    const byTier = [1, 2, 3, 4, 5, 6, 7]
+      .map(t => orderQuantity(ALL_ITEMS.find(i => tier(i.id) === t)!.id))
+    expect(byTier).toEqual([...byTier].sort((a, b) => b - a))
   })
 })
 
-describe('DeliveryOrders — 納品の精算', () => {
+describe('DeliveryOrders — 候補（いまアクセスできる品）', () => {
   beforeEach(() => EventBus.removeAllListeners())
 
-  it('積んであれば納品先で自動的に納まり、報酬が入る', () => {
-    const { inventory, economy, orders } = setup()
-    const { state, next } = world()
-    const order = orders.issue(ALL_ITEMS, state, next as never, 1, new Set(), () => 0)!
-    inventory.add(order.itemId, ORDER_QUANTITY + 3)
-    const before = economy.getMoney()
-
-    const result = orders.settleArrival(next as never)
-
-    expect(result).toEqual({ order, delivered: true })
-    expect(economy.getMoney()).toBe(before + order.reward)
-    expect(inventory.getQuantity(order.itemId)).toBe(3)
-    expect(orders.getActive()).toBeNull()
-  })
-
-  it('報酬は累計売上に積まれない（客に売れた経路ではない）', () => {
-    const { inventory, economy, orders } = setup()
-    const { state, next } = world()
-    const order = orders.issue(ALL_ITEMS, state, next as never, 1, new Set(), () => 0)!
-    inventory.add(order.itemId, ORDER_QUANTITY)
-    const before = economy.getMoney()
-
-    orders.settleArrival(next as never)
-
-    // ⚠ 積むと、進捗バーと目標達成の幕が読む「どれだけ売ったか」が納品ぶん膨らむ
-    expect(economy.getTotalRevenue()).toBe(0)
-    expect(economy.getMoney()).toBe(before + order.reward)
-  })
-
-  it('足りなければ流れるだけ。持ち物も金も動かない（罰なし）', () => {
-    const { inventory, economy, orders } = setup()
-    const { state, next } = world()
-    const order = orders.issue(ALL_ITEMS, state, next as never, 1, new Set(), () => 0)!
-    inventory.add(order.itemId, ORDER_QUANTITY - 1)
-    const before = economy.getMoney()
-
-    expect(orders.settleArrival(next as never)!.delivered).toBe(false)
-    expect(economy.getMoney()).toBe(before)
-    expect(inventory.getQuantity(order.itemId)).toBe(ORDER_QUANTITY - 1)
-    expect(orders.getActive()).toBeNull()
-  })
-
-  it('納品先でない島に着いても何も起きない', () => {
-    const { inventory, economy, orders } = setup()
-    const { state, next } = world()
-    const order = orders.issue(ALL_ITEMS, state, next as never, 1, new Set(), () => 0)!
-    inventory.add(order.itemId, ORDER_QUANTITY)
-
-    expect(orders.settleArrival('ミフユリア')).toBeNull()
-    expect(economy.getMoney()).toBe(5000)
-    expect(orders.getActive()).toEqual(order)
-  })
-})
-
-describe('DeliveryOrders — セーブとロード', () => {
-  beforeEach(() => EventBus.removeAllListeners())
-
-  it('セーブを経ても受けている注文が残る', () => {
-    const { state, next } = world()
-    const a = setup()
-    const order = a.orders.issue(ALL_ITEMS, state, next as never, 1, new Set(), () => 0)!
-
-    // セーブは JSON を通る
-    const saved = JSON.parse(JSON.stringify(a.orders.toRecord())) as DeliveryOrder[]
-    const b = setup()
-    b.orders.restore(saved)
-
-    expect(b.orders.getActive()).toEqual(order)
-    // 戻したあとも精算できる
-    b.inventory.add(order.itemId, ORDER_QUANTITY)
-    expect(b.orders.settleArrival(next as never)!.delivered).toBe(true)
-  })
-
-  it('注文が無かった頃のセーブ（undefined）を読める', () => {
+  it('島の商人が並べている品は候補に入る', () => {
     const { orders } = setup()
-    orders.restore(undefined)
-    expect(orders.getActive()).toBeNull()
-    expect(orders.toRecord()).toEqual([])
+    const state = world()
+    const here = new Set(stockedByIslandMerchant(ALL_ITEMS, state).map(i => i.id))
+    const candidates = orders.candidates(ALL_ITEMS, state)
+    expect(candidates.length).toBeGreaterThan(0)
+    expect(candidates.every(i => here.has(i.id))).toBe(true)
   })
 
-  it('壊れた注文は読み捨てる', () => {
+  it('作れる品も候補に入る（#85）', () => {
     const { orders } = setup()
-    orders.restore([{ itemId: 42, reward: 'x' } as unknown as DeliveryOrder])
-    expect(orders.getActive()).toBeNull()
-  })
+    const state = world()
+    const narrow = orders.candidates(ALL_ITEMS, state)
+    const wide = orders.candidates(ALL_ITEMS, state, new Set(ALL_RECIPES.map(r => r.outputItemId)))
 
-  it('作れる品も候補に入る（#85。買えるものだけだと候補が「この島の素材」に限られる）', () => {
-    const { orders } = setup()
-    const { state, next } = world()
-
-    const narrow = orders.candidates(ALL_ITEMS, state, next as never)
-    const craftable = new Set(ALL_RECIPES.map(r => r.outputItemId))
-    const wide = orders.candidates(ALL_ITEMS, state, next as never, craftable)
-
-    // 買えるものだけだと tier1 しか出ない
     expect(narrow.every(i => tier(i.id) === 1)).toBe(true)
     expect(wide.length).toBeGreaterThan(narrow.length)
     expect(wide.some(i => tier(i.id) >= 5)).toBe(true)
@@ -190,27 +172,134 @@ describe('DeliveryOrders — セーブとロード', () => {
 
   it('レシピが解禁されていない加工品は候補に入らない', () => {
     const { orders } = setup()
-    const { state, next } = world()
-    const wide = orders.candidates(ALL_ITEMS, state, next as never, new Set())
-    expect(wide.every(i => tier(i.id) === 1)).toBe(true)
+    expect(orders.candidates(ALL_ITEMS, world(), new Set()).every(i => tier(i.id) === 1)).toBe(true)
+  })
+})
+
+describe('DeliveryOrders — 納品ボタンと廃棄', () => {
+  beforeEach(() => EventBus.removeAllListeners())
+
+  it('手持ちが足りていれば納まり、報酬が入って行が消える', () => {
+    const { inventory, economy, orders } = setup()
+    const order = orders.rollDaily(ALL_ITEMS, world(), 1, new Set(), ALWAYS)!
+    inventory.add(order.itemId, order.quantity + 3)
+    const before = economy.getMoney()
+
+    expect(orders.canDeliver(order)).toBe(true)
+    expect(orders.deliver(order.id)).toEqual(order)
+    expect(economy.getMoney()).toBe(before + order.reward)
+    expect(inventory.getQuantity(order.itemId)).toBe(3)
+    expect(orders.list()).toHaveLength(0)
   })
 
-  it('深い品ほど注文の個数が減る（10個だと作る時間が足りない）', () => {
-    const t1 = ALL_ITEMS.find(i => tier(i.id) === 1)!
-    const t7 = ALL_ITEMS.find(i => tier(i.id) === 7)!
-    expect(orderQuantity(t1.id)).toBe(ORDER_QUANTITY)
-    expect(orderQuantity(t7.id)).toBe(1)
-    // 単調に減る
-    const byTier = [1, 2, 3, 4, 5, 6, 7].map(t => orderQuantity(ALL_ITEMS.find(i => tier(i.id) === t)!.id))
-    expect(byTier).toEqual([...byTier].sort((a, b) => b - a))
+  it('報酬は累計売上に積まれない（客に売れた経路ではない）', () => {
+    const { inventory, economy, orders } = setup()
+    const order = orders.rollDaily(ALL_ITEMS, world(), 1, new Set(), ALWAYS)!
+    inventory.add(order.itemId, order.quantity)
+
+    orders.deliver(order.id)
+
+    // ⚠ 積むと、進捗バーと目標達成の幕が読む「どれだけ売ったか」が納品ぶん膨らむ
+    expect(economy.getTotalRevenue()).toBe(0)
   })
 
-  it('報酬は個数に比例する（深い品を少なく納めても釣り合う）', () => {
+  it('足りなければ何も起きない（持ち物も金も行も動かない）', () => {
+    const { inventory, economy, orders } = setup()
+    const order = orders.rollDaily(ALL_ITEMS, world(), 1, new Set(), ALWAYS)!
+    inventory.add(order.itemId, order.quantity - 1)
+    const before = economy.getMoney()
+
+    expect(orders.canDeliver(order)).toBe(false)
+    expect(orders.deliver(order.id)).toBeNull()
+    expect(economy.getMoney()).toBe(before)
+    expect(inventory.getQuantity(order.itemId)).toBe(order.quantity - 1)
+    expect(orders.list()).toHaveLength(1)
+  })
+
+  it('廃棄すると行だけ消える（罰なし）', () => {
+    const { inventory, economy, orders } = setup()
+    const order = orders.rollDaily(ALL_ITEMS, world(), 1, new Set(), ALWAYS)!
+    inventory.add(order.itemId, order.quantity)
+
+    expect(orders.discard(order.id)).toEqual(order)
+    expect(orders.list()).toHaveLength(0)
+    expect(economy.getMoney()).toBe(5000)
+    expect(inventory.getQuantity(order.itemId)).toBe(order.quantity)
+  })
+
+  it('無い札を指しても何も起きない', () => {
     const { orders } = setup()
-    const { state, next } = world()
-    const craftable = new Set(ALL_RECIPES.map(r => r.outputItemId))
-    const order = orders.issue(ALL_ITEMS, state, next as never, 1, craftable, () => 0)!
-    expect(order.quantity).toBe(orderQuantity(order.itemId))
-    expect(order.reward).toBe(Math.round(salePrice(order.itemId) * order.quantity * 3))
+    orders.rollDaily(ALL_ITEMS, world(), 1, new Set(), ALWAYS)
+    expect(orders.deliver('無い')).toBeNull()
+    expect(orders.discard('無い')).toBeNull()
+    expect(orders.list()).toHaveLength(1)
+  })
+
+  it('札は行ごとに違う（同じ品が2件でも取り違えない）', () => {
+    const { orders } = setup()
+    for (let day = 1; day <= 5; day++) {
+      orders.rollDaily(ALL_ITEMS, world(day), day, new Set(), ALWAYS)
+    }
+    const ids = orders.list().map(o => o.id)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+})
+
+describe('DeliveryOrders — セーブとロード', () => {
+  beforeEach(() => EventBus.removeAllListeners())
+
+  it('セーブを経ても抱えているミッションが残り、納められる', () => {
+    const a = setup()
+    for (let day = 1; day <= 3; day++) {
+      a.orders.rollDaily(ALL_ITEMS, world(day), day, new Set(), ALWAYS)
+    }
+
+    // セーブは JSON を通る
+    const saved = JSON.parse(JSON.stringify(a.orders.toRecord())) as DeliveryOrder[]
+    const b = setup()
+    b.orders.restore(saved, a.orders.rolledDay())
+
+    expect(b.orders.list()).toHaveLength(3)
+    const order = b.orders.list()[0]
+    b.inventory.add(order.itemId, order.quantity)
+    expect(b.orders.deliver(order.id)).not.toBeNull()
+  })
+
+  it('注文が無かった頃のセーブ（undefined）を読める', () => {
+    const { orders } = setup()
+    orders.restore(undefined)
+    expect(orders.list()).toEqual([])
+    expect(orders.rolledDay()).toBe(0)
+  })
+
+  /** ⚠ #98 より前のセーブ。`island` があり `client` が無い */
+  it('島があった頃のセーブを読める。島は残らず、依頼者が入る', () => {
+    const { orders } = setup()
+    orders.restore([
+      { itemId: 'そら豆', island: 'リナツィア', quantity: 10, reward: 1080, issuedDay: 1 },
+    ] as unknown as DeliveryOrder[])
+
+    const order = orders.list()[0]
+    expect(order).toBeDefined()
+    expect(Object.keys(order)).not.toContain('island')
+    expect(ISLANDS.map(i => i.merchant)).toContain(order.client)
+  })
+
+  it('壊れた注文は読み捨てる', () => {
+    const { orders } = setup()
+    orders.restore([
+      { itemId: 42, reward: 'x' },
+      { itemId: 'そら豆', reward: 100, quantity: 0 },
+    ] as unknown as DeliveryOrder[])
+    expect(orders.list()).toEqual([])
+  })
+
+  it(`${MISSION_CAP}件を超えるセーブは上限までしか読まない`, () => {
+    const { orders } = setup()
+    const many = Array.from({ length: MISSION_CAP + 5 }, (_, i) => ({
+      id: `x${i}`, itemId: 'そら豆', quantity: 1, reward: 100, client: 'サディ', issuedDay: 1,
+    })) as unknown as DeliveryOrder[]
+    orders.restore(many)
+    expect(orders.list()).toHaveLength(MISSION_CAP)
   })
 })
