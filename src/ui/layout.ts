@@ -5,6 +5,12 @@
  *   もう片方が気づかず、**重なっていることをテストが見逃す**（受入条件2）。
  */
 
+/**
+ * ⚠ **実行時の import は1つも無い**（上のとおり Phaser を読まないため）。
+ *   下の1行は**型だけ**で、コンパイルで消える。
+ */
+import type { UpgradeKind } from '../components/progress/Upgrades.js'
+
 export const SCREEN_W = 1280
 export const SCREEN_H = 720
 
@@ -296,8 +302,32 @@ export const HUD_NEXT_PORT_FONT_PX = 11
  */
 export const HUD_NEXT_PORT_H = 18
 
-/** 仕入れの「買う」ボタンの幅。**隣の「最大」「＋」「−」と並んでいるので広げられない** */
-export const BUY_W = 118
+/**
+ * 仕入れの行の右端 ——「**総額**」と「**買う**」の2つぶんの幅（**footprint**）。
+ *
+ * ⚠ **1つのボタンではない**（PO 指示 2026-09-13「『総額』部分と『買う』部分は分ける」）。
+ *   **総額はボタンの外の文字**で、ボタンは `買う` とだけ書いてある。
+ * ⚠ **`118 → 138` に広げてある。**総額（11px で最悪 78.7px）とボタン（52px）は
+ *   **118px には並ばない。**広げたぶんは左の「最大」「＋」「−」が寄る
+ *   （列の並びは下の `ROW_*`）。
+ * ⚠ **これ以上広げないこと。**広げると `⚠ 切らしている（N品に要る）` が品名に重なる
+ *   （`layout.test.ts` が産地つきのいちばん長い品名で見ている）。
+ */
+export const BUY_BTN_W = 52
+/** 総額を置く幅。**右そろえ。**⚠ 7桁（`3,237,759レン`）が `BUY_TOTAL_FONT_PX` で収まること */
+export const BUY_TOTAL_W = 80
+/** 総額とボタンのあいだ。**離すこと自体が指摘の中身**なので詰めない */
+export const BUY_GAP = 6
+/** 総額とボタンを合わせた幅。**「もうすぐ買える」の1行はこの幅に収める**（#66） */
+export const BUY_W = BUY_TOTAL_W + BUY_GAP + BUY_BTN_W
+
+/**
+ * 総額の文字の大きさ。**ボタン（12px）より小さい。**
+ *
+ * ⚠ **ボタンではないので、隣のボタンと揃える必要が無い**（`INFO_FONT_PX` と同じ理由）。
+ *   12px にすると7桁の総額が **85.9px** になり、`BUY_TOTAL_W`（80）から出る。
+ */
+export const BUY_TOTAL_FONT_PX = 11
 
 /**
  * 「買う」ボタンの文字の大きさ。**13 から下げた**（束M）。
@@ -306,18 +336,40 @@ export const BUY_W = 118
  *   **122.9px** になり、118px のボタンから 5px はみ出した。
  * ⚠ **これ以上下げないこと。**隣の「最大」「＋」「−」が 12px なので、
  *   主たるボタンだけ小さいのはおかしい。
- *   **下げる代わりに助詞の「で」を落としてある**（`BUY_SUFFIX`）。
+ *   **下げる代わりに助詞の「で」を落とし**、**のちに金額そのものをボタンの外へ出した**（`BUY_LABEL`）。
  */
 export const BUY_FONT_PX = 12
 
 /**
- * 「買う」ボタンの、金額のうしろに付く語。**`で買う` から助詞を落とした**（PO 2026-09-12）。
+ * 「買う」ボタンの字。**金額はもう入っていない**（PO 指示 2026-09-13「総額と買うは分ける」）。
  *
  * ⚠ **「買う」という語は落とさないこと。**落とすとボタンが何をするか読めなくなる。
- * ⚠ 助詞1文字＝全角1文字＝ **12px** ぶんで、いちばん高い品（仕入れ値 3,241）× 999個 の
- *   `3,237,759レン` が入るかどうかがここで決まる（`で` 付き 124.9px ／ 無し 112.9px）。
+ * ⚠ **総額を足さないこと。**分けたのがこの直しの中身で、
+ *   足すと `BUY_BTN_W`（52px）から出る。総額は `BUY_TOTAL_W` の側に置く。
  */
-export const BUY_SUFFIX = ' 買う'
+export const BUY_LABEL = '買う'
+
+/**
+ * **買えないとき**にボタンの字と差し替える、短い理由。
+ *
+ * ⚠ **`BUY_BTN_W`（52px）に収まること**（`layout.test.ts` が見ている）。
+ *   **金額を混ぜないこと** —— 総額は**すぐ左に出ている**ので、
+ *   `3,237,759レン 足りない` のように繰り返すと 138px になり、ボタンから出る。
+ */
+export const BUY_REASON_FUNDS = '足りない'
+/** 在庫の上限で買えないときの理由。⚠ **しきい値は `Inventory` が持つ。**ここは形だけ */
+export function buyReasonCap(max: number): string {
+  return `上限${max}`
+}
+
+/**
+ * **個数が読めないとき**に、総額の代わりに出す字。
+ *
+ * ⚠ **`BUY_TOTAL_W`（80px）に収まること**（`layout.test.ts` が見ている）。
+ * ⚠ **入力を勝手に直さない**（`PurchaseMenu.refreshRow` の注記）。**理由を出すだけ。**
+ */
+export const QTY_REASON_EMPTY = '個数を入れて'
+export const QTY_REASON_NOT_INT = '1以上の整数'
 
 /**
  * 仕入れの行の `51レン/個　在庫 100/999`。**左隣の「N品に要る」との間隔** と、その文字の大きさ。
@@ -330,6 +382,136 @@ export const BUY_SUFFIX = ' 買う'
 export const INFO_MAX_W = 160
 export const INFO_FONT_PX = 11
 
+// ─── 仕入れの行の列 ────────────────────────────────────────────
+/**
+ * 1行の中の列。**右端から順に決める。**こうしておくと領域の幅が変わっても、
+ * 操作の列が品名に食い込まない。
+ *
+ * ⚠ **ここにしか置かないこと。**以前は `PurchaseMenu.ts` が式を持ち、
+ *   `layout.test.ts` が**同じ式を書き写して**追っていた。
+ *   **写しがあると、片方だけ動かしても重なりをテストが見逃す。**
+ */
+export const ROW_INPUT_W = 52
+export const ROW_INPUT_H = 22
+export const ROW_STEP_W = 26
+export const ROW_MAX_W = 40
+/** 品名の左端 */
+export const ROW_NAME_X = CONTENT_L + 16
+/** 「買う」ボタンの左端 */
+export const ROW_BUY_BTN_L = CONTENT_R - 8 - BUY_BTN_W
+/** 総額の右端（右そろえ） */
+export const ROW_TOTAL_R = ROW_BUY_BTN_L - BUY_GAP
+/** 総額とボタンを合わせた footprint の左端。**「もうすぐ買える」の1行もここから置く** */
+export const ROW_BUY_L = ROW_TOTAL_R - BUY_TOTAL_W
+export const ROW_MAX_L = ROW_BUY_L - 6 - ROW_MAX_W
+export const ROW_PLUS_L = ROW_MAX_L - 6 - ROW_STEP_W
+export const ROW_INPUT_L = ROW_PLUS_L - 4 - ROW_INPUT_W
+export const ROW_MINUS_L = ROW_INPUT_L - 4 - ROW_STEP_W
+/** 「51レン/個　在庫 100/999」の右端（右そろえ） */
+export const ROW_INFO_R = ROW_MINUS_L - 14
+/** 「N品に要る」の右端（右そろえ）。⚠ **間隔は `INFO_MAX_W`** */
+export const ROW_NEED_R = ROW_INFO_R - INFO_MAX_W
+
+// ─── 改装タブの行 ──────────────────────────────────────────────
+/**
+ * 改装タブ（`UpgradeMenu`）の1行。**以前は `UpgradeMenu.ts` が直値で持っていた。**
+ *
+ * ⚠ **こちらへ移したのは、`費用` と `改装` ボタンが別の部品になったから**
+ *   （PO 指示 2026-09-13「`32,000レン 不足` → 金額と `改装` ボタンに分ける」）。
+ *   **2つの部品が隣り合うと、重なりは目視では数px単位でしか出ない。**
+ *   `layout.test.ts` が見られるように、寸法をここへ集めてある。
+ */
+export const UPGRADE_ROW_H = 100
+export const UPGRADE_ROW_W = CONTENT_R - CONTENT_L
+/** 系統名（`棚`）と、その下の説明の左端 */
+export const UPGRADE_NAME_X = CONTENT_L + 28
+/** 行の中心からの上下。上が系統名、下が説明 */
+export const UPGRADE_TITLE_DY = -20
+export const UPGRADE_SUB_DY = 10
+
+/** 段の `●○` の中心と、その文字の大きさ */
+export const UPGRADE_STAGE_CX = PLACE_CX + 40
+export const UPGRADE_STAGE_FONT_PX = 20
+/**
+ * `●○` が占める幅。⚠ **段数（`Upgrades.MAX_STAGE`）ぶんの丸が入ること。**
+ *   段数を増やしたらここも広げる。**食い違えば `layout.test.ts` が落ちる**
+ *   （`MAX_STAGE` をあちらから読んで測っている）。
+ * ⚠ **`layout.ts` は実行時に何も import しない**ので、段数をここから読みには行かない。
+ */
+export const UPGRADE_STAGE_W = 100
+export const UPGRADE_STAGE_L = UPGRADE_STAGE_CX - UPGRADE_STAGE_W / 2
+
+/**
+ * 説明の1行（`売り場が広がる　6×5 → 7×6`）に使える幅。
+ *
+ * ⚠ **`●○` に食い込ませないこと。**食い込むと、いちばん見たい「前 → 後」が丸に重なる。
+ */
+export const UPGRADE_SUB_MAX_W = UPGRADE_STAGE_L - UPGRADE_NAME_X - 12
+
+/**
+ * 行の右端 ——「**費用**」と「**改装**」の2つ。
+ *
+ * ⚠ **1つのボタンではない**（PO 指示 2026-09-13）。**費用はボタンの外の文字**で、
+ *   ボタンは `改装` とだけ書いてある。**商人タブの「総額 ＋ 買う」と同じ作り。**
+ *   **隣り合う2タブで作りが違うと、同じ操作に見えない。**
+ */
+export const UPGRADE_BTN_W = 64
+export const UPGRADE_BTN_H = 30
+/** ボタンの右端。**行の右の余白は 28px**（`UPGRADE_NAME_X` の左の余白と揃えてある） */
+export const UPGRADE_BTN_R = CONTENT_R - 28
+export const UPGRADE_BTN_L = UPGRADE_BTN_R - UPGRADE_BTN_W
+/** 費用とボタンのあいだ。**離すこと自体が指摘の中身**なので詰めない */
+export const UPGRADE_GAP = 10
+/** 費用の右端（右そろえ）と、そこから左へ取る幅 */
+export const UPGRADE_COST_R = UPGRADE_BTN_L - UPGRADE_GAP
+/**
+ * ⚠ **いちばん高い段（`400,000レン`）で 86.5px。**84 では**はみ出していた**（実測 2026-09-13）。
+ *   ここを縮めるときは `layout.test.ts` の検査を通すこと。
+ */
+export const UPGRADE_COST_W = 92
+export const UPGRADE_COST_L = UPGRADE_COST_R - UPGRADE_COST_W
+/**
+ * 費用の文字の大きさ。⚠ **ボタンではないので、ボタンと揃える必要がない**
+ *   （商人タブの `BUY_TOTAL_FONT_PX` と同じ理由）。
+ *   ⚠ いちばん高い段（`400,000レン`）が `UPGRADE_COST_W` に収まること。
+ */
+export const UPGRADE_COST_FONT_PX = 14
+
+/**
+ * ボタンの字。**金額はもう入っていない**（PO 指示 2026-09-13）。
+ *
+ * ⚠ **`不足` を金額のうしろに付けないこと。**付けると `32,000レン 不足` が
+ *   「あと32,000足りない」と読まれる —— **PO 自身がそう読んだ**（赤入れの `37000レン` は
+ *   32,000 ＋ 所持金 5,000）。**費用は裸で出す。**
+ */
+export const UPGRADE_LABEL = '改装'
+/** **買えないとき**にボタンの字と差し替える理由。⚠ **`UPGRADE_BTN_W` に収まること** */
+export const UPGRADE_REASON_FUNDS = '足りない'
+/** 最大まで買った系統に出す字。**ボタンは出さない** */
+export const UPGRADE_MAXED = '最大'
+
+/**
+ * その系統が何を良くするか。**買う前に分かるようにする。**
+ *
+ * ⚠ **文言は PO の領分**（#79）。ここは置き場所で、勝手に言い回しを変えない。
+ */
+export const UPGRADE_WHAT_IT_DOES: Record<UpgradeKind, string> = {
+  棚:     '売り場が広がる',
+  来客:   '客が来やすくなる',
+  利益率: '1個あたりの取り分が増える',
+  手際:   '加工が速くなる',
+}
+
+/**
+ * 説明の1行。**一言のうしろに「前 → 後」を付ける**（PO 指示 2026-09-13）。
+ * 最大まで買っていれば（`delta` が `null`）一言だけ。
+ *
+ * ⚠ **数は `Upgrades.effectDeltaLabel` が作る。**ここは繋ぐだけで、**自分の数を持たない。**
+ */
+export function upgradeSubLine(kind: UpgradeKind, delta: string | null): string {
+  return delta === null ? UPGRADE_WHAT_IT_DOES[kind] : `${UPGRADE_WHAT_IT_DOES[kind]}　${delta}`
+}
+
 /**
  * 商人のところの「**もうすぐ買える**」行に出す文字（#66）。
  *
@@ -338,8 +520,8 @@ export const INFO_FONT_PX = 11
  * ⚠ **ここに置いてあるのは、幅を測るため。**`PurchaseMenu.ts` は Phaser を読むので
  *   node の単体テストから import できず、**文字を組み立てる側をこちらに置かないと
  *   `layout.test.ts` が実物の文字列を測れない**（`money.ts` と同じ理由）。
- * ⚠ **「買う」ボタンの footprint（118px）に収める。**3桁の残りで `あと999個売れば買える` は
- *   **120.1px ではみ出す**ので、末尾を `並ぶ` にしてある
+ * ⚠ **「総額 ＋ 買う」の footprint（`BUY_W`）に収める。**3桁の残りで `あと999個売れば買える` は
+ *   **末尾を `買える` のままにすると、footprint が 118px だった頃にはみ出した**ので `並ぶ` にしてある
  *   （#60 の知らせ「**商人の店先に並ぶようになった**」と同じ語）。**⚠ 文言は PO の領分（#79）。**
  */
 export function upcomingLabel(salesLeft: number): string {
@@ -349,10 +531,11 @@ export function upcomingLabel(salesLeft: number): string {
 /**
  * その文字の大きさ。**「買う」ボタンと同じ右端に、ボタンを作らずに置く。**
  *
- * ⚠ **`BUY_FONT_PX`（12）にしないこと。**3桁の残り（`あと999個売れば並ぶ`）で
- *   **119.0px になり、ボタンの幅 118px を 1px 超える。**
- *   ⚠ **ボタンではないので、隣と大きさを揃える必要がない**（`INFO_FONT_PX` と同じ扱い）。
- *   収まるかは `layout.test.ts` が見ている。
+ * ⚠ **ボタンではないので、隣と大きさを揃える必要がない**（`INFO_FONT_PX` と同じ扱い）。
+ *   **総額（`BUY_TOTAL_FONT_PX`）と同じ 11px。**どちらもボタンの外に置く文字である。
+ * ⚠ **上げてよいのは footprint に収まるあいだだけ**（`layout.test.ts` が3桁の残りで見ている）。
+ *   **118px だった頃は 12px で 1px はみ出していた** —— 総額を分けて 138px になったので、
+ *   いまは収まる。**それでも上げていないのは、揃える相手がボタンではないからである。**
  */
 export const UPCOMING_FONT_PX = 11
 
@@ -367,7 +550,8 @@ export const UPCOMING_FONT_PX = 11
 /**
  * 行商人の行に出す「今日まだ何個買えるか」。
  *
- * ⚠ **品名の右**（島の商人の `この島の産` と同じ場所）に出す。
+ * ⚠ **品名の右**に出す。**島の商人の側にはもう字が無い**（産地は行の色。PO 指示 2026-09-13）ので、
+ *   **ここが品名の右を使う唯一の字**である。
  *   `51レン/個　在庫 100/999` の側に足すと `INFO_MAX_W`（160px）を超えて左隣に重なる。
  * ⚠ **買えない理由の文言も同じものを使う**（`残り0個` がそのまま理由になる）。
  */
@@ -375,7 +559,7 @@ export function peddlerRemainText(remaining: number): string {
   return `残り${remaining}個`
 }
 
-/** 行商人の行の `残り N個` の文字の大きさ。`この島の産`（11px）に合わせる */
+/** 行商人の行の `残り N個` の文字の大きさ。**行の補足の字**（`INFO_FONT_PX`）に合わせる */
 export const PEDDLER_REMAIN_FONT_PX = 11
 
 /**
@@ -383,9 +567,11 @@ export const PEDDLER_REMAIN_FONT_PX = 11
  *
  * ⚠ **「今日だけ」であることを言う。**言わないと、島の商人と同じく
  *   **いつでもそこに居る店**に見え、**買い逃しても気づけない**（品揃えは毎日入れ替わる）。
+ * ⚠ **`所持金` を戻さないこと**（PO 指示 2026-09-13「右上にあるから統一で消した」）。
+ *   **右パネルの HUD が常に出している。**商人・改装・ここ、**3箇所とも落としてある。**
  */
-export function peddlerSubtitleText(moneyText: string): string {
-  return `所持金 ${moneyText}　今日の品ぞろえ（明日には別の品になる）`
+export function peddlerSubtitleText(): string {
+  return '今日の品ぞろえ（明日には別の品になる）'
 }
 
 /**

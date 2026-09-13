@@ -1,32 +1,27 @@
 import Phaser from 'phaser'
 import type { EconomyManager } from '../components/economy/EconomyManager.js'
 import type { Upgrades, UpgradeKind } from '../components/progress/Upgrades.js'
-import { UPGRADE_KINDS, MAX_STAGE } from '../components/progress/Upgrades.js'
+import { UPGRADE_KINDS, MAX_STAGE, effectDeltaLabel } from '../components/progress/Upgrades.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
 import {
-  PLACE_CX, CONTENT_L, CONTENT_R, SUBTITLE_Y, ROWS_TOP,
-  TAB_ROW_TITLE_FONT_PX, TAB_ROW_SUB_FONT_PX, TAB_SUBTITLE_FONT_PX, TAB_NOTE_FONT_PX,
+  PLACE_CX, CONTENT_R, SUBTITLE_Y, ROWS_TOP,
+  TAB_ROW_TITLE_FONT_PX, TAB_ROW_SUB_FONT_PX, TAB_NOTE_FONT_PX,
   BUY_FONT_PX,
+  UPGRADE_ROW_H, UPGRADE_ROW_W, UPGRADE_NAME_X, UPGRADE_TITLE_DY, UPGRADE_SUB_DY,
+  UPGRADE_STAGE_CX, UPGRADE_STAGE_FONT_PX,
+  UPGRADE_BTN_W, UPGRADE_BTN_H, UPGRADE_BTN_L, UPGRADE_BTN_R,
+  UPGRADE_COST_R, UPGRADE_COST_FONT_PX,
+  UPGRADE_LABEL, UPGRADE_REASON_FUNDS, UPGRADE_MAXED, upgradeSubLine,
 } from './layout.js'
 import { money } from './money.js'
-
-const ROW_H = 100
-const ROW_W = CONTENT_R - CONTENT_L
-
-/** その系統が何を良くするか。買う前に分かるようにする */
-const WHAT_IT_DOES: Record<UpgradeKind, string> = {
-  棚:     '売り場が広がる',
-  来客:   '客が来やすくなる',
-  利益率: '1個あたりの取り分が増える',
-  手際:   '加工が速くなる',
-}
 
 /**
  * 改装。**「取引」の `改装` タブ**（#96。それまでは独立した「行く場所」だった。#58）。
  *
  * ⚠ **所持金は目標と同じ通貨。**払えば目標が遠のくので、
  *   「いま買うか、目標まで我慢するか」がここでの判断になる。
- *   だから**いまの所持金と費用を並べて見せる。**
+ *   ⚠ **所持金そのものはここに出さない**（PO 指示 2026-09-13。右パネルの HUD が出している）。
+ *   代わりに**見出しの下の1行**が、その判断のほうだけを言う。
  *
  * ⚠ **名前は「改装」**（PO 判断 2026-09-12 ／ `sessions/questions-58-places.md` Q1）。
  *   中身は 棚・来客・利益率・手際 の4系統で、**改装と呼べるのは棚だけ**である点は
@@ -81,14 +76,12 @@ export class UpgradeMenu {
   private build(): void {
     const objs: Phaser.GameObjects.GameObject[] = []
 
-    objs.push(
-      this.scene.add.text(CONTENT_L, SUBTITLE_Y,
-        `所持金 ${money(this.economy.getMoney())}`, {
-        fontSize: `${TAB_SUBTITLE_FONT_PX}px`, color: '#ffdd44',
-      }).setOrigin(0, 0.5),
-    )
+    // ⚠ **`所持金` はここに出さない**（PO 指示 2026-09-13「不要」）。
+    //   **右パネルの HUD が常に出している**ので、ここに出すと同じ額が2つ並ぶ。
+    //   ⚠ **一覧の上端（`ROWS_TOP`）は動かさないこと。**取引は3タブが同じ枠を使うので、
+    //     改装だけ上げると**タブを切り替えるたびに一覧が跳ねる。**
 
-    // ⚠ **消してはいけない。**この画面で下す判断は「いま買うか、目標まで我慢するか」で、
+    // ⚠ **下の1行は消してはいけない。**この画面で下す判断は「いま買うか、目標まで我慢するか」で、
     //   その「目標まで我慢する」側を担う文字はここにしか無い。
     //   ⚠ **#73 を直してから、右パネルの目標バーは所持金を測っている。**
     //   つまり**ここで払うとバーが実際に縮む。**この文字とバーの動きは、いま初めて一致している
@@ -106,7 +99,7 @@ export class UpgradeMenu {
     }
 
     UPGRADE_KINDS.forEach((kind, i) => {
-      this.buildRow(kind, ROWS_TOP + ROW_H / 2 + i * ROW_H, objs)
+      this.buildRow(kind, ROWS_TOP + UPGRADE_ROW_H / 2 + i * UPGRADE_ROW_H, objs)
     })
 
     this.container = this.scene.add.container(0, 0, objs)
@@ -120,40 +113,50 @@ export class UpgradeMenu {
     const afford = !maxed && this.economy.canAfford(cost)
 
     objs.push(
-      this.scene.add.rectangle(PLACE_CX, y, ROW_W, ROW_H - 12, maxed ? 0x2a2a3a : 0x232344)
-        .setStrokeStyle(1, 0x445577),
-      this.scene.add.text(CONTENT_L + 28, y - 20, kind, {
+      this.scene.add.rectangle(PLACE_CX, y, UPGRADE_ROW_W, UPGRADE_ROW_H - 12,
+        maxed ? 0x2a2a3a : 0x232344).setStrokeStyle(1, 0x445577),
+      this.scene.add.text(UPGRADE_NAME_X, y + UPGRADE_TITLE_DY, kind, {
         fontSize: `${TAB_ROW_TITLE_FONT_PX}px`, color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0, 0.5),
-      this.scene.add.text(CONTENT_L + 28, y + 10, WHAT_IT_DOES[kind], {
+      // ⚠ **一言のうしろに「前 → 後」**（PO 指示 2026-09-13「変更前と変更後を表示」）。
+      //   最大まで買っていれば一言だけになる。**数は `Upgrades` が持つ。**
+      this.scene.add.text(UPGRADE_NAME_X, y + UPGRADE_SUB_DY,
+        upgradeSubLine(kind, effectDeltaLabel(kind, stage)), {
         fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: '#8899aa',
       }).setOrigin(0, 0.5),
       // 段の表示。●が買った段、○がまだの段
-      this.scene.add.text(PLACE_CX + 40, y, '●'.repeat(stage) + '○'.repeat(MAX_STAGE - stage), {
-        fontSize: '20px', color: '#77bbee',
+      this.scene.add.text(UPGRADE_STAGE_CX, y, '●'.repeat(stage) + '○'.repeat(MAX_STAGE - stage), {
+        fontSize: `${UPGRADE_STAGE_FONT_PX}px`, color: '#77bbee',
       }).setOrigin(0.5),
     )
 
     if (maxed) {
-      objs.push(this.scene.add.text(CONTENT_R - 28, y, '最大', {
+      objs.push(this.scene.add.text(UPGRADE_BTN_R, y, UPGRADE_MAXED, {
         fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: '#667788',
       }).setOrigin(1, 0.5))
       return
     }
 
-    const label = money(cost)
+    // ⚠ **費用はボタンの外**（PO 指示 2026-09-13）。右そろえで、ボタンとのあいだを空ける。
+    //   ⚠ **`不足` を付けないこと。**付けると費用が「あと足りない額」と読まれる
+    //     （`layout.ts` の `UPGRADE_LABEL` に経緯）。**買えるかどうかは色とボタンの字で出す。**
+    objs.push(this.scene.add.text(UPGRADE_COST_R, y, money(cost), {
+      fontSize: `${UPGRADE_COST_FONT_PX}px`, color: afford ? '#ffffff' : '#886666',
+    }).setOrigin(1, 0.5))
+
+    // ⚠ **ボタンは `改装` とだけ書く。**買えないときだけ理由に差し替わる（商人タブと同じ作り）
+    const bg = this.scene.add.rectangle(UPGRADE_BTN_L + UPGRADE_BTN_W / 2, y,
+      UPGRADE_BTN_W, UPGRADE_BTN_H, afford ? 0x3a5a8a : 0x3a3a3a)
+      .setStrokeStyle(1, afford ? 0x5a7aaa : 0x4a4a4a)
+    const label = this.scene.add.text(UPGRADE_BTN_L + UPGRADE_BTN_W / 2, y,
+      afford ? UPGRADE_LABEL : UPGRADE_REASON_FUNDS, {
+      fontSize: `${BUY_FONT_PX}px`, color: afford ? '#ffffff' : '#998877',
+    }).setOrigin(0.5)
     if (afford) {
-      const btn = this.scene.add.text(CONTENT_R - 28, y, label, {
-        fontSize: `${BUY_FONT_PX}px`, color: '#ffffff',
-        backgroundColor: '#3a5a8a', padding: { x: 14, y: 8 },
-      }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true })
-      btn.on('pointerdown', () => this.buy(kind, cost))
-      objs.push(btn)
-    } else {
-      objs.push(this.scene.add.text(CONTENT_R - 28, y, `${label} 不足`, {
-        fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: '#886666',
-      }).setOrigin(1, 0.5))
+      bg.setInteractive({ useHandCursor: true })
+      bg.on('pointerdown', () => this.buy(kind, cost))
     }
+    objs.push(bg, label)
   }
 
   private buy(kind: UpgradeKind, cost: number): void {

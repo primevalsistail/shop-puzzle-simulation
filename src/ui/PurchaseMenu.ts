@@ -16,10 +16,15 @@ import { CONTENT_DEPTH } from './PlaceFrame.js'
 import {
   PLACE_CX, CONTENT_L, CONTENT_R,
   SUBTITLE_Y, FILTER_Y, ROWS_TOP, PAGER_Y, rowsThatFit,
-  BUY_W, BUY_FONT_PX, BUY_SUFFIX, INFO_MAX_W, INFO_FONT_PX, LOG_T,
+  BUY_W, BUY_BTN_W, BUY_TOTAL_FONT_PX, BUY_FONT_PX, BUY_LABEL,
+  BUY_REASON_FUNDS, buyReasonCap, QTY_REASON_EMPTY, QTY_REASON_NOT_INT,
+  INFO_FONT_PX, LOG_T,
+  ROW_NAME_X, ROW_BUY_L, ROW_BUY_BTN_L, ROW_TOTAL_R,
+  ROW_MAX_L, ROW_MAX_W, ROW_PLUS_L, ROW_INPUT_L, ROW_INPUT_W, ROW_INPUT_H,
+  ROW_MINUS_L, ROW_STEP_W, ROW_INFO_R, ROW_NEED_R,
   UPCOMING_FONT_PX, upcomingLabel,
   PEDDLER_TITLE, PEDDLER_REMAIN_FONT_PX, peddlerRemainText, peddlerSubtitleText,
-  TAB_ROW_TITLE_FONT_PX, TAB_ROW_SUB_FONT_PX, TAB_SUBTITLE_FONT_PX, TAB_NOTE_FONT_PX,
+  TAB_ROW_TITLE_FONT_PX, TAB_ROW_SUB_FONT_PX, TAB_SUBTITLE_FONT_PX,
 } from './layout.js'
 import type { PeddlerStock } from '../components/progress/PeddlerStock.js'
 
@@ -32,27 +37,21 @@ const DEFAULT_QTY = 5
 const SEARCH_W = 160
 const SEARCH_H = 24
 
-const INPUT_W = 52
-const INPUT_H = 22
-const STEP_W = 26
+/** 行の帯の幅。⚠ **列（`ROW_*`）は `layout.ts` が持つ。ここに式を写さないこと** */
+const ROW_W = CONTENT_R - CONTENT_L
 
 /**
- * 1行の中の列。**右端から順に決める。**
- * こうしておくと領域の幅が変わっても、操作列が name に食い込まない。
+ * 行の背景色。**産地を字ではなく色で出し分ける**（PO 指示 2026-09-13
+ * 「`この島の産` は不要。色による出し分けがいい」「特産品と背景色を変える」）。
+ *
+ * ⚠ **緑がこの島の産。**産地割引が乗っているのはこの行だけで、
+ *   **島を出ると同じ品が青の行に変わる**（`まぐろ` のように `origin: なし` の品は常に青）。
+ * ⚠ **行商人には産地割引が無い**ので、あちらは全部青になる。
  */
-const ROW_W = CONTENT_R - CONTENT_L
-const NAME_X = CONTENT_L + 16
-/** ⚠ **`BUY_W` は `layout.ts` にある**（`3,237,759レン 買う` が収まるかをテストが見ている） */
-const BUY_L = CONTENT_R - 8 - BUY_W
-const MAX_W = 40
-const MAX_L = BUY_L - 6 - MAX_W
-const PLUS_L = MAX_L - 6 - STEP_W
-const INPUT_L = PLUS_L - 4 - INPUT_W
-const MINUS_L = INPUT_L - 4 - STEP_W
-/** 「51レン/個　在庫 100/999」。右そろえ */
-const INFO_R = MINUS_L - 14
-/** 「作れるN品に要る」。右そろえ。⚠ **間隔は `layout.ts` の `INFO_MAX_W`**（テストが見ている） */
-const NEED_R = INFO_R - INFO_MAX_W
+const ROW_BG_LOCAL = 0x2a3a2a
+const ROW_BG_ANY = 0x2b3048
+/** まだ買えない行（#66）。⚠ **買える2色のどちらとも違うこと** */
+const ROW_BG_UPCOMING = 0x2a2a2a
 
 /** 1行ぶんの、あとから書き換える部品 */
 interface Row {
@@ -62,6 +61,8 @@ interface Row {
   /** DOM が使えないときの数字表示 */
   readonly valueText?: Phaser.GameObjects.Text
   readonly infoText: Phaser.GameObjects.Text
+  /** ⚠ **ボタンの外**に置く総額（PO 指示 2026-09-13）。**ボタンの字と混ぜない** */
+  readonly totalText: Phaser.GameObjects.Text
   readonly buyBg: Phaser.GameObjects.Rectangle
   readonly buyLabel: Phaser.GameObjects.Text
 }
@@ -86,7 +87,7 @@ export class PurchaseMenu {
    *
    * ## なぜ別のクラスにせず、ここを分岐させたか（main の技術判断）
    *
-   * 違うのは**6箇所だけ**（値段・`この島の産`／`残り N個`・見出しの下の1行・
+   * 違うのは**6箇所だけ**（値段・行の色／`残り N個`・見出しの下の1行・
    * 買える上限・買えない理由・買ったあとの減算）で、
    * 残り全部 —— 行の組み立て・ページ送り・検索・`<input>`・`最大`・金額の書き方 —— は同じ。
    * **別クラスにするとその全部が写しになり、片方だけ直す事故が起きる**
@@ -131,10 +132,6 @@ export class PurchaseMenu {
     private frame: PlaceFrame,
     /** 解禁済みのレシピが要する素材（#33）。**開くたびに数え直す** */
     private materialNeeds: () => Map<ItemId, MaterialNeed>,
-    /** 次にこの島へ戻るまでの日数（#33） */
-    private daysUntilReturn: () => number,
-    /** この島をあと何日で出るか。⚠ `daysUntilReturn` の内訳の一部（#33・束M） */
-    private daysLeftAtPort: () => number,
     private onClose: () => void,
   ) {
     this.search = new SearchBox(scene)
@@ -283,35 +280,20 @@ export class PurchaseMenu {
     const objs: Phaser.GameObjects.GameObject[] = []
     const total = materials.length
 
-    // ── 見出しの下の1行 — 所持金 ＋ いつまで買えて、次はいつ買えるか ──
-    // ⚠ **何個買うべきかは言わない**（#33「最適解を教えない」）。
-    //   切らしている素材は**行ごとの `N品に要る` が言う**ので、まとめ行では言わない（束M）。
-    // ⚠ **「次に戻るのは40日後」だけを出さないこと。**この島にはまだ何日か居られるので、
-    //   40日後だけ見せると「もう来られない、いま全部買え」と読まれる（束M・ペルソナ2巡目）。
-    //   ⚠ **40 の中に 10 が入っている**（`daysLeftAtPort + 3周ぶん`）。両方出して関係を見せる
-    // ⚠ **行商人には島が無い**ので、この島を出る日も次に戻る日も言えない（#9）。
-    //   代わりに言うのは「**今日の品ぞろえ**」であること。**毎日入れ替わるのが歯止めそのもの**なので、
-    //   言わないと島の商人と同じ「いつでもある店」に見える
-    const stay = this.daysLeftAtPort()
-    const days = this.daysUntilReturn()
-    objs.push(
-      this.scene.add.text(CONTENT_L, SUBTITLE_Y,
-        this.peddler
-          ? peddlerSubtitleText(money(this.economy.getMoney()))
-          : `所持金 ${money(this.economy.getMoney())}　`
-            + `あと${stay}日でこの島を出る（次に戻るのは${days}日後）`, {
-        fontSize: `${TAB_SUBTITLE_FONT_PX}px`, color: '#ffdd44',
-      }).setOrigin(0, 0.5),
-    )
-
-    // ⚠ **まだ1本も作れないときだけ出す。**#48「0件の理由を書き分ける」の分岐で、
-    //   これが無いと**行に `N品に要る` が1つも付かない理由**が画面のどこにも無くなる。
-    //   序盤に商人の前へ立って「何を買えばいいのか」の手がかりがゼロになる（束M・ペルソナ2巡目）
-    if (this.needs.size === 0) {
+    // ── 見出しの下の1行 ──
+    // ⚠ **島の商人には何も出さない**（PO 指示 2026-09-13。赤入れ3箇所とも「不要」）。
+    //   **`所持金` も `あと10日` も右パネルの HUD が常に出している**ので、ここは写しだった。
+    //   ⚠ **`所持金` は改装タブと行商人からも落ちている**（PO「右上にあるから統一で消した」）。
+    //   ⚠ **帯そのものは残す。**一覧の上端（`ROWS_TOP`）を上げると、
+    //   **改装・納品とタブを行き来するたびに一覧が跳ねる**（3タブは同じ枠を使う）。
+    // ⚠ **行商人にだけ出す。**あちらは「**今日の品ぞろえ**」であることが歯止めそのもので、
+    //   言わないと島の商人と同じ「いつでもある店」に見える（#9）。
+    if (this.peddler) {
       objs.push(
-        this.scene.add.text(CONTENT_R, SUBTITLE_Y, 'まだ作れるものが無い', {
-          fontSize: `${TAB_NOTE_FONT_PX}px`, color: '#889999',
-        }).setOrigin(1, 0.5),
+        this.scene.add.text(CONTENT_L, SUBTITLE_Y,
+          peddlerSubtitleText(), {
+          fontSize: `${TAB_SUBTITLE_FONT_PX}px`, color: '#ffdd44',
+        }).setOrigin(0, 0.5),
       )
     }
 
@@ -383,7 +365,7 @@ export class PurchaseMenu {
       fontSize: '13px', color: '#aa9977',
     }).setOrigin(0.5))
     arrow(PLACE_CX + 60, '▶', 1, cur < pages - 1)
-    // 件数はページ送りと同じ行に置く。見出しの下は所持金と不足の知らせで埋まっている
+    // 件数はページ送りと同じ行に置く。⚠ **見出しの下には出さない**（島の商人は空の帯）
     objs.push(this.scene.add.text(CONTENT_R, PAGER_Y, this.paging.rangeLabel(total), {
       fontSize: '13px', color: '#aa9977',
     }).setOrigin(1, 0.5))
@@ -396,19 +378,19 @@ export class PurchaseMenu {
    *   「作ってから無効にする」ではなく**作らない**ので、押せてしまう経路が残らない。
    * ⚠ **行そのものを暗くする。**買える行と同じ見た目で「あとN個」だけ違うと、
    *   **買えるのに在庫が無いだけ**に読める。
-   * ⚠ **`この島の産` は出ない。**U2 待ちの品は必ず tier>=2 で、
-   *   **tier>=2 の品はすべて産地が `なし`**（実測・161品）。産地の島の行の 5.6px 問題には当たらない。
+   * ⚠ **産地の色にはしない。**U2 待ちの品は必ず tier>=2 で、
+   *   **tier>=2 の品はすべて産地が `なし`**（実測・161品）。**この行は常に「買えない」の色。**
    */
   private buildUpcomingRow(
     mat: ItemDef, salesLeft: number, y: number, objs: Phaser.GameObjects.GameObject[],
   ): void {
     objs.push(
-      this.scene.add.rectangle(PLACE_CX, y, ROW_W, ROW_H - 6, 0x2a2a2a)
+      this.scene.add.rectangle(PLACE_CX, y, ROW_W, ROW_H - 6, ROW_BG_UPCOMING)
         .setStrokeStyle(1, 0x444444),
     )
 
     objs.push(
-      this.scene.add.text(NAME_X, y, mat.display.name, {
+      this.scene.add.text(ROW_NAME_X, y, mat.display.name, {
         fontSize: `${TAB_ROW_TITLE_FONT_PX}px`, color: '#998877',
       }).setOrigin(0, 0.5),
     )
@@ -418,7 +400,7 @@ export class PurchaseMenu {
     const need = this.needOf(mat)
     if (need) {
       objs.push(
-        this.scene.add.text(NEED_R, y, `${need.recipes}品に要る`, {
+        this.scene.add.text(ROW_NEED_R, y, `${need.recipes}品に要る`, {
           fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: '#667788',
         }).setOrigin(1, 0.5),
       )
@@ -427,7 +409,7 @@ export class PurchaseMenu {
     // ⚠ **「買う」ボタンと同じ右端に、ボタンを作らずに置く。**
     //   文字とその大きさは `layout.ts`（`layout.test.ts` が幅を見ている）
     objs.push(
-      this.scene.add.text(BUY_L + BUY_W, y, upcomingLabel(salesLeft), {
+      this.scene.add.text(ROW_BUY_L + BUY_W, y, upcomingLabel(salesLeft), {
         fontSize: `${UPCOMING_FONT_PX}px`, color: '#aa9977',
       }).setOrigin(1, 0.5),
     )
@@ -443,28 +425,21 @@ export class PurchaseMenu {
     const isLocal = !this.peddler && mat.origin === this.islandName
 
     const focused = mat.id === this.focusId
+    // 産地の島であることを、**行の色**で見せる（PO 指示 2026-09-13）。
+    // **品に島の名前を足してはいない**（`産地` は元からある軸。ここは値の一致を色にしているだけ）
     objs.push(
-      this.scene.add.rectangle(PLACE_CX, y, ROW_W, ROW_H - 6, 0x2a3a2a)
+      this.scene.add.rectangle(PLACE_CX, y, ROW_W, ROW_H - 6,
+        isLocal ? ROW_BG_LOCAL : ROW_BG_ANY)
         .setStrokeStyle(focused ? 2 : 1, focused ? 0xffdd88 : 0x555555),
     )
 
-    const nameText = this.scene.add.text(NAME_X, y, mat.display.name, {
+    const nameText = this.scene.add.text(ROW_NAME_X, y, mat.display.name, {
       fontSize: `${TAB_ROW_TITLE_FONT_PX}px`, color: '#ffffff',
     }).setOrigin(0, 0.5)
     objs.push(nameText)
 
-    // 産地の島であることを、値引きの理由として見せる。**品に島の名前を足してはいない**
-    // （`産地` は元からある軸。ここは値の一致を表示しているだけ）
-    if (isLocal) {
-      objs.push(
-        this.scene.add.text(nameText.x + nameText.width + 8, y, 'この島の産', {
-          fontSize: '11px', color: '#88ddaa',
-        }).setOrigin(0, 0.5),
-      )
-    }
-
     // 行商人は**今日これだけしか積んでいない**（#9 の上限10個）。
-    // ⚠ **`この島の産` と同じ場所に出す。**`51レン/個　在庫 100/999` の側に足すと
+    // ⚠ **品名の右**に出す。`51レン/個　在庫 100/999` の側に足すと
     //   `INFO_MAX_W`（160px）を超えて左隣に重なる（→ `layout.ts` の注記）
     if (this.peddler) {
       objs.push(
@@ -482,7 +457,7 @@ export class PurchaseMenu {
     if (need) {
       const urgent = this.isLocalOnly(mat) && this.inventory.getQuantity(mat.id) === 0
       objs.push(
-        this.scene.add.text(NEED_R, y,
+        this.scene.add.text(ROW_NEED_R, y,
           urgent ? `⚠ 切らしている（${need.recipes}品に要る）` : `${need.recipes}品に要る`, {
           fontSize: '12px', color: urgent ? '#ffaa66' : '#8899aa',
         }).setOrigin(1, 0.5),
@@ -490,14 +465,14 @@ export class PurchaseMenu {
     }
 
     // ⚠ **大きさは `layout.ts` の `INFO_FONT_PX`。**12px だと4桁の仕入れ値で左隣に重なる
-    const infoText = this.scene.add.text(INFO_R, y, '', {
+    const infoText = this.scene.add.text(ROW_INFO_R, y, '', {
       fontSize: `${INFO_FONT_PX}px`, color: '#aaaaaa',
     }).setOrigin(1, 0.5)
     objs.push(infoText)
 
     // ── 個数 ── ⚠ **5個固定をやめた**（PO 2026-09-12）。打ち込んで指定できる
     const input = createInput(this.scene, {
-      width: INPUT_W, height: INPUT_H, numeric: true,
+      width: ROW_INPUT_W, height: ROW_INPUT_H, numeric: true,
       value: String(this.amounts.get(mat.id) ?? DEFAULT_QTY),
       onInput: () => {
         const row = this.rows.find(r => r.item.id === mat.id)
@@ -508,33 +483,40 @@ export class PurchaseMenu {
     // DOM が使えない設定でも**画面全体を道連れにしない。**
     // 使えないときは数字を出すだけにして、− ＋ 最大 で操作できるようにする
     let valueText: Phaser.GameObjects.Text | undefined
-    const domEl = tryAddDom(this.scene, INPUT_L + INPUT_W / 2, y, input, '仕入れの個数入力')
+    const domEl = tryAddDom(this.scene, ROW_INPUT_L + ROW_INPUT_W / 2, y, input, '仕入れの個数入力')
     if (domEl) {
       objs.push(domEl)
     } else {
       objs.push(
-        this.scene.add.rectangle(INPUT_L + INPUT_W / 2, y, INPUT_W, INPUT_H, 0x15152a)
+        this.scene.add.rectangle(ROW_INPUT_L + ROW_INPUT_W / 2, y, ROW_INPUT_W, ROW_INPUT_H, 0x15152a)
           .setStrokeStyle(1, 0x4a4a8a),
       )
-      valueText = this.scene.add.text(INPUT_L + INPUT_W - 6, y, input.value, {
+      valueText = this.scene.add.text(ROW_INPUT_L + ROW_INPUT_W - 6, y, input.value, {
         fontSize: '12px', color: '#ffffff',
       }).setOrigin(1, 0.5)
       objs.push(valueText)
     }
 
-    const buyBg = this.scene.add.rectangle(BUY_L + BUY_W / 2, y, BUY_W, 26, 0x6a5a2a)
+    // ⚠ **総額はボタンの外**（PO 指示 2026-09-13）。右そろえで、ボタンとのあいだを空ける
+    const totalText = this.scene.add.text(ROW_TOTAL_R, y, '', {
+      fontSize: `${BUY_TOTAL_FONT_PX}px`, color: '#ffffff',
+    }).setOrigin(1, 0.5)
+    objs.push(totalText)
+
+    const buyBg = this.scene.add.rectangle(ROW_BUY_BTN_L + BUY_BTN_W / 2, y, BUY_BTN_W, 26, 0x6a5a2a)
       .setStrokeStyle(1, 0x8a7a3a)
-    const buyLabel = this.scene.add.text(BUY_L + BUY_W / 2, y, '', {
+    const buyLabel = this.scene.add.text(ROW_BUY_BTN_L + BUY_BTN_W / 2, y, '', {
       fontSize: `${BUY_FONT_PX}px`, color: '#ffffff',
     }).setOrigin(0.5)
     objs.push(buyBg, buyLabel)
 
-    const row: Row = { item: mat, unitCost, input, valueText, infoText, buyBg, buyLabel }
+    const row: Row = { item: mat, unitCost, input, valueText, infoText, totalText, buyBg, buyLabel }
     buyBg.on('pointerdown', () => this.buy(row))
 
-    this.pushButton(objs, MINUS_L, y, STEP_W, INPUT_H, '−', () => this.step(row, -1))
-    this.pushButton(objs, PLUS_L, y, STEP_W, INPUT_H, '＋', () => this.step(row, 1))
-    this.pushButton(objs, MAX_L, y, MAX_W, INPUT_H, '最大', () => this.setValue(row, this.maxBuyable(row)))
+    this.pushButton(objs, ROW_MINUS_L, y, ROW_STEP_W, ROW_INPUT_H, '−', () => this.step(row, -1))
+    this.pushButton(objs, ROW_PLUS_L, y, ROW_STEP_W, ROW_INPUT_H, '＋', () => this.step(row, 1))
+    this.pushButton(objs, ROW_MAX_L, y, ROW_MAX_W, ROW_INPUT_H, '最大',
+      () => this.setValue(row, this.maxBuyable(row)))
 
     this.rows.push(row)
   }
@@ -576,27 +558,35 @@ export class PurchaseMenu {
     row.infoText.setText(`${money(row.unitCost)}/個　在庫 ${stock}/${MAX_QUANTITY}`)
 
     const reason = this.reasonFor(row, qty)
-    const total = qty === null ? 0 : row.unitCost * qty
-    // ⚠ **「で」を足さないこと**（`BUY_SUFFIX` の注記）。7桁の合計がボタンから出る
-    row.buyLabel.setText(reason === '' ? `${money(total)}${BUY_SUFFIX}` : reason)
+    // ⚠ **総額とボタンの字を混ぜないこと**（PO 指示 2026-09-13）。
+    //   **個数が読めないときだけ**、総額の場所にその理由が出る（出せる総額が無いため）。
+    //   ⚠ **理由に金額を足さないこと。**総額はすぐ左に出ているので、繰り返すとボタンから出る
+    row.totalText.setText(qty === null ? reason : money(row.unitCost * qty))
+    row.totalText.setColor(reason === '' ? '#ffffff' : '#ffaa66')
+    row.buyLabel.setText(qty === null || reason === '' ? BUY_LABEL : reason)
     row.buyLabel.setColor(reason === '' ? '#ffffff' : '#998877')
     row.buyBg.setFillStyle(reason === '' ? 0x6a5a2a : 0x3a3a3a)
     if (reason === '') row.buyBg.setInteractive({ useHandCursor: true })
     else row.buyBg.disableInteractive()
   }
 
-  /** 買えない理由。買えるなら空文字 */
+  /**
+   * 買えない理由。買えるなら空文字。
+   *
+   * ⚠ **短いものだけ**（`layout.ts` の `BUY_REASON_*` / `QTY_REASON_*`）。
+   *   **個数が読めない2つは総額の場所**（`BUY_TOTAL_W`）、**残りはボタンの中**（`BUY_BTN_W`）に出る。
+   */
   private reasonFor(row: Row, qty: number | null): string {
-    if (qty === null) return row.input.value.trim() === '' ? '個数を入れて' : '1以上の整数'
+    if (qty === null) {
+      return row.input.value.trim() === '' ? QTY_REASON_EMPTY : QTY_REASON_NOT_INT
+    }
     // **上限を超える買い物はさせない。**払ってから溢れて消える、を起こさないため（段4-7）
-    if (this.inventory.spaceFor(row.item.id) < qty) return `上限${MAX_QUANTITY}`
+    if (this.inventory.spaceFor(row.item.id) < qty) return buyReasonCap(MAX_QUANTITY)
     // ⚠ **行商人の積荷より多くは買えない**（#9）。在庫の上限と同じで、**払う前に止める**
     if (this.peddler && this.peddler.remaining(row.item.id) < qty) {
       return peddlerRemainText(this.peddler.remaining(row.item.id))
     }
-    if (!this.economy.canAfford(row.unitCost * qty)) {
-      return `${money(row.unitCost * qty)} 足りない`
-    }
+    if (!this.economy.canAfford(row.unitCost * qty)) return BUY_REASON_FUNDS
     return ''
   }
 

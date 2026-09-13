@@ -62,6 +62,44 @@ const COSTS: Record<UpgradeKind, readonly number[]> = {
   手際:   [12_000, 32_000, 64_000, 112_000, 180_000],
 }
 
+/**
+ * **1段上げると、効き目の数がどう変わるか**（PO 指示 2026-09-13「変更前と変更後を表示」）。
+ * 最大まで買っていれば `null`。
+ *
+ * ⚠ **ここが効き目の表の唯一の読み手にならないようにしてある。**
+ *   数は上の `GRID_SIZES` / `CUSTOMER_MULTIPLIERS` / `MARGIN_MULTIPLIERS` / `SKILL_VALUES`
+ *   から引くだけで、**画面のために別の数を持たない。**持つと、直したときに片方だけ動く。
+ *
+ * ⚠ **`手際` だけ、出している数が画面のほかの場所に一度も出てこない**（`10 → 14`）。
+ *   速さの倍率に直すと `craft.ts` の床（0.25）・天井（4.0）で**品ごとに変わる**ので、
+ *   一律の倍率として出すと嘘になる。**PO へ回してある**
+ *   （`construction/plans/upgrade-tab-po-marks.md`）。
+ *
+ * ⚠ **Phaser を読まない。**読むと `layout.test.ts` が実物の文字列を測れなくなる
+ *   （`layout.ts` 冒頭と同じ理由）。
+ */
+export function effectDeltaLabel(kind: UpgradeKind, stage: number): string | null {
+  if (stage < 0 || stage >= MAX_STAGE) return null
+  const pair = (before: string, after: string): string => `${before} → ${after}`
+  switch (kind) {
+    case '棚': {
+      const a = GRID_SIZES[stage], b = GRID_SIZES[stage + 1]
+      return pair(`${a.width}×${a.height}`, `${b.width}×${b.height}`)
+    }
+    case '来客':
+      return pair(times(CUSTOMER_MULTIPLIERS[stage]), times(CUSTOMER_MULTIPLIERS[stage + 1]))
+    case '利益率':
+      return pair(times(MARGIN_MULTIPLIERS[stage]), times(MARGIN_MULTIPLIERS[stage + 1]))
+    case '手際':
+      return pair(`${SKILL_VALUES[stage]}`, `${SKILL_VALUES[stage + 1]}`)
+  }
+}
+
+/** `1.3` を `×1.3` にする。⚠ **小数1桁で揃える。**`×1` と `×1.3` が並ぶと段差に見える */
+function times(v: number): string {
+  return `×${v.toFixed(1)}`
+}
+
 export class Upgrades {
   private stages: Record<UpgradeKind, number> = { 棚: 0, 来客: 0, 利益率: 0, 手際: 0 }
 

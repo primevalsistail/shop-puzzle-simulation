@@ -219,8 +219,6 @@ export class GameScene extends Phaser.Scene {
       // ⚠ **解禁済みのレシピだけで数える**（#33）。作り方を知らない品は買うしかないので、
       //   そこで展開が止まり、それが実際の不足と一致する
       () => materialNeeds(this.recipeUnlocks.unlockedRecipes()),
-      () => this.world.daysUntilReturn(),
-      () => this.world.getLocation().daysLeftAtPort,
       () => this.onPurchaseMenuClosed(),
     )
 

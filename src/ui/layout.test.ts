@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest'
 import {
   SCREEN_W, SCREEN_H,
   HUD_PANEL_W, HUD_MONEY_FONT_PX, estTextWidth,
-  BUY_W, BUY_FONT_PX, BUY_SUFFIX, INFO_MAX_W, INFO_FONT_PX,
+  BUY_W, BUY_BTN_W, BUY_TOTAL_W, BUY_TOTAL_FONT_PX, BUY_FONT_PX, BUY_LABEL,
+  BUY_REASON_FUNDS, buyReasonCap, QTY_REASON_EMPTY, QTY_REASON_NOT_INT,
+  INFO_MAX_W, INFO_FONT_PX,
+  ROW_NAME_X, ROW_NEED_R,
   UPCOMING_FONT_PX, upcomingLabel, PRESET_TEXT_FONT_PX, PRESET_SUB_FONT_PX,
   PRESET_COLS, PRESET_GAP_X, PRESET_CELL_W, PRESET_TEXT_L_OFFSET, PRESET_TEXT_W,
   PRESET_NAME_INPUT_W, PRESET_NAME_INPUT_H,
@@ -17,7 +20,12 @@ import {
   HUD_PANEL_B, HUD_ROW_MONEY_Y, HUD_ROW_TIME_Y, HUD_ROW_PLACE_Y,
   BTN_PANEL_L, BTN_PANEL_W, BTN_ICON_W, BTN_Y_TRADE,
   TITLE_FONT_PX, BACK_BTN_W, TAB_W, TAB_H, TAB_GAP, TAB_FONT_PX, tabCx,
-  TRADE_TITLE, TRADE_TABS,
+  TRADE_TITLE, TRADE_TABS, TAB_ROW_SUB_FONT_PX,
+  UPGRADE_ROW_H, UPGRADE_NAME_X, UPGRADE_SUB_MAX_W,
+  UPGRADE_STAGE_CX, UPGRADE_STAGE_FONT_PX, UPGRADE_STAGE_W, UPGRADE_STAGE_L,
+  UPGRADE_BTN_W, UPGRADE_BTN_L, UPGRADE_BTN_R, UPGRADE_COST_W, UPGRADE_COST_L,
+  UPGRADE_COST_R, UPGRADE_COST_FONT_PX,
+  UPGRADE_LABEL, UPGRADE_REASON_FUNDS, UPGRADE_MAXED, upgradeSubLine,
   DELIVERY_TAB_FONT_PX, DELIVERY_TAB_LINE_H, DELIVERY_TAB_EMPTY, deliveryTabLines,
   MSG_WIN_L, MSG_WIN_R, MSG_WIN_T, MSG_WIN_B, MSG_WIN_PAD, MSG_TEXT_MAX_W,
   MSG_SPEAKER_FONT_PX, MSG_SPEAKER_Y, MSG_TEXT_FONT_PX, MSG_TEXT_TOP, MSG_LINE_H,
@@ -33,6 +41,7 @@ import { money } from './money.js'
 import { orderLineText } from './delivery.js'
 import { PRESET_COUNT, PRESET_NAME_MAX, describePreset } from '../components/floor/ShelfPresets.js'
 import { ROUTE } from '../taxonomy/islands.js'
+import { Upgrades, UPGRADE_KINDS, MAX_STAGE, effectDeltaLabel } from '../components/progress/Upgrades.js'
 import { salePrice } from '../taxonomy/derive.js'
 
 import { ORDER_QUANTITY, ORDER_REWARD_RATE } from '../components/progress/DeliveryOrders.js'
@@ -288,15 +297,24 @@ describe('金額の文字が枠に収まる', () => {
   })
 
   /**
-   * 「買う」の中身は `合計 買う`。合計は `仕入れ値 × 個数`。
+   * 総額は `仕入れ値 × 個数`。**ボタンの外に、右そろえで置く**（PO 指示 2026-09-13）。
    *
    * ⚠ **最悪値は 3,237,759 で、7桁。**いちばん高い品（仕入れ値 3,241。`celebration_hamper`。
    *   産地が `なし` なので U2 で商人に並び得る）を、在庫の上限 999個 買うとこうなる。
    *   **ここを 6桁で見てはいけない。**6桁で通してしまうと、遊びの終盤だけ壊れる。
    */
-  it('「買う」は、7桁の合計（3,241 × 999）でもボタンに収まる', () => {
-    expect(estTextWidth(`${money(3_241 * 999)}${BUY_SUFFIX}`, BUY_FONT_PX))
-      .toBeLessThanOrEqual(BUY_W)
+  it('総額は、7桁（3,241 × 999）でも枠に収まる', () => {
+    expect(estTextWidth(money(3_241 * 999), BUY_TOTAL_FONT_PX))
+      .toBeLessThanOrEqual(BUY_TOTAL_W)
+  })
+
+  /**
+   * ⚠ **総額をボタンへ戻さないこと**（PO 指示 2026-09-13「総額と買うは分ける」）。
+   *   **戻すと入らない**ことを、この検査が押さえている。
+   */
+  it('⚠ 総額と「買う」を1つのボタンに詰めると、ボタンから出る', () => {
+    expect(estTextWidth(`${money(3_241 * 999)} ${BUY_LABEL}`, BUY_FONT_PX))
+      .toBeGreaterThan(BUY_BTN_W)
   })
 
   /** ⚠ **隣の「最大」「＋」「−」が 12px。**主たるボタンだけ小さいのはおかしい */
@@ -306,10 +324,29 @@ describe('金額の文字が枠に収まる', () => {
 
   /**
    * ⚠ **「買う」という語を落とさない。**ボタンが何をするか読めなくなる。
-   *   収まらないときに削ってよいのは助詞までである。
    */
   it('「買う」ボタンに「買う」という語が残っている', () => {
-    expect(BUY_SUFFIX).toContain('買う')
+    expect(BUY_LABEL).toContain('買う')
+    expect(estTextWidth(BUY_LABEL, BUY_FONT_PX)).toBeLessThanOrEqual(BUY_BTN_W)
+  })
+
+  /**
+   * **買えないときはボタンの字が理由に変わる。**
+   *
+   * ⚠ **金額を混ぜた理由を書かないこと。**`3,237,759レン 足りない` は 138px で、
+   *   ボタン（52px）にも総額の枠（80px）にも入らない。**総額はすぐ左に出ている。**
+   */
+  it('買えない理由は、どれも「買う」ボタンに収まる', () => {
+    for (const reason of [BUY_REASON_FUNDS, buyReasonCap(999), peddlerRemainText(10)]) {
+      expect(estTextWidth(reason, BUY_FONT_PX), reason).toBeLessThanOrEqual(BUY_BTN_W)
+    }
+  })
+
+  /** 個数が読めないときは、**出せる総額が無い**ので総額の場所へ理由を出す */
+  it('個数が読めないときの理由は、総額の枠に収まる', () => {
+    for (const reason of [QTY_REASON_EMPTY, QTY_REASON_NOT_INT]) {
+      expect(estTextWidth(reason, BUY_TOTAL_FONT_PX), reason).toBeLessThanOrEqual(BUY_TOTAL_W)
+    }
   })
 
   /**
@@ -336,11 +373,13 @@ describe('金額の文字が枠に収まる', () => {
   })
 
   /**
-   * ⚠ **`BUY_FONT_PX`（12）へ上げると 1px はみ出す。**
-   *   「ボタンと大きさを揃えよう」と思ったときに落ちる検査。
+   * ⚠ **総額を分けるまでは、`BUY_FONT_PX`（12）で 1px はみ出していた**（footprint 118px）。
+   *   **いまは 138px なので収まる。**それでも上げていないのは、
+   *   **揃える相手がボタンではない**からで（`INFO_FONT_PX`・総額と同じ 11px）、
+   *   幅の制約ではない。**ここは footprint に収まることだけを見る。**
    */
-  it('⚠ 「買う」と同じ 12px では収まらない（だから 11px）', () => {
-    expect(estTextWidth(upcomingLabel(999), BUY_FONT_PX)).toBeGreaterThan(BUY_W)
+  it('「もうすぐ買える」は、総額とボタンを合わせた幅の中に収まる', () => {
+    expect(estTextWidth(upcomingLabel(999), UPCOMING_FONT_PX)).toBeLessThanOrEqual(BUY_W)
   })
 
   /**
@@ -411,22 +450,15 @@ describe('見出しの下に1行が無い場所（工房）', () => {
 })
 
 describe('行商人バレンのところ（#9）', () => {
-  /** 1行の中で `残り N個` を置ける場所（品名の右端〜`N品に要る` の左端） */
-  const NAME_X = CONTENT_L + 16
-  const NEED_R = (() => {
-    // ⚠ `PurchaseMenu.ts` は Phaser を読むので import できない。**列の並びは同じ式で追う**
-    const BUY_L = CONTENT_R - 8 - 118
-    const MAX_L = BUY_L - 6 - 40
-    const PLUS_L = MAX_L - 6 - 26
-    const INPUT_L = PLUS_L - 4 - 52
-    const MINUS_L = INPUT_L - 4 - 26
-    return MINUS_L - 14 - INFO_MAX_W
-  })()
+  // ⚠ **列の式を写さないこと。**`layout.ts` の `ROW_*` が唯一の出どころで、
+  //   `PurchaseMenu.ts` も同じものを読んでいる（以前はここに式の写しがあった）
+  const NAME_X = ROW_NAME_X
+  const NEED_R = ROW_NEED_R
 
   /**
    * ⚠ **`残り N個` を `51レン/個　在庫 100/999` の側に足さないこと。**
    *   足すと `INFO_MAX_W`（160px）を超えて左隣の `N品に要る` に重なる。
-   *   **だから品名の右**（`この島の産` と同じ場所）に出している。
+   *   **だから品名の右**に出している（島の商人の側は産地を行の色で出すので、字は無い）。
    */
   it('⚠ `51レン/個…` の側に足すと枠を超える（だから品名の右に出す）', () => {
     const crowded = `1,234レン/個　在庫 100/999${peddlerRemainText(PEDDLER_MAX_PER_KIND)}`
@@ -442,9 +474,45 @@ describe('行商人バレンのところ（#9）', () => {
     expect(tagR, longest.display.name).toBeLessThanOrEqual(NEED_R)
   })
 
-  it('見出しの下の1行が、枠の内側に収まる（いちばん高い所持金で）', () => {
-    const line = peddlerSubtitleText(money(10_000_000))
-    expect(estTextWidth(line, 15)).toBeLessThanOrEqual(CONTENT_R - CONTENT_L)
+  /**
+   * 仕入れの行でいちばん長い注記は `⚠ 切らしている（N品に要る）`（#33）。**右そろえ**なので、
+   * **左へ伸びて品名に重なる**。
+   *
+   * ⚠ **総額を「買う」から分けたぶん、列が 20px 左へ寄った**（2026-09-13）。
+   *   **ここが開いているかは、それまで誰も見ていなかった。**
+   * ⚠ **`⚠ 切らしている` が出るのは産地がこの島の品だけ**（`PurchaseMenu.isLocalOnly`）。
+   *   **加工品（産地 `なし`）の長い名前と重なることはない。**
+   *   だから**産地を持つ品の中で**いちばん長い名前で見る。
+   * ⚠ **`N品に要る` だけの行はどの品にも出る**ので、そちらは全品で見る。
+   */
+  it('⚠ 切らしている（N品に要る）が、産地つきのいちばん長い品名に重ならない', () => {
+    const withOrigin = ALL_ITEMS.filter(i => i.origin !== 'なし')
+    const longest = withOrigin.reduce(
+      (a, b) => (b.display.name.length > a.display.name.length ? b : a))
+    const nameR = NAME_X + estTextWidth(longest.display.name, 15)
+    // 品数は 106レシピ ＝ 最大3桁。行の注記は 12px（`PurchaseMenu.buildRow`）
+    const needL = NEED_R - estTextWidth('⚠ 切らしている（106品に要る）', 12)
+    expect(needL, longest.display.name).toBeGreaterThan(nameR)
+  })
+
+  it('`N品に要る` だけの行は、いちばん長い品名（全品）にも重ならない', () => {
+    const longest = ALL_ITEMS.reduce(
+      (a, b) => (b.display.name.length > a.display.name.length ? b : a))
+    const nameR = NAME_X + estTextWidth(longest.display.name, 15)
+    expect(NEED_R - estTextWidth('106品に要る', 12), longest.display.name)
+      .toBeGreaterThan(nameR)
+  })
+
+  it('見出しの下の1行が、枠の内側に収まる', () => {
+    expect(estTextWidth(peddlerSubtitleText(), 15)).toBeLessThanOrEqual(CONTENT_R - CONTENT_L)
+  })
+
+  /**
+   * ⚠ **`所持金` は画面の右上（HUD）だけ**（PO 指示 2026-09-13「右上にあるから統一で消した」）。
+   *   **商人・改装・行商人の3箇所とも落としてある。**戻すとまた写しになる。
+   */
+  it('⚠ 行商人の1行に `所持金` が入っていない', () => {
+    expect(peddlerSubtitleText()).not.toContain('所持金')
   })
 
   /**
@@ -728,6 +796,89 @@ describe('「取引」の3タブ（#96）', () => {
    */
   it('タブを足しても仕入れの一覧の行数が減っていない', () => {
     expect(rowsThatFit(56)).toBe(8)
+  })
+})
+
+/**
+ * **改装タブ（#96 の `改装`）。**PO の赤入れ（2026-09-13）で、行の中身が3つ変わった ——
+ * **見出し下の `所持金` を落とす ／ 一言のうしろに「前 → 後」を出す ／
+ * 費用と `改装` ボタンを分ける。**
+ *
+ * ⚠ **分けた2つが隣り合うので、重なりは目視では出ない。**ここで測る。
+ */
+describe('改装タブの行（PO 赤入れ 2026-09-13）', () => {
+  /** その系統を stage 段まで進めた `Upgrades` */
+  const at = (kind: typeof UPGRADE_KINDS[number], stage: number): Upgrades => {
+    const u = new Upgrades()
+    for (let i = 0; i < stage; i++) u.advance(kind)
+    return u
+  }
+
+  it('段の ●○ が、決めてある幅に収まる', () => {
+    // ⚠ `UPGRADE_STAGE_W` は段数の写しを持っている。食い違ったらここで落ちる
+    expect(estTextWidth('○'.repeat(MAX_STAGE), UPGRADE_STAGE_FONT_PX))
+      .toBeLessThanOrEqual(UPGRADE_STAGE_W)
+  })
+
+  it('説明の「前 → 後」が、段の ●○ に食い込まない', () => {
+    for (const kind of UPGRADE_KINDS) {
+      for (let stage = 0; stage <= MAX_STAGE; stage++) {
+        const line = upgradeSubLine(kind, effectDeltaLabel(kind, stage))
+        expect(estTextWidth(line, TAB_ROW_SUB_FONT_PX), `${kind} ${stage} ${line}`)
+          .toBeLessThanOrEqual(UPGRADE_SUB_MAX_W)
+      }
+    }
+  })
+
+  it('最大まで買うと「前 → 後」が消え、一言だけ残る', () => {
+    for (const kind of UPGRADE_KINDS) {
+      expect(effectDeltaLabel(kind, MAX_STAGE)).toBeNull()
+      expect(upgradeSubLine(kind, null)).not.toContain('→')
+      expect(upgradeSubLine(kind, null).length).toBeGreaterThan(0)
+    }
+  })
+
+  /**
+   * ⚠ **`Upgrades` の費用の表を直接読まない。**`nextCost` から取ることで、
+   *   **表を増やしたときにこの検査も一緒に効く。**
+   */
+  it('どの段の費用も、費用の幅に収まる', () => {
+    for (const kind of UPGRADE_KINDS) {
+      for (let stage = 0; stage < MAX_STAGE; stage++) {
+        const cost = at(kind, stage).nextCost(kind)
+        expect(cost).not.toBeNull()
+        expect(estTextWidth(money(cost as number), UPGRADE_COST_FONT_PX), `${kind} ${stage}`)
+          .toBeLessThanOrEqual(UPGRADE_COST_W)
+      }
+    }
+  })
+
+  it('ボタンの字も、買えないときの理由も、ボタンに収まる', () => {
+    for (const label of [UPGRADE_LABEL, UPGRADE_REASON_FUNDS]) {
+      expect(estTextWidth(label, BUY_FONT_PX), label).toBeLessThanOrEqual(UPGRADE_BTN_W - 8)
+    }
+    // 最大まで買った行はボタンを出さず、右端に字だけ出る
+    expect(estTextWidth(UPGRADE_MAXED, TAB_ROW_SUB_FONT_PX)).toBeLessThanOrEqual(UPGRADE_BTN_W)
+  })
+
+  /** ⚠ **分けたことが効いているか。**費用とボタンが重なっていたら分けた意味が無い */
+  it('費用とボタンが重ならず、費用が段の ●○ にも掛からない', () => {
+    expect(UPGRADE_COST_R).toBeLessThan(UPGRADE_BTN_L)
+    expect(UPGRADE_COST_L).toBeGreaterThan(UPGRADE_STAGE_CX + UPGRADE_STAGE_W / 2)
+    expect(UPGRADE_BTN_R).toBeLessThanOrEqual(CONTENT_R)
+    expect(UPGRADE_NAME_X).toBeGreaterThanOrEqual(CONTENT_L)
+    expect(UPGRADE_STAGE_L).toBeGreaterThan(UPGRADE_NAME_X + UPGRADE_SUB_MAX_W)
+  })
+
+  /**
+   * ⚠ **4系統がこの枠に入りきること。**
+   *
+   * ⚠ **5行目（#97 の `商船の購入`）は、いまの行の高さでは入らない** ——
+   *   `110 + 5×100 = 610` で、枠の下端 `564` を越える（実測 2026-09-13）。
+   *   **#97 は行の高さを下げるか、商船を行の外へ置くことになる。**残っている余白は 54px。
+   */
+  it('4系統が一覧の枠に収まる', () => {
+    expect(ROWS_TOP + UPGRADE_KINDS.length * UPGRADE_ROW_H).toBeLessThanOrEqual(ROWS_BOTTOM)
   })
 })
 
