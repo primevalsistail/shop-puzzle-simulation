@@ -2,22 +2,47 @@
 
 - **Project**: 在庫配置パズル型 店舗経営シミュレーション
 - **Type**: Brownfield ／ TypeScript + Phaser.js 3 + Vite ／ Web ブラウザ
-- **Started**: 2026-07-05 ／ **Last Updated**: 2026-09-14（**#10 の質問票を出した。⚠ PO 回答待ち**）
+- **Started**: 2026-07-05 ／ **Last Updated**: 2026-09-14（**#10 を実装した。⚠ ブランチ `feat/resolution-10`。main 未反映**）
 
 ---
 
 ## ⚠ 次のセッションはここから
 
 1. **この節と「知らないと踏むこと」を読む。**それ以外は必要になってから
-2. ⚠ **最優先は #10（解像度）。PO 指定。**下の節を読む
-   → **計画は [resolution-10.md](construction/plans/resolution-10.md)**。
+2. ⚠ **#10（解像度）は実装済み。⚠ main には入っていない**（ブランチ `feat/resolution-10`）。
+   **PO に画面を見てもらってから main へ。**下の節を読む
+   → **計画は [resolution-10-impl.md](construction/plans/resolution-10-impl.md)**。
    **ほかの段階に入るなら** → [issue-grouping.md](inception/plans/issue-grouping.md)
 3. ⚠ **着手前に、対象 issue の本文と現状の差を洗う。**
    **2026-09-13 の調査では 16件中7件で、本文が実装に追い越されていた**
 4. **計画ファイルを `construction/plans/` に作り、目的・決定済みの前提・今回決めないこと・
    受入条件を先に書く。**サブへ委任する場合も自分でやる場合も省かない
 
-### ⚠ 最優先は #10（解像度）—— PO 指定 2026-09-14
+### ✅ #10（解像度）は実装済み —— ⚠ **main 未反映。PO の確認待ち**
+
+**ブランチ `feat/resolution-10` の `ccf47c8`。**
+**内部座標 1280×720 → 1920×1080。寸法をすべて正確に ×1.5。**
+**`pixelArt: true` を外し `antialias: true` ＋ `roundPixels: false`。**
+**679件 全件パス ／ `tsc` ／ `build`。**
+
+⚠ **確かめ方を残してある** —— **変更前のコミットを `/tmp/sim-before` に別の作業木で出し、
+`/tmp/pwdriver/res10-shots.mjs` で3解像度を撮り比べた**（`/tmp/shots/res10/`）。
+**大きく違う画素は 0.44〜0.78%、すべて文字と線の縁。配置の移動はゼロ。**
+⚠ **効果は 1366×657 でいちばんはっきり出る**（変更前は「あと10日」の `日` が `円` に見えていた）。
+**1536×763 はほぼ等倍なので差が小さい。**
+
+⚠ **知らないと踏むこと** ——
+**コードの数は 1920系、コメントの数は 1280系**（→ #117）。
+**`layout.ts` の冒頭に断りがある。⚠ コメントの数を機械的に 1.5倍しないこと**
+（**多くが Chromium での実測値で、掛けた数は誰も測っていない**）。
+
+⚠ **#97 は 5行目が入らない** —— **`210 + 5×150 = 960` に対し枠の下端は `846`。114px 超過。**
+**一覧に自動のページ送りは無い**（4系統をそのまま並べている）。
+⚠ **行を低くするか商船を一覧の外へ置くかは PO 判断。**
+
+---
+
+### （済）#10 の経緯 —— PO 指定 2026-09-14
 
 **PO の回答**（issue の末尾）:
 > **両方。そもそも 1280×720 が情報量として少ないし、絵や特に文字をきれいに表示したい。**
@@ -100,7 +125,8 @@
 [questions-upgrade-tab.md](sessions/questions-upgrade-tab.md)（改装タブ・別セッション）／
 [questions-craft-tab.md](sessions/questions-craft-tab.md)（**工房の表・3件**）／
 `construction/plans/peddler-tab-questions.md`（行商人・別セッション）。
-⚠ **`main` は origin より先行している**（push していない）。
+⚠ **`main` は origin と同じ**（2026-09-14 に確認。**以前の「先行している」は古い**）。
+⚠ **いまの作業はブランチ `feat/resolution-10` にある。main には入れていない。**
 
 ⚠ **ブラウザで動かす方法**（プロジェクトに起動用スキルは無い）:
 `chromium-cli`／`playwright` は入っていないが、**`~/.cache/ms-playwright/` に Chromium のバイナリがある。**
