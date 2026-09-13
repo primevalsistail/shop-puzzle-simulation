@@ -24,6 +24,8 @@ import {
   UPCOMING_FONT_PX, upcomingLabel,
   PEDDLER_TITLE, PEDDLER_REMAIN_FONT_PX, peddlerRemainText,
   TAB_ROW_TITLE_FONT_PX,
+  BUY_FILTER_FONT_PX, BUY_EMPTY_FONT_PX, BUY_QTY_FONT_PX, BUY_STEP_BTN_FONT_PX,
+  BUY_PAGER_ARROW_FONT_PX, BUY_PAGER_FONT_PX, BUY_RANGE_FONT_PX,
 } from './layout.js'
 import type { PeddlerStock } from '../components/progress/PeddlerStock.js'
 
@@ -299,7 +301,7 @@ export class PurchaseMenu {
         .setStrokeStyle(1.5, on ? 0xbb9944 : 0x444455)
         .setInteractive({ useHandCursor: true })
       const label = this.scene.add.text(bx, this.filterY(), cat.label, {
-        fontSize: '18px', color: on ? '#ffdd88' : '#778899',
+        fontSize: `${BUY_FILTER_FONT_PX}px`, color: on ? '#ffdd88' : '#778899',
       }).setOrigin(0.5)
       bg.on('pointerdown', () => { this.paging.toggleKind(cat.id); this.rebuild() })
       objs.push(bg, label)
@@ -327,7 +329,7 @@ export class PurchaseMenu {
               //   行商人は**今日は積んでいない**だけなので、明日また来ることを言う
               ? '行商人は、今日は何も積んでいません'
               : '商人は、いま何も並べていません', {
-          fontSize: '21px', color: '#889999',
+          fontSize: `${BUY_EMPTY_FONT_PX}px`, color: '#889999',
         }).setOrigin(0.5),
       )
     }
@@ -344,7 +346,7 @@ export class PurchaseMenu {
     const cur = this.paging.currentPage(total)
     const arrow = (x: number, text: string, delta: number, enabled: boolean) => {
       const t = this.scene.add.text(x, PAGER_Y, text, {
-        fontSize: '27px', color: enabled ? '#ffdd88' : '#555566',
+        fontSize: `${BUY_PAGER_ARROW_FONT_PX}px`, color: enabled ? '#ffdd88' : '#555566',
       }).setOrigin(0.5)
       if (enabled) {
         t.setInteractive({ useHandCursor: true })
@@ -354,12 +356,12 @@ export class PurchaseMenu {
     }
     arrow(PLACE_CX - 90, '◀', -1, cur > 0)
     objs.push(this.scene.add.text(PLACE_CX, PAGER_Y, this.paging.pageLabel(total), {
-      fontSize: '19.5px', color: '#aa9977',
+      fontSize: `${BUY_PAGER_FONT_PX}px`, color: '#aa9977',
     }).setOrigin(0.5))
     arrow(PLACE_CX + 90, '▶', 1, cur < pages - 1)
     // 件数はページ送りと同じ行に置く。⚠ **見出しの下には出さない**（島の商人は空の帯）
     objs.push(this.scene.add.text(CONTENT_R, PAGER_Y, this.paging.rangeLabel(total), {
-      fontSize: '19.5px', color: '#aa9977',
+      fontSize: `${BUY_RANGE_FONT_PX}px`, color: '#aa9977',
     }).setOrigin(1, 0.5))
   }
 
@@ -470,7 +472,7 @@ export class PurchaseMenu {
           .setStrokeStyle(1.5, 0x4a4a8a),
       )
       valueText = this.scene.add.text(ROW_INPUT_L + ROW_INPUT_W - 9, y, input.value, {
-        fontSize: '18px', color: '#ffffff',
+        fontSize: `${BUY_QTY_FONT_PX}px`, color: '#ffffff',
       }).setOrigin(1, 0.5)
       objs.push(valueText)
     }
@@ -594,7 +596,7 @@ export class PurchaseMenu {
     bg.on('pointerout', () => bg.setFillStyle(0x33335a))
     objs.push(
       bg,
-      this.scene.add.text(cx, cy, label, { fontSize: '18px', color: '#ffffff' }).setOrigin(0.5),
+      this.scene.add.text(cx, cy, label, { fontSize: `${BUY_STEP_BTN_FONT_PX}px`, color: '#ffffff' }).setOrigin(0.5),
     )
   }
 }

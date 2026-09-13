@@ -3,6 +3,10 @@ import type { ItemDef, ItemRegistry } from '../components/items/ItemRegistry.js'
 import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
 import { SearchBox } from './SearchBox.js'
 import { money } from './money.js'
+import {
+  INV_RANGE_FONT_PX, INV_FILTER_FONT_PX, INV_PAGER_ARROW_FONT_PX, INV_PAGER_FONT_PX,
+  INV_ITEM_NAME_FONT_PX, INV_ITEM_QTY_FONT_PX, INV_ITEM_PRICE_FONT_PX,
+} from './layout.js'
 
 const PANEL_X = 30
 const PANEL_WIDTH = 300
@@ -159,7 +163,7 @@ export class InventoryPanel {
     )
     this.filterObjects.push(
       this.scene.add.text(PANEL_X + ITEM_WIDTH, HEAD_Y, this.paging.rangeLabel(total), {
-        fontSize: '16.5px', color: '#aabbcc',
+        fontSize: `${INV_RANGE_FONT_PX}px`, color: '#aabbcc',
       }).setOrigin(1, 0.5),
     )
 
@@ -177,7 +181,7 @@ export class InventoryPanel {
         .setStrokeStyle(1.5, on ? 0x5599cc : 0x444455)
         .setInteractive({ useHandCursor: true })
       const label = this.scene.add.text(bx, by, cat.label, {
-        fontSize: '15px', color: on ? '#aaddff' : '#667788',
+        fontSize: `${INV_FILTER_FONT_PX}px`, color: on ? '#aaddff' : '#667788',
       }).setOrigin(0.5)
 
       bg.on('pointerdown', () => {
@@ -195,7 +199,7 @@ export class InventoryPanel {
     const cur = this.paging.currentPage(total)
     const arrow = (x: number, text: string, delta: number, enabled: boolean) => {
       const t = this.scene.add.text(x, PAGER_Y, text, {
-        fontSize: '21px', color: enabled ? '#aaccee' : '#445566',
+        fontSize: `${INV_PAGER_ARROW_FONT_PX}px`, color: enabled ? '#aaccee' : '#445566',
       }).setOrigin(0.5)
       if (enabled) {
         t.setInteractive({ useHandCursor: true })
@@ -208,7 +212,7 @@ export class InventoryPanel {
     arrow(PANEL_X + 18, '◀', -1, cur > 0)
     this.filterObjects.push(
       this.scene.add.text(cx, PAGER_Y, this.paging.pageLabel(total), {
-        fontSize: '18px', color: '#8899aa',
+        fontSize: `${INV_PAGER_FONT_PX}px`, color: '#8899aa',
       }).setOrigin(0.5),
     )
     arrow(PANEL_X + ITEM_WIDTH - 18, '▶', 1, cur < pages - 1)
@@ -235,12 +239,12 @@ export class InventoryPanel {
       this.allObjects.push(shapeGfx)
 
       const nameText = this.scene.add.text(PANEL_X + 81, y - 30, item.display.name, {
-        fontSize: '19.5px', color: '#ffffff',
+        fontSize: `${INV_ITEM_NAME_FONT_PX}px`, color: '#ffffff',
       })
       // ⚠ **個数と売値は同じ行**（PO 指示 2026-09-14）。行は**品名と、この1行の2行だけ。**
       //   個数は左、売値は右端にそろえる
       const qtyText = this.scene.add.text(PANEL_X + 81, y + 3, this.countLabel(item.id), {
-        fontSize: '16.5px', color: this.storedOnShelf.has(item.id) ? '#88bbaa' : '#aaaaaa',
+        fontSize: `${INV_ITEM_QTY_FONT_PX}px`, color: this.storedOnShelf.has(item.id) ? '#88bbaa' : '#aaaaaa',
       })
       // 値段は持ち物ではなく導出値。表示のたびに出す（ItemRegistry の注記を参照）
       // ⚠ **売値だけ。**仕入れ値と産地は「買う判断」で、棚に出す判断には効かない（束M）。
@@ -259,7 +263,7 @@ export class InventoryPanel {
       const priceText = this.scene.add.text(
         PANEL_X + 81 + ITEM_WIDTH - 99, y + 3,
         money(this.registry.finalPriceOf(item.id, this.marginOf())), {
-        fontSize: '16.5px', color: '#778899',
+        fontSize: `${INV_ITEM_PRICE_FONT_PX}px`, color: '#778899',
       }).setOrigin(1, 0)
       this.allObjects.push(nameText, qtyText, priceText)
       this.quantityTexts.set(item.id, qtyText)

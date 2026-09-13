@@ -23,7 +23,9 @@ import {
   CRAFT_REASON_INGREDIENTS, CRAFT_REASON_STOCK, CRAFT_REASON_TIME,
   CRAFT_REASON_EMPTY, CRAFT_REASON_NOT_INT,
   CRAFT_STEP_BIG_W, CRAFT_STEP_ONE_W, CRAFT_INPUT_W, CRAFT_INPUT_H, CRAFT_MAX_W,
-  CRAFT_STEP_XS, CRAFT_STEP_LABELS, CRAFT_STEP_FONT_PX,
+  CRAFT_STEP_XS, CRAFT_STEP_LABELS, CRAFT_STEP_FONT_PX, CRAFT_STEP_BTN_FONT_PX,
+  CRAFT_FILTER_FONT_PX, CRAFT_EMPTY_FONT_PX,
+  CRAFT_PAGER_ARROW_FONT_PX, CRAFT_PAGER_FONT_PX, CRAFT_RANGE_FONT_PX,
 } from './layout.js'
 
 /**
@@ -191,7 +193,7 @@ export class CraftMenu {
         ? '材料を手に入れると、作れるものが増えていく'
         : '当てはまるレシピがありません'
       objs.push(this.scene.add.text(PLACE_CX, CRAFT_ROWS_TOP + 60, message, {
-        fontSize: '21px', color: '#889999',
+        fontSize: `${CRAFT_EMPTY_FONT_PX}px`, color: '#889999',
       }).setOrigin(0.5))
     }
     this.buildPager(shown.length, objs)
@@ -250,7 +252,7 @@ export class CraftMenu {
         .setStrokeStyle(1.5, b.on ? 0x7abb5a : 0x444455)
         .setInteractive({ useHandCursor: true })
       const label = this.scene.add.text(bx, FILTER_Y, b.label, {
-        fontSize: '18px', color: b.on ? '#ccffaa' : '#778899',
+        fontSize: `${CRAFT_FILTER_FONT_PX}px`, color: b.on ? '#ccffaa' : '#778899',
       }).setOrigin(0.5)
       bg.on('pointerdown', b.press)
       objs.push(bg, label)
@@ -262,7 +264,7 @@ export class CraftMenu {
     const cur = this.paging.currentPage(total)
     const arrow = (x: number, text: string, delta: number, enabled: boolean) => {
       const t = this.scene.add.text(x, PAGER_Y, text, {
-        fontSize: '27px', color: enabled ? '#aaccee' : '#445566',
+        fontSize: `${CRAFT_PAGER_ARROW_FONT_PX}px`, color: enabled ? '#aaccee' : '#445566',
       }).setOrigin(0.5)
       if (enabled) {
         t.setInteractive({ useHandCursor: true })
@@ -272,12 +274,12 @@ export class CraftMenu {
     }
     arrow(PLACE_CX - 90, '◀', -1, cur > 0)
     objs.push(this.scene.add.text(PLACE_CX, PAGER_Y, this.paging.pageLabel(total), {
-      fontSize: '19.5px', color: '#8899aa',
+      fontSize: `${CRAFT_PAGER_FONT_PX}px`, color: '#8899aa',
     }).setOrigin(0.5))
     arrow(PLACE_CX + 90, '▶', 1, cur < pages - 1)
     // 件数はページ送りと同じ行。仕入れの画面と揃える
     objs.push(this.scene.add.text(CONTENT_R, PAGER_Y, this.paging.rangeLabel(total), {
-      fontSize: '19.5px', color: '#8899aa',
+      fontSize: `${CRAFT_RANGE_FONT_PX}px`, color: '#8899aa',
     }).setOrigin(1, 0.5))
   }
 
@@ -521,7 +523,7 @@ export class CraftMenu {
     bg.on('pointerout', () => bg.setFillStyle(fill))
     objs.push(
       bg,
-      this.scene.add.text(cx, cy, label, { fontSize: '18px', color: '#ffffff' }).setOrigin(0.5),
+      this.scene.add.text(cx, cy, label, { fontSize: `${CRAFT_STEP_BTN_FONT_PX}px`, color: '#ffffff' }).setOrigin(0.5),
     )
   }
 }

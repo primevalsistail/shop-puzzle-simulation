@@ -1,5 +1,5 @@
 import type Phaser from 'phaser'
-import { LEFT_PANEL_R, LOG_T, SCREEN_W, SCREEN_H } from './layout.js'
+import { LEFT_PANEL_R, LOG_T, SCREEN_W, SCREEN_H, LOG_LINE_FONT_PX } from './layout.js'
 
 export type MessageType = 'sale' | 'event' | 'info'
 
@@ -78,7 +78,7 @@ export class MessageLog {
     for (let i = 0; i < MAX_MESSAGES; i++) {
       const y = LOG_Y + PADDING_Y + i * LINE_HEIGHT
       const t = this.scene.add.text(LOG_X + PADDING_X, y, '', {
-        fontSize: '19.5px',
+        fontSize: `${LOG_LINE_FONT_PX}px`,
         color: '#aaaaaa',
         fontStyle: 'normal',
       }).setDepth(DEPTH + 1)

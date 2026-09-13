@@ -7,6 +7,7 @@ import type { WorldState } from '../components/progress/WorldState.js'
 import type { Upgrades } from '../components/progress/Upgrades.js'
 import { UPGRADE_KINDS } from '../components/progress/Upgrades.js'
 import { stockedByIslandMerchant } from '../taxonomy/evaluate.js'
+import { DEBUG_KEYS_FONT_PX } from '../ui/layout.js'
 
 /**
  * 確認用の道具一式。**出荷前に丸ごと外す**（issue #51）。
@@ -112,6 +113,6 @@ export function installDebugTools(scene: Phaser.Scene, deps: DebugDeps): void {
   // 画面にも出しておく。押せるキーが分からないと使えない。
   // ⚠ メッセージログ（y=610〜）にかからない位置に置くこと
   scene.add.text(342, 897, '確認用 ' + keys.map(k => `${k.key}:${k.label}`).join('  '), {
-    fontSize: '15px', color: '#667788',
+    fontSize: `${DEBUG_KEYS_FONT_PX}px`, color: '#667788',
   }).setOrigin(0, 1).setDepth(50)
 }

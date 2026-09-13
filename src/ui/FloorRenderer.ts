@@ -4,7 +4,9 @@ import type { ItemRegistry } from '../components/items/ItemRegistry.js'
 // ⚠ 盤面の座標は `layout.ts` が持つ（**Phaser を読まないので単体テストから見える**）。
 //   ここは使う場所に近い名前で通すためだけに出し直している
 export { CELL_SIZE, GRID_ORIGIN_X, GRID_ORIGIN_Y, DISCARD_MARGIN } from './layout.js'
-import { CELL_SIZE, GRID_ORIGIN_X, GRID_ORIGIN_Y, DISCARD_MARGIN } from './layout.js'
+import {
+  CELL_SIZE, GRID_ORIGIN_X, GRID_ORIGIN_Y, DISCARD_MARGIN, GRID_SLOT_LABEL_FONT_PX,
+} from './layout.js'
 import { subtractRect } from './rects.js'
 
 // Small rendering depth constants
@@ -123,7 +125,7 @@ export class FloorRenderer {
       const ty = GRID_ORIGIN_Y + cy * CELL_SIZE + CELL_SIZE / 2
       const label = quantity === 0 ? '売り切れ' : `×${quantity}`
       const text = this.scene.add.text(tx, ty, `${item.display.name}\n${label}`, {
-        fontSize: '15px',
+        fontSize: `${GRID_SLOT_LABEL_FONT_PX}px`,
         color: quantity === 0 ? '#ffbbaa'
           : quantity < FloorRenderer.LOW_STOCK ? '#ffdd99' : '#ffffff',
         stroke: '#000000',

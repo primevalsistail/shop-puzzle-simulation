@@ -2,7 +2,7 @@ import Phaser from 'phaser'
 import {
   PLACE_L, PLACE_W, PLACE_H, PLACE_CX, PLACE_CY,
   CONTENT_L, CONTENT_R, TITLE_Y, TITLE_RULE_Y,
-  TITLE_FONT_PX, BACK_BTN_W, TAB_W, TAB_H, TAB_FONT_PX, tabCx,
+  TITLE_FONT_PX, BACK_BTN_W, PLACE_BACK_FONT_PX, TAB_W, TAB_H, TAB_FONT_PX, tabCx,
 } from './layout.js'
 
 /** 枠の深さ。**中身は `CONTENT_DEPTH` に載せる** */
@@ -84,7 +84,7 @@ export class PlaceFrame {
     // ⚠ **字は入れない**（PO 指示 2026-09-13）。**家の印だけ。**
     //   出口は ESC と合わせて1つで、**どの場所でも同じ位置・同じ印**にする
     const backLabel = this.scene.add.text(CONTENT_R - BACK_BTN_W / 2, TITLE_Y, '🏠', {
-      fontSize: '27px',
+      fontSize: `${PLACE_BACK_FONT_PX}px`,
     }).setOrigin(0.5).setDepth(FRAME_DEPTH)
     backBg.on('pointerdown', () => this.requestBack())
     backBg.on('pointerover', () => backBg.setFillStyle(0x4a4a7a))

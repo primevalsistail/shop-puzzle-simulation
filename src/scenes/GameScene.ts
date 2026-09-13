@@ -41,6 +41,10 @@ import {
   BTN_Y_ADVANCE, BTN_Y_SPEED, BTN_Y_CRAFT, BTN_Y_TRADE, BTN_Y_ICON,
   TRADE_TITLE,
   CHAR_ART_CX, CHAR_ART_CY, CHAR_ART_W, CHAR_ART_H, craftTimeLabel, recipeUnlockedText,
+  BTN_ACTION_FONT_PX, BTN_ADVANCE_FONT_PX, BTN_ICON_FONT_PX, BTN_TOOLTIP_FONT_PX,
+  BTN_SPEED_FONT_PX, SALE_POPUP_FONT_PX,
+  GOAL_TITLE_FONT_PX, GOAL_LINE_FONT_PX, GOAL_BTN_FONT_PX,
+  GAMEOVER_TITLE_FONT_PX, GAMEOVER_LINE_FONT_PX,
 } from '../ui/layout.js'
 import { MessageLog } from '../ui/MessageLog.js'
 import { money } from '../ui/money.js'
@@ -532,7 +536,7 @@ export class GameScene extends Phaser.Scene {
 
     // ── Tooltip ──────────────────────────────────────
     this.tooltip = this.add.text(0, 0, '', {
-      fontSize: '18px', color: '#dddddd',
+      fontSize: `${BTN_TOOLTIP_FONT_PX}px`, color: '#dddddd',
       backgroundColor: '#111133',
       padding: { x: 12, y: 7.5 },
     }).setDepth(DEPTH + 1).setVisible(false)
@@ -557,7 +561,7 @@ export class GameScene extends Phaser.Scene {
       const cx = L + IW / 2 + i * (IW + iconGap)
       const bg = this.add.rectangle(cx, yIcon, IW, IH, 0x2a2a4a)
         .setStrokeStyle(1.5, 0x555577).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
-      this.add.text(cx, yIcon, emoji, { fontSize: '24px' }).setOrigin(0.5).setDepth(DEPTH)
+      this.add.text(cx, yIcon, emoji, { fontSize: `${BTN_ICON_FONT_PX}px` }).setOrigin(0.5).setDepth(DEPTH)
       bg.on('pointerdown', action)
       bg.on('pointerover', () => { bg.setFillStyle(0x4a4a6a); showTip(cx, yIcon, tip) })
       bg.on('pointerout',  () => { bg.setFillStyle(0x2a2a4a); hideTip() })
@@ -573,7 +577,7 @@ export class GameScene extends Phaser.Scene {
     ) => {
       const bg = this.add.rectangle(acx, cy, PW, AH, normal)
         .setStrokeStyle(1.5, 0x666688).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
-      this.add.text(acx, cy, `${icon}  ${label}`, { fontSize: '25.5px', color: '#ffffff' })
+      this.add.text(acx, cy, `${icon}  ${label}`, { fontSize: `${BTN_ACTION_FONT_PX}px`, color: '#ffffff' })
         .setOrigin(0.5).setDepth(DEPTH)
       bg.on('pointerdown', action)
       bg.on('pointerover', () => bg.setFillStyle(hover))
@@ -595,7 +599,7 @@ export class GameScene extends Phaser.Scene {
     const speedBg = this.add.rectangle(acx, ySpeed, PW, 24, 0x2a2a4a)
       .setStrokeStyle(1.5, 0x555577).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
     this.speedLabel = this.add.text(acx, ySpeed, `速さ ×${this.timeManager.getSpeed()}`, {
-      fontSize: '16.5px', color: '#ccddff',
+      fontSize: `${BTN_SPEED_FONT_PX}px`, color: '#ccddff',
     }).setOrigin(0.5).setDepth(DEPTH)
     speedBg.on('pointerdown', () => {
       this.speedLabel.setText(`速さ ×${this.timeManager.cycleSpeed()}`)
@@ -603,7 +607,7 @@ export class GameScene extends Phaser.Scene {
 
     this.advanceBtnBg = this.add.rectangle(acx, yAdv, PW, AH, 0x4a4a8a)
       .setStrokeStyle(1.5, 0x6666aa).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
-    this.advanceBtnLabel = this.add.text(acx, yAdv, '▶  進める', { fontSize: '25.5px', color: '#ffffff' })
+    this.advanceBtnLabel = this.add.text(acx, yAdv, '▶  進める', { fontSize: `${BTN_ADVANCE_FONT_PX}px`, color: '#ffffff' })
       .setOrigin(0.5).setDepth(DEPTH)
     this.advanceBtnBg.on('pointerdown', () => this.onAdvancePressed())
     this.advanceBtnBg.on('pointerover', () => {
@@ -1408,7 +1412,7 @@ export class GameScene extends Phaser.Scene {
     const px = GRID_ORIGIN_X + (slot.position.x + cx + 0.5) * CELL_SIZE
     const py = GRID_ORIGIN_Y + (slot.position.y + cy) * CELL_SIZE
     const popup = this.add.text(px, py, `+${money(revenue)}`, {
-      fontSize: '21px', color: '#ffee44',
+      fontSize: `${SALE_POPUP_FONT_PX}px`, color: '#ffee44',
       stroke: '#000000', strokeThickness: 4.5,
       fontStyle: 'bold',
     }).setOrigin(0.5, 1).setDepth(100)
@@ -1453,15 +1457,15 @@ export class GameScene extends Phaser.Scene {
     this.curtainShown = true
     const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setDepth(200)
     const title = this.add.text(width / 2, height / 2 - 120, '🎉 目標達成！', {
-      fontSize: '78px', color: '#ffdd44', fontStyle: 'bold',
+      fontSize: `${GOAL_TITLE_FONT_PX}px`, color: '#ffdd44', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(201)
     // ⚠ **クリア条件と同じものを出す**（#73）。届いたのは所持金なので、出すのも所持金
     const line = this.add.text(width / 2, height / 2, goalReachedLine(this.economy.getMoney()), {
-      fontSize: '39px', color: '#ffffff',
+      fontSize: `${GOAL_LINE_FONT_PX}px`, color: '#ffffff',
     }).setOrigin(0.5).setDepth(201)
 
     const endlessBtn = this.add.text(width / 2, height / 2 + 135, 'エンドレスモードへ', {
-      fontSize: '33px', color: '#ffffff', backgroundColor: '#4a4a8a', padding: { x: 36, y: 18 },
+      fontSize: `${GOAL_BTN_FONT_PX}px`, color: '#ffffff', backgroundColor: '#4a4a8a', padding: { x: 36, y: 18 },
     }).setOrigin(0.5).setDepth(201).setInteractive({ useHandCursor: true })
     endlessBtn.on('pointerdown', () => {
       // ⚠ **幕の文字も一緒に消すこと。**下地だけ消すと `🎉 目標達成！` が店の上に残る
@@ -1485,10 +1489,10 @@ export class GameScene extends Phaser.Scene {
     this.curtainShown = true
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.85).setDepth(200)
     this.add.text(width / 2, height / 2 - 60, 'GAME OVER', {
-      fontSize: '78px', color: '#ff4444', fontStyle: 'bold',
+      fontSize: `${GAMEOVER_TITLE_FONT_PX}px`, color: '#ff4444', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(201)
     this.add.text(width / 2, height / 2 + 45, '資金が尽きました', {
-      fontSize: '33px', color: '#cccccc',
+      fontSize: `${GAMEOVER_LINE_FONT_PX}px`, color: '#cccccc',
     }).setOrigin(0.5).setDepth(201)
   }
 

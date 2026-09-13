@@ -1,6 +1,9 @@
 import Phaser from 'phaser'
 import { GOAL_TUTORIAL_LINE } from './goal.js'
-import { TRADE_TITLE } from './layout.js'
+import {
+  TRADE_TITLE,
+  TUTORIAL_TITLE_FONT_PX, TUTORIAL_BODY_FONT_PX, TUTORIAL_STEP_FONT_PX, TUTORIAL_BTN_FONT_PX,
+} from './layout.js'
 
 const TUTORIAL_KEY = 'shop_puzzle_tutorial_done'
 
@@ -72,7 +75,7 @@ export class Tutorial {
 
     objs.push(
       this.scene.add.text(width / 2, height / 2 - 150, step.title, {
-        fontSize: '36px',
+        fontSize: `${TUTORIAL_TITLE_FONT_PX}px`,
         color: '#ffffff',
         fontStyle: 'bold',
       }).setOrigin(0.5),
@@ -80,7 +83,7 @@ export class Tutorial {
 
     objs.push(
       this.scene.add.text(width / 2, height / 2 - 30, step.body, {
-        fontSize: '24px',
+        fontSize: `${TUTORIAL_BODY_FONT_PX}px`,
         color: '#cccccc',
         align: 'center',
       }).setOrigin(0.5),
@@ -89,7 +92,7 @@ export class Tutorial {
     const stepLabel = `${this.stepIndex + 1} / ${STEPS.length}`
     objs.push(
       this.scene.add.text(width / 2, height / 2 + 120, stepLabel, {
-        fontSize: '19.5px',
+        fontSize: `${TUTORIAL_STEP_FONT_PX}px`,
         color: '#888888',
       }).setOrigin(0.5),
     )
@@ -97,7 +100,7 @@ export class Tutorial {
     const isLast = this.stepIndex === STEPS.length - 1
     const btnText = isLast ? '始める！' : '次へ'
     const nextBtn = this.scene.add.text(width / 2, height / 2 + 165, btnText, {
-      fontSize: '30px',
+      fontSize: `${TUTORIAL_BTN_FONT_PX}px`,
       color: '#ffffff',
       backgroundColor: '#4a4a8a',
       padding: { x: 36, y: 15 },

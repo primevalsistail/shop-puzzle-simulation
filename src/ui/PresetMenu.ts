@@ -11,7 +11,7 @@ import { createInput, tryAddDom, setGameKeyboard } from './domInput.js'
 import {
   CONTENT_L, ROWS_TOP, ROWS_BOTTOM, PRESET_TEXT_FONT_PX, PRESET_SUB_FONT_PX,
   PRESET_COLS, PRESET_GAP_X, PRESET_CELL_W, PRESET_PREVIEW_W,
-  PRESET_TEXT_L_OFFSET, PRESET_NAME_INPUT_W, PRESET_NAME_INPUT_H,
+  PRESET_TEXT_L_OFFSET, PRESET_NAME_INPUT_W, PRESET_NAME_INPUT_H, PRESET_BTN_FONT_PX,
 } from './layout.js'
 
 /** 2列 × 5行。**型は10本**（`PRESET_COUNT`） */
@@ -318,7 +318,7 @@ export class PresetMenu {
     objs.push(
       bg,
       this.scene.add.text(cx, cy, label, {
-        fontSize: '18px', color: enabled ? '#ffffff' : '#777788',
+        fontSize: `${PRESET_BTN_FONT_PX}px`, color: enabled ? '#ffffff' : '#777788',
       }).setOrigin(0.5),
     )
   }

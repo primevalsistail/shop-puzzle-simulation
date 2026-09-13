@@ -3,6 +3,7 @@ import type { SlotMeta } from '../types/index.js'
 import { money } from './money.js'
 import {
   CONFIRM_MW, CONFIRM_MH, CONFIRM_BTN_W, CONFIRM_BTN_H, CONFIRM_BTN_FONT_PX, confirmBtnCx,
+  SAVELOAD_TITLE_FONT_PX, SAVELOAD_SLOT_FONT_PX, SAVELOAD_INFO_FONT_PX, SAVELOAD_CONFIRM_FONT_PX,
 } from './layout.js'
 
 const SLOT_COUNT = 3
@@ -93,7 +94,7 @@ export class SaveLoadMenu {
     const title = this.mode === 'save' ? 'セーブ' : 'ロード'
     push(
       this.scene.add.text(cx, cy - mh / 2 + 39, title, {
-        fontSize: '30px', color: '#ffffff', fontStyle: 'bold',
+        fontSize: `${SAVELOAD_TITLE_FONT_PX}px`, color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(DEPTH),
     )
 
@@ -125,7 +126,7 @@ export class SaveLoadMenu {
       // Slot number (left)
       push(
         this.scene.add.text(cx - slotW / 2 + 21, sy - 15, `スロット ${i + 1}`, {
-          fontSize: '18px', color: disabled ? '#555566' : '#7799ff', fontStyle: 'bold',
+          fontSize: `${SAVELOAD_SLOT_FONT_PX}px`, color: disabled ? '#555566' : '#7799ff', fontStyle: 'bold',
         }).setOrigin(0, 0.5).setDepth(DEPTH),
       )
 
@@ -133,7 +134,7 @@ export class SaveLoadMenu {
       const info = meta ? this.formatMeta(meta) : '--- 空スロット ---'
       push(
         this.scene.add.text(cx - slotW / 2 + 21, sy + 15, info, {
-          fontSize: '18px', color: disabled ? '#444455' : meta ? '#cccccc' : '#777788',
+          fontSize: `${SAVELOAD_INFO_FONT_PX}px`, color: disabled ? '#444455' : meta ? '#cccccc' : '#777788',
         }).setOrigin(0, 0.5).setDepth(DEPTH),
       )
 
@@ -173,7 +174,7 @@ export class SaveLoadMenu {
       : `スロット ${slot + 1} を読み込みます`
     push(
       this.scene.add.text(cx, cy - 12, head, {
-        fontSize: '24px', color: '#ffffff',
+        fontSize: `${SAVELOAD_CONFIRM_FONT_PX}px`, color: '#ffffff',
       }).setOrigin(0.5).setDepth(DEPTH),
     )
 

@@ -1,5 +1,7 @@
 import Phaser from 'phaser'
-import { STRIP_L, STRIP_W, STRIP_H } from './layout.js'
+import {
+  STRIP_L, STRIP_W, STRIP_H, STRIP_SHOPKEEPER_FONT_PX, STRIP_CUSTOMER_FONT_PX,
+} from './layout.js'
 
 const STRIP_X = STRIP_L
 const STRIP_WIDTH = STRIP_W
@@ -37,7 +39,7 @@ export class CharacterStrip {
       this.scene.add.rectangle(cx, MID_Y / 2, STRIP_WIDTH, MID_Y, 0x1a2a3a)
         .setStrokeStyle(1.5, 0x2a4a6a).setDepth(1),
       this.scene.add.text(cx, 24, '店番', {
-        fontSize: '16.5px', color: '#7799bb',
+        fontSize: `${STRIP_SHOPKEEPER_FONT_PX}px`, color: '#7799bb',
       }).setOrigin(0.5, 0).setDepth(2),
     )
 
@@ -50,7 +52,7 @@ export class CharacterStrip {
       this.scene.add.rectangle(cx, MID_Y + (STRIP_HEIGHT - MID_Y) / 2, STRIP_WIDTH, STRIP_HEIGHT - MID_Y, 0x1a3a2a)
         .setStrokeStyle(1.5, 0x2a6a4a).setDepth(1),
       this.scene.add.text(cx, MID_Y + 12, '来店客', {
-        fontSize: '16.5px', color: '#77bb99',
+        fontSize: `${STRIP_CUSTOMER_FONT_PX}px`, color: '#77bb99',
       }).setOrigin(0.5, 0).setDepth(2),
     )
 

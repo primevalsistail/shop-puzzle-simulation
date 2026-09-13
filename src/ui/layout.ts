@@ -39,6 +39,32 @@ export const RIGHT_PANEL_L = 1635
 /** メッセージ欄の上端 */
 export const LOG_T = 915
 
+// ─── 左パネル（持ち物の一覧） ──────────────────────────────────
+/** 見出しの行の右端に出す件数（`3 / 161`）の字 */
+export const INV_RANGE_FONT_PX = 16.5
+/** 絞り込み（主種類4つ）のボタンの字。⚠ **升が狭いので、ここだけ小さい** */
+export const INV_FILTER_FONT_PX = 15
+/** ページ送りの `◀` `▶` */
+export const INV_PAGER_ARROW_FONT_PX = 21
+/** ページ送りの中央に出す `1 / 21` */
+export const INV_PAGER_FONT_PX = 18
+/** 品の行の1行目 —— 品名 */
+export const INV_ITEM_NAME_FONT_PX = 19.5
+/** 品の行の2行目の左 —— 個数。⚠ **売値と同じ行**（PO 指示 2026-09-14） */
+export const INV_ITEM_QTY_FONT_PX = 16.5
+/** 品の行の2行目の右 —— 売値。**右そろえ** */
+export const INV_ITEM_PRICE_FONT_PX = 16.5
+
+// ─── キャラ帯の見出し ────────────────────────────────────────
+/** 上半分の見出し（`店番`） */
+export const STRIP_SHOPKEEPER_FONT_PX = 16.5
+/** 下半分の見出し（`来店客`）。⚠ **上と同じ大きさだが別の字**なので、別に持つ */
+export const STRIP_CUSTOMER_FONT_PX = 16.5
+
+// ─── ログ欄 ──────────────────────────────────────────────────
+/** 1行ぶんの字。⚠ **行の高さ（`LINE_HEIGHT`）は `MessageLog` にある** */
+export const LOG_LINE_FONT_PX = 19.5
+
 // ─── 盤面（売り場） ──────────────────────────────────────────
 /** 1升の大きさ。13×10 の最終盤面から逆算: min(floor(760/13), floor(610/10)) = 58 */
 export const CELL_SIZE = 87
@@ -54,6 +80,11 @@ export const GRID_ORIGIN_Y = 12
  *   「一番上の行へ動かそうとすると棚から外れる」**（`rects.ts` / `subtractRect`）。
  */
 export const DISCARD_MARGIN = 84
+
+/** 棚に出した品の札（品名と `×N`）。⚠ **升の中に収める字** */
+export const GRID_SLOT_LABEL_FONT_PX = 15
+/** 売れたときに升から浮き上がる `+Nレン`。**太字** */
+export const SALE_POPUP_FONT_PX = 21
 
 // ─── 場所（中央の領域） ────────────────────────────────────────
 /**
@@ -150,6 +181,8 @@ export const TITLE_FONT_PX = 36
  *   （`layout.test.ts` の「タブは店に戻る印に届かない」）。
  */
 export const BACK_BTN_W = 60
+/** その印（🏠）そのものの字。⚠ **見出し（`TITLE_FONT_PX`）とは別**（絵文字なので大きさが違う） */
+export const PLACE_BACK_FONT_PX = 27
 
 /**
  * 「取引」の中の3タブ（#96）。**`商人` → `改装` → `納品`**（#96 本文の順）。
@@ -268,6 +301,13 @@ export const HUD_PANEL_W = SCREEN_W - RIGHT_PANEL_L - 24
  */
 export const HUD_MONEY_FONT_PX = 30
 
+/** 1行目の左 —— `D1 作業`。⚠ **この行に長い字を足さないこと**（右の時刻と重なる） */
+export const HUD_PHASE_FONT_PX = 18
+/** 1行目の右 —— 時刻。**太字。右そろえ** */
+export const HUD_TIME_FONT_PX = 39
+/** 2行目 —— 現在地（島名）。⚠ **季節名は出さない**（#2 の確定事項） */
+export const HUD_PLACE_FONT_PX = 19.5
+
 /**
  * 目標の進みのバーの幅。**右パネルの枠から左右 12px ずつ引いたもの。**
  *
@@ -385,6 +425,22 @@ export const QTY_REASON_NOT_INT = '1以上の整数'
  */
 export const INFO_MAX_W = 240
 export const INFO_FONT_PX = 16.5
+
+/**
+ * 商人タブの、**行そのものではない字**（絞り込み・ページ送り・件数・0件のときの文言）。
+ *
+ * ⚠ **工房（`CRAFT_*`）と同じ大きさだが、別に持つ。**
+ *   同じ数だからと束ねると、**片方を動かしたときにもう片方が黙って動く**（#116）。
+ */
+export const BUY_FILTER_FONT_PX = 18
+export const BUY_EMPTY_FONT_PX = 21
+export const BUY_PAGER_ARROW_FONT_PX = 27
+export const BUY_PAGER_FONT_PX = 19.5
+export const BUY_RANGE_FONT_PX = 19.5
+/** 個数の `−` `＋` `最大` のボタンの字 */
+export const BUY_STEP_BTN_FONT_PX = 18
+/** `<input>` が使えないときに、個数を出すだけの字（`tryAddDom` が空を返したとき） */
+export const BUY_QTY_FONT_PX = 18
 
 // ─── 仕入れの行の列 ────────────────────────────────────────────
 /**
@@ -689,6 +745,9 @@ export const PRESET_TEXT_FONT_PX = 18
  */
 export const PRESET_SUB_FONT_PX = 16.5
 
+/** 升の下に並ぶボタン（`セーブ` `ロード` `削除`）の字 */
+export const PRESET_BTN_FONT_PX = 18
+
 /**
  * マイセットの升の**横の寸法**（`PresetMenu` が並べる 2列 × 5行 の升）。
  *
@@ -752,6 +811,22 @@ export const BTN_Y_CRAFT   = BTN_Y_SPEED   - BTN_SPEED_H / 2  - BTN_GAP - BTN_AC
  */
 export const BTN_Y_TRADE   = BTN_Y_CRAFT - BTN_ACTION_H / 2 - BTN_GAP - BTN_ACTION_H / 2
 export const BTN_Y_ICON    = BTN_Y_TRADE - BTN_ACTION_H / 2 - BTN_GAP - BTN_ICON_H / 2
+
+/** 行動ボタン（`取引` `工房`）の字 */
+export const BTN_ACTION_FONT_PX = 25.5
+/**
+ * `▶  進める` の字。
+ *
+ * ⚠ **`BTN_ACTION_FONT_PX` と同じ大きさだが、別に持つ。**
+ *   いちばん押すボタンなので、**ここだけ動かすことがある**（#116）。
+ */
+export const BTN_ADVANCE_FONT_PX = 25.5
+/** 上段のアイコンのボタン（💾 📂 🗂 ⚙️ ❓）の絵文字 */
+export const BTN_ICON_FONT_PX = 24
+/** アイコンのボタンに触れたときに出る吹き出しの字 */
+export const BTN_TOOLTIP_FONT_PX = 18
+/** `速さ ×N` の行。⚠ **「進める」の中に入れない**（字が重なる） */
+export const BTN_SPEED_FONT_PX = 16.5
 
 /**
  * 右パネル上の枠（時刻・現在地・所持金）。⚠ **`HUD.ts` に写しを置かないこと。**
@@ -960,6 +1035,24 @@ export const CRAFT_ING_L = CRAFT_DEMAND_L + CRAFT_DEMAND_W + CRAFT_COL_GAP
 export const CRAFT_ING_W = CRAFT_QTY_L - CRAFT_COL_GAP - CRAFT_ING_L
 /** 材料と材料のあいだ。⚠ **幅の見積もりに入る**ので `craftIngredientsLabel` と揃える */
 export const CRAFT_ING_SEP = '  '
+
+/**
+ * 工房の、**行そのものではない字**（絞り込み・ページ送り・件数・0件のときの文言）。
+ *
+ * ⚠ **商人タブ（`BUY_*`）と同じ大きさだが、別に持つ**（上と同じ理由。#116）。
+ */
+export const CRAFT_FILTER_FONT_PX = 18
+export const CRAFT_EMPTY_FONT_PX = 21
+export const CRAFT_PAGER_ARROW_FONT_PX = 27
+export const CRAFT_PAGER_FONT_PX = 19.5
+export const CRAFT_RANGE_FONT_PX = 19.5
+/**
+ * 回数の `-10` `-1` `+1` `+10` `最大` のボタンの字。
+ *
+ * ⚠ **`CRAFT_STEP_FONT_PX` とは別物。**あちらは `<input>` が使えないときに出す
+ *   **数そのもの**の字で、大きさも違う（こちらのほうが大きい）。
+ */
+export const CRAFT_STEP_BTN_FONT_PX = 18
 
 /**
  * `材料` の列の字 —— **`蕎麦の実×3` を並べたもの。**
@@ -1181,3 +1274,44 @@ export function confirmBtnCx(index: number, count: number): number {
   const total = count * CONFIRM_BTN_W + (count - 1) * CONFIRM_BTN_GAP
   return MSG_WIN_CX - total / 2 + CONFIRM_BTN_W / 2 + index * (CONFIRM_BTN_W + CONFIRM_BTN_GAP)
 }
+
+// ─── 遊び方の案内（`Tutorial`） ────────────────────────────────
+/**
+ * 初回に出す案内。**画面中央の面に、見出し・本文・`N / M`・ボタンの4つ。**
+ *
+ * ⚠ **できごとの窓（`MSG_*`）とは別の面**なので、字も別に持つ。
+ */
+export const TUTORIAL_TITLE_FONT_PX = 36
+export const TUTORIAL_BODY_FONT_PX = 24
+export const TUTORIAL_STEP_FONT_PX = 19.5
+export const TUTORIAL_BTN_FONT_PX = 30
+
+// ─── セーブ／ロードの画面 ──────────────────────────────────────
+/**
+ * ⚠ **確認の面のボタンの字は `CONFIRM_BTN_FONT_PX`**（`ConfirmDialog` と同じ面を使うため）。
+ *   ここに置くのは**枠の一覧の側**と、**確認の見出し**の字だけ。
+ */
+export const SAVELOAD_TITLE_FONT_PX = 30
+/** 枠の1行目（`スロット N`）。**太字** */
+export const SAVELOAD_SLOT_FONT_PX = 18
+/** 枠の2行目（記録の中身、または `--- 空スロット ---`） */
+export const SAVELOAD_INFO_FONT_PX = 18
+/** 確認の面の見出し1行。⚠ **記録の中身は出さない**（PO 指示 2026-09-14） */
+export const SAVELOAD_CONFIRM_FONT_PX = 24
+
+// ─── 幕（目標達成・GAME OVER） ─────────────────────────────────
+/**
+ * **画面ぜんぶを覆う幕**（`GameScene`）。
+ *
+ * ⚠ **2つは別の幕**なので、見出しも本文も**同じ大きさだが別に持つ**（#116）。
+ */
+export const GOAL_TITLE_FONT_PX = 78
+export const GOAL_LINE_FONT_PX = 39
+/** `エンドレスモードへ` のボタン */
+export const GOAL_BTN_FONT_PX = 33
+export const GAMEOVER_TITLE_FONT_PX = 78
+export const GAMEOVER_LINE_FONT_PX = 33
+
+// ─── 確認用の表示（`DebugTools`） ──────────────────────────────
+/** 押せるキーの一覧。⚠ **ログ欄にかからない位置に置く** */
+export const DEBUG_KEYS_FONT_PX = 15

@@ -7,6 +7,7 @@ import {
   HUD_PANEL_W, HUD_MONEY_FONT_PX, phaseLabel,
   HUD_NEXT_PORT_FONT_PX, HUD_NEXT_PORT_H, nextPortLabel,
   HUD_PANEL_T, HUD_PANEL_H, HUD_ROW_TIME_Y, HUD_ROW_PLACE_Y, HUD_RULE_Y, HUD_ROW_MONEY_Y,
+  HUD_PHASE_FONT_PX, HUD_TIME_FONT_PX, HUD_PLACE_FONT_PX,
 } from './layout.js'
 
 /** panel width（右パネル 190px - 余白 16px）。⚠ **値は `layout.ts` にある**（テストが見ている） */
@@ -50,16 +51,16 @@ export class HUD {
     // ⚠ **この行に長い文字を足さないこと。**時刻が 26px で右寄せなので、
     //   左の文字と重なる（幅は 174px しかない）
     this.phaseText = this.scene.add.text(px - PW / 2 + 15, HUD_ROW_TIME_Y, `D1 ${phaseLabel('作業')}`, {
-      fontSize: '18px', color: '#7788aa',
+      fontSize: `${HUD_PHASE_FONT_PX}px`, color: '#7788aa',
     }).setOrigin(0, 0.5).setDepth(5)
 
     this.timeText = this.scene.add.text(px + PW / 2 - 18, HUD_ROW_TIME_Y, '06:00', {
-      fontSize: '39px', color: '#55ddff', fontStyle: 'bold',
+      fontSize: `${HUD_TIME_FONT_PX}px`, color: '#55ddff', fontStyle: 'bold',
     }).setOrigin(1, 0.5).setDepth(5)
 
     // Row 2 — 現在地（#44）。島名は正式名のみ。**季節名は出さない**（#2 の確定事項）
     this.placeText = this.scene.add.text(px - PW / 2 + 18, HUD_ROW_PLACE_Y, '', {
-      fontSize: '19.5px', color: '#88bbdd',
+      fontSize: `${HUD_PLACE_FONT_PX}px`, color: '#88bbdd',
     }).setOrigin(0, 0.5).setDepth(5)
 
     // Divider line
