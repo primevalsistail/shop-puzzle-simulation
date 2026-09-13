@@ -3,7 +3,11 @@ import type { EconomyManager } from '../components/economy/EconomyManager.js'
 import type { Upgrades, UpgradeKind } from '../components/progress/Upgrades.js'
 import { UPGRADE_KINDS, MAX_STAGE } from '../components/progress/Upgrades.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
-import { PLACE_CX, CONTENT_L, CONTENT_R, SUBTITLE_Y, ROWS_TOP } from './layout.js'
+import {
+  PLACE_CX, CONTENT_L, CONTENT_R, SUBTITLE_Y, ROWS_TOP,
+  TAB_ROW_TITLE_FONT_PX, TAB_ROW_SUB_FONT_PX, TAB_SUBTITLE_FONT_PX, TAB_NOTE_FONT_PX,
+  BUY_FONT_PX,
+} from './layout.js'
 import { money } from './money.js'
 
 const ROW_H = 100
@@ -80,7 +84,7 @@ export class UpgradeMenu {
     objs.push(
       this.scene.add.text(CONTENT_L, SUBTITLE_Y,
         `所持金 ${money(this.economy.getMoney())}`, {
-        fontSize: '15px', color: '#ffdd44',
+        fontSize: `${TAB_SUBTITLE_FONT_PX}px`, color: '#ffdd44',
       }).setOrigin(0, 0.5),
     )
 
@@ -96,7 +100,7 @@ export class UpgradeMenu {
     })) {
       objs.push(
         this.scene.add.text(CONTENT_R, SUBTITLE_Y, '払えば目標が遠のく。いま買うか、我慢するか', {
-          fontSize: '12px', color: '#778899',
+          fontSize: `${TAB_NOTE_FONT_PX}px`, color: '#778899',
         }).setOrigin(1, 0.5),
       )
     }
@@ -119,10 +123,10 @@ export class UpgradeMenu {
       this.scene.add.rectangle(PLACE_CX, y, ROW_W, ROW_H - 12, maxed ? 0x2a2a3a : 0x232344)
         .setStrokeStyle(1, 0x445577),
       this.scene.add.text(CONTENT_L + 28, y - 20, kind, {
-        fontSize: '19px', color: '#ffffff', fontStyle: 'bold',
+        fontSize: `${TAB_ROW_TITLE_FONT_PX}px`, color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0, 0.5),
       this.scene.add.text(CONTENT_L + 28, y + 10, WHAT_IT_DOES[kind], {
-        fontSize: '13px', color: '#8899aa',
+        fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: '#8899aa',
       }).setOrigin(0, 0.5),
       // 段の表示。●が買った段、○がまだの段
       this.scene.add.text(PLACE_CX + 40, y, '●'.repeat(stage) + '○'.repeat(MAX_STAGE - stage), {
@@ -132,7 +136,7 @@ export class UpgradeMenu {
 
     if (maxed) {
       objs.push(this.scene.add.text(CONTENT_R - 28, y, '最大', {
-        fontSize: '14px', color: '#667788',
+        fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: '#667788',
       }).setOrigin(1, 0.5))
       return
     }
@@ -140,14 +144,14 @@ export class UpgradeMenu {
     const label = money(cost)
     if (afford) {
       const btn = this.scene.add.text(CONTENT_R - 28, y, label, {
-        fontSize: '15px', color: '#ffffff',
+        fontSize: `${BUY_FONT_PX}px`, color: '#ffffff',
         backgroundColor: '#3a5a8a', padding: { x: 14, y: 8 },
       }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true })
       btn.on('pointerdown', () => this.buy(kind, cost))
       objs.push(btn)
     } else {
       objs.push(this.scene.add.text(CONTENT_R - 28, y, `${label} 不足`, {
-        fontSize: '13px', color: '#886666',
+        fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: '#886666',
       }).setOrigin(1, 0.5))
     }
   }

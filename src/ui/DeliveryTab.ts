@@ -5,6 +5,7 @@ import { CONTENT_DEPTH } from './PlaceFrame.js'
 import {
   PLACE_CX, CONTENT_L, ROWS_TOP,
   DELIVERY_TAB_FONT_PX, DELIVERY_TAB_LINE_H, DELIVERY_TAB_EMPTY, deliveryTabLines,
+  TAB_ROW_SUB_FONT_PX,
 } from './layout.js'
 
 /** 納品タブが読むもの。**注文・品名・手持ち** —— 帯（`OrderBar`）が読むものと同じ */
@@ -56,7 +57,7 @@ export class DeliveryTab {
       // ⚠ **帯は無いとき消えるが、タブはまっさらにしない**（`layout.ts` の注記）
       objs.push(
         this.scene.add.text(PLACE_CX, ROWS_TOP + 60, DELIVERY_TAB_EMPTY, {
-          fontSize: '14px', color: '#889999',
+          fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: '#889999',
         }).setOrigin(0.5),
       )
     } else {
@@ -65,7 +66,7 @@ export class DeliveryTab {
       deliveryTabLines(orderLineText(itemName, order, held)).forEach((line, i) => {
         objs.push(
           this.scene.add.text(CONTENT_L + 16, ROWS_TOP + 24 + i * DELIVERY_TAB_LINE_H, line, {
-            fontSize: `${DELIVERY_TAB_FONT_PX}px`,
+            fontSize: `${i === 0 ? DELIVERY_TAB_FONT_PX : TAB_ROW_SUB_FONT_PX}px`,
             color: i === 0 ? '#ffffff' : (done ? '#88ddaa' : '#bbccee'),
           }).setOrigin(0, 0.5),
         )

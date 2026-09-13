@@ -19,6 +19,7 @@ import {
   BUY_W, BUY_FONT_PX, BUY_SUFFIX, INFO_MAX_W, INFO_FONT_PX, LOG_T,
   UPCOMING_FONT_PX, upcomingLabel,
   PEDDLER_TITLE, PEDDLER_REMAIN_FONT_PX, peddlerRemainText, peddlerSubtitleText,
+  TAB_ROW_TITLE_FONT_PX, TAB_ROW_SUB_FONT_PX, TAB_SUBTITLE_FONT_PX, TAB_NOTE_FONT_PX,
 } from './layout.js'
 import type { PeddlerStock } from '../components/progress/PeddlerStock.js'
 
@@ -299,7 +300,7 @@ export class PurchaseMenu {
           ? peddlerSubtitleText(money(this.economy.getMoney()))
           : `所持金 ${money(this.economy.getMoney())}　`
             + `あと${stay}日でこの島を出る（次に戻るのは${days}日後）`, {
-        fontSize: '15px', color: '#ffdd44',
+        fontSize: `${TAB_SUBTITLE_FONT_PX}px`, color: '#ffdd44',
       }).setOrigin(0, 0.5),
     )
 
@@ -309,7 +310,7 @@ export class PurchaseMenu {
     if (this.needs.size === 0) {
       objs.push(
         this.scene.add.text(CONTENT_R, SUBTITLE_Y, 'まだ作れるものが無い', {
-          fontSize: '13px', color: '#889999',
+          fontSize: `${TAB_NOTE_FONT_PX}px`, color: '#889999',
         }).setOrigin(1, 0.5),
       )
     }
@@ -408,7 +409,7 @@ export class PurchaseMenu {
 
     objs.push(
       this.scene.add.text(NAME_X, y, mat.display.name, {
-        fontSize: '15px', color: '#998877',
+        fontSize: `${TAB_ROW_TITLE_FONT_PX}px`, color: '#998877',
       }).setOrigin(0, 0.5),
     )
 
@@ -418,7 +419,7 @@ export class PurchaseMenu {
     if (need) {
       objs.push(
         this.scene.add.text(NEED_R, y, `${need.recipes}品に要る`, {
-          fontSize: '12px', color: '#667788',
+          fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: '#667788',
         }).setOrigin(1, 0.5),
       )
     }
@@ -448,7 +449,7 @@ export class PurchaseMenu {
     )
 
     const nameText = this.scene.add.text(NAME_X, y, mat.display.name, {
-      fontSize: '15px', color: '#ffffff',
+      fontSize: `${TAB_ROW_TITLE_FONT_PX}px`, color: '#ffffff',
     }).setOrigin(0, 0.5)
     objs.push(nameText)
 

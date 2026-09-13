@@ -133,14 +133,36 @@ export function tabCx(index: number, count: number): number {
 }
 
 /**
+ * 「取引」の3タブで共通に使う文字の大きさ（PO 指示 2026-09-14「商人・改装・納品でそろえてほしい」）。
+ *
+ * ⚠ **タブごとに別の大きさを書かないこと。**タブを行き来したときに、
+ *   同じ役目の文字が跳ねて見える。**揃えるのは「役」であって、画面ではない。**
+ *
+ * ⚠ **`商人` に合わせて下げてある。**あそこは1画面に8行並ぶので**いちばん狭く、伸ばせない。**
+ *   ほかの2つは余裕があるが、**広いほうへ合わせると `商人` だけ収まらなくなる。**
+ *
+ * ⚠ **大きくするときは `layout.test.ts` の幅の検査を必ず通すこと**（`estTextWidth`）。
+ *   **小さくするぶんには安全。**
+ */
+/** 行の主見出し（品名 ／ 改装の系統名 ／ 納品の1行目） */
+export const TAB_ROW_TITLE_FONT_PX = 15
+/** 行の補足（何品に要る ／ 改装の説明 ／ 納品の手持ち・報酬） */
+export const TAB_ROW_SUB_FONT_PX = 12
+/** 見出しの下の1行（所持金 …） */
+export const TAB_SUBTITLE_FONT_PX = 15
+/** 見出しの下の行の、右に出る注記 */
+export const TAB_NOTE_FONT_PX = 12
+
+/**
  * 納品タブ（#96）の行の文字の大きさ。
  *
  * ⚠ **帯（`OrderBar`）と同じ情報しか出さない**（#98 で作り直すまで器だけ）。
  *   `deliveryTabLines` が帯の1行を全角空白で折るだけなので、**文言は1語も増えていない。**
+ * ⚠ **1行目だけ `TAB_ROW_TITLE_FONT_PX`、残りは `TAB_ROW_SUB_FONT_PX`**（3タブで揃える）。
  */
-export const DELIVERY_TAB_FONT_PX = 20
-/** 納品タブの行の高さ */
-export const DELIVERY_TAB_LINE_H = 34
+export const DELIVERY_TAB_FONT_PX = TAB_ROW_TITLE_FONT_PX
+/** 納品タブの行の高さ。⚠ **文字を下げたぶん詰める**（間延びして見えるため） */
+export const DELIVERY_TAB_LINE_H = 24
 
 /**
  * 帯の1行を、納品タブの複数行に折る。
