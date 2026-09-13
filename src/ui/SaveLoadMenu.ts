@@ -12,19 +12,19 @@ const SLOT_COUNT = 3
 const DEPTH = 150
 const MW = 480  // menu width
 const MH = 310  // menu height
-
-type Push = (...objs: Phaser.GameObjects.GameObject[]) => void
+/** 確認の面の高さ。**枠の一覧より低い**（行が3つ無い） */
+const CONFIRM_MH = 190
 
 export class SaveLoadMenu {
   private objects: Phaser.GameObjects.GameObject[] = []
   private mode: 'save' | 'load' = 'save'
   /**
-   * ⚠ **上書きする枠の番号。`null` のときが枠の一覧。**
-   *   中身のある枠を押しても、その場では保存しない。ここに入れて確認を出し、
-   *   **`onSave()` を呼ぶのは「上書きする」を押したときだけ。**
-   *   空の枠とロードは今までどおり即実行する（消えるものが無い）。
+   * 確認待ちの枠（#PO 指示 2026-09-14「ロードの時は確認メッセージを表示する」）。
+   *
+   * ⚠ **ロードだけ。セーブは押した時点で保存する**（今までどおり）。
+   *   上書きにも確認が要るかは PO へ回してある（`construction/plans/load-confirm.md`）。
    */
-  private confirmSlot: number | null = null
+  private pending: number | null = null
 
   constructor(
     private scene: Phaser.Scene,
@@ -33,60 +33,76 @@ export class SaveLoadMenu {
     private onLoad: (slot: number) => void,
   ) {}
 
-  openSave(): void { this.mode = 'save'; this.confirmSlot = null; this.build() }
-  openLoad(): void { this.mode = 'load'; this.confirmSlot = null; this.build() }
-
-  close(): void {
-    this.clearObjects()
-    this.confirmSlot = null
-  }
-
-  isVisible(): boolean { return this.objects.length > 0 }
+  openSave(): void { this.mode = 'save'; this.pending = null; this.build() }
+  openLoad(): void { this.mode = 'load'; this.pending = null; this.build() }
 
   /**
-   * ⚠ **`build()` が使う中身の捨て方。`close()` と違い、確認の状態は残す。**
-   *   ここで `close()` を呼ぶと、確認を出すために作り直した瞬間に番号が消える。
+   * 閉じる。**確認待ちも捨てる。**
+   *
+   * ⚠ **ESC はここへ来る**（`GameScene` の 1箇所）。**確認の面から一覧へ戻すのではなく、
+   *   まるごと閉じる。**戻す作りにすると、ESC の意味が画面ごとに変わる。
    */
+  close(): void {
+    this.clearObjects()
+    this.pending = null
+  }
+
+  /**
+   * 開いているか。**`GameScene.isShelfBlocked()` がこれを見る。**
+   * ⚠ **確認の面が出ている間も真であること。**偽だと、確認を出したまま棚を掴める。
+   */
+  isVisible(): boolean { return this.objects.length > 0 }
+
   private clearObjects(): void {
     for (const obj of this.objects) obj.destroy()
     this.objects = []
   }
 
-  private build(): void {
-    this.clearObjects()
+  private push(...objs: Phaser.GameObjects.GameObject[]): void {
+    objs.forEach(o => { this.objects.push(o) })
+  }
 
+  /** 全面の覆い＋パネル＋題。**一覧と確認で同じものを使う**（面が入れ替わったように見せない） */
+  private buildFrame(panelH: number, title: string): { cx: number, cy: number } {
     const { width, height } = this.scene.scale
     const cx = width / 2
     const cy = height / 2
-    const push: Push = (...objs) => {
-      objs.forEach(o => { this.objects.push(o) })
-    }
 
-    // Full-screen overlay
-    const overlay = this.scene.add.rectangle(cx, cy, width, height, 0x000000, 0.65)
-      .setInteractive().setDepth(DEPTH)
-    push(overlay)
-
-    // Panel
-    push(
-      this.scene.add.rectangle(cx, cy, MW, MH, 0x16213e)
+    this.push(
+      this.scene.add.rectangle(cx, cy, width, height, 0x000000, 0.65)
+        .setInteractive().setDepth(DEPTH),
+      this.scene.add.rectangle(cx, cy, MW, panelH, 0x16213e)
         .setStrokeStyle(2, 0x5566cc).setDepth(DEPTH),
-    )
-
-    // Title
-    const title = this.mode === 'save' ? 'セーブ' : 'ロード'
-    push(
-      this.scene.add.text(cx, cy - MH / 2 + 26, title, {
+      this.scene.add.text(cx, cy - panelH / 2 + 26, title, {
         fontSize: '20px', color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(DEPTH),
     )
-
-    if (this.confirmSlot !== null) this.buildConfirm(cx, cy, push)
-    else                           this.buildSlots(cx, cy, push)
+    return { cx, cy }
   }
 
-  /** 枠の一覧 */
-  private buildSlots(cx: number, cy: number, push: Push): void {
+  private addButton(
+    x: number, y: number, w: number, label: string,
+    fill: number, hover: number, stroke: number, color: string,
+    onClick: () => void,
+  ): void {
+    const bg = this.scene.add.rectangle(x, y, w, 36, fill)
+      .setStrokeStyle(1, stroke).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
+    this.push(
+      bg,
+      this.scene.add.text(x, y, label, { fontSize: '14px', color }).setOrigin(0.5).setDepth(DEPTH),
+    )
+    bg.on('pointerover', () => bg.setFillStyle(hover))
+    bg.on('pointerout',  () => bg.setFillStyle(fill))
+    bg.on('pointerdown', onClick)
+  }
+
+  private build(): void {
+    this.clearObjects()
+
+    const title = this.mode === 'save' ? 'セーブ' : 'ロード'
+    const { cx, cy } = this.buildFrame(MH, title)
+
+    // Slot buttons
     const slotW = MW - 40
     const slotH = 52
     const firstSlotY = cy - MH / 2 + 74
@@ -104,10 +120,10 @@ export class SaveLoadMenu {
 
       const bg = this.scene.add.rectangle(cx, sy, slotW, slotH, fillNormal)
         .setStrokeStyle(1, strokeCol).setDepth(DEPTH)
-      push(bg)
+      this.push(bg)
 
       // Slot number (left)
-      push(
+      this.push(
         this.scene.add.text(cx - slotW / 2 + 14, sy - 10, `スロット ${i + 1}`, {
           fontSize: '12px', color: disabled ? '#555566' : '#7799ff', fontStyle: 'bold',
         }).setOrigin(0, 0.5).setDepth(DEPTH),
@@ -115,7 +131,7 @@ export class SaveLoadMenu {
 
       // Slot info (center-left)
       const info = meta ? this.formatMeta(meta) : '--- 空スロット ---'
-      push(
+      this.push(
         this.scene.add.text(cx - slotW / 2 + 14, sy + 10, info, {
           fontSize: '12px', color: disabled ? '#444455' : meta ? '#cccccc' : '#777788',
         }).setOrigin(0, 0.5).setDepth(DEPTH),
@@ -126,68 +142,60 @@ export class SaveLoadMenu {
         bg.on('pointerover', () => bg.setFillStyle(fillHover))
         bg.on('pointerout',  () => bg.setFillStyle(fillNormal))
         bg.on('pointerdown', () => {
-          if (this.mode === 'load') { this.onLoad(i); this.close(); return }
-          // ⚠ **中身のある枠は、ここでは保存しない。**確認を挟む
-          if (isEmpty) { this.onSave(i); this.close(); return }
-          this.confirmSlot = i
-          this.build()
+          // ⚠ **ロードはここで実行しない。**押し間違えると戻らない（PO 指示 2026-09-14）
+          if (this.mode === 'save') { this.onSave(i); this.close() }
+          else                     { this.pending = i; this.buildConfirm() }
         })
       }
     }
 
-    this.button(push, cx, cy + MH / 2 - 30, 'キャンセル', 0x3a3a4a, 0x555566,
-      () => this.close())
+    // Cancel button
+    this.addButton(
+      cx, cy + MH / 2 - 30, 130, 'キャンセル',
+      0x3a3a4a, 0x555566, 0x666677, '#bbbbcc',
+      () => this.close(),
+    )
   }
 
   /**
-   * 上書きの確認。
+   * ロードの確認（PO 指示 2026-09-14）。
    *
-   * ⚠ **いま入っている記録を出す。**枠の番号だけだと、どの記録を潰すのか分からない
-   *   （枠の一覧は消えているので、押した直前の行はもう見えない）。
+   * ⚠ **「いま遊んでいる分が消える」ことを書く。**どの枠を読むかだけでは、
+   *   **何が失われるかが分からない。**確認を出す理由はそこにある。
    */
-  private buildConfirm(cx: number, cy: number, push: Push): void {
-    const slot = this.confirmSlot as number
+  private buildConfirm(): void {
+    this.clearObjects()
+
+    const slot = this.pending
+    if (slot === null) return
+
+    const { cx, cy } = this.buildFrame(CONFIRM_MH, 'ロード')
+
     const meta = this.getSlotMeta(slot)
-
-    push(
-      this.scene.add.text(cx, cy - 24, `スロット ${slot + 1} に上書きします`, {
-        fontSize: '16px', color: '#ffffff',
+    this.push(
+      this.scene.add.text(cx, cy - 28, `スロット ${slot + 1} を読み込みます`, {
+        fontSize: '15px', color: '#ffffff',
+      }).setOrigin(0.5).setDepth(DEPTH),
+      this.scene.add.text(cx, cy - 6, meta ? this.formatMeta(meta) : '', {
+        fontSize: '12px', color: '#cccccc',
+      }).setOrigin(0.5).setDepth(DEPTH),
+      this.scene.add.text(cx, cy + 22, 'いま遊んでいる分は消えます', {
+        fontSize: '13px', color: '#ffcc55',
       }).setOrigin(0.5).setDepth(DEPTH),
     )
-    if (meta) {
-      push(
-        this.scene.add.text(cx, cy + 6, `いまの記録: ${this.formatMeta(meta)}`, {
-          fontSize: '12px', color: '#cccccc',
-        }).setOrigin(0.5).setDepth(DEPTH),
-      )
-    }
 
-    const by = cy + MH / 2 - 30
-    this.button(push, cx - 75, by, '上書きする', 0x6a3a3a, 0x8a4a4a, () => {
-      this.onSave(slot)
-      this.close()
-    })
-    this.button(push, cx + 75, by, 'やめる', 0x3a3a4a, 0x555566, () => {
-      this.confirmSlot = null
-      this.build()
-    })
-  }
-
-  private button(
-    push: Push, x: number, y: number, label: string,
-    fill: number, hover: number, onClick: () => void,
-  ): void {
-    const bg = this.scene.add.rectangle(x, y, 130, 36, fill)
-      .setStrokeStyle(1, 0x666677).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
-    push(
-      bg,
-      this.scene.add.text(x, y, label, {
-        fontSize: '14px', color: '#bbbbcc',
-      }).setOrigin(0.5).setDepth(DEPTH),
+    const by = cy + CONFIRM_MH / 2 - 30
+    this.addButton(
+      cx - 75, by, 130, '読み込む',
+      0x2f5a2f, 0x3f7a3f, 0x44aa44, '#ddffdd',
+      () => { this.close(); this.onLoad(slot) },
     )
-    bg.on('pointerover', () => bg.setFillStyle(hover))
-    bg.on('pointerout',  () => bg.setFillStyle(fill))
-    bg.on('pointerdown', onClick)
+    // ⚠ **やめるは閉じない。枠の一覧へ戻す**（押す枠を選び直せる）
+    this.addButton(
+      cx + 75, by, 130, 'やめる',
+      0x3a3a4a, 0x555566, 0x666677, '#bbbbcc',
+      () => { this.pending = null; this.build() },
+    )
   }
 
   private formatMeta(meta: SlotMeta): string {

@@ -34,7 +34,7 @@ const BTN_W = 76
 const BTN_GAP = 7
 
 /**
- * 品出しの型（マイセット。#27）。**ダイアログではなく「行く場所」**（#58）。
+ * マイセット（#27）。**ダイアログではなく「行く場所」**（#58）。
  *
  * ⚠ **覚えるのは「どこに何をどの向きで出しているか」だけ。**持ち物も在庫も動かさない。
  *   棚は「どこに出しているか」を表すだけで、**並べても在庫は減らない**（段2.5）。
@@ -87,7 +87,7 @@ export class PresetMenu {
   open(): void {
     if (this.isOpen) return
     this.isOpen = true
-    this.frame.show('品出しの型', () => this.close())
+    this.frame.show('マイセット', () => this.close())
     // ⚠ **入力欄はここで1度だけ置く。**`build()` から置くと打鍵ごとに作り直される
     this.placeNameInputs()
     this.build()
@@ -147,7 +147,7 @@ export class PresetMenu {
       // ⚠ **升からはみ出させない**（`PRESET_NAME_MAX`）。長さの根拠は `ShelfPresets.ts`
       el.maxLength = PRESET_NAME_MAX
       const dom = tryAddDom(
-        this.scene, box.textL + PRESET_NAME_INPUT_W / 2, box.nameCy, el, '型の名前',
+        this.scene, box.textL + PRESET_NAME_INPUT_W / 2, box.nameCy, el, 'マイセットの名前',
       )
       if (!dom) continue
       this.nameDoms[i] = dom.setDepth(CONTENT_DEPTH)

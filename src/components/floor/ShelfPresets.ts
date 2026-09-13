@@ -3,7 +3,7 @@ import type { IslandName } from '../../taxonomy/islands.js'
 import { ROUTE } from '../../taxonomy/islands.js'
 
 /**
- * 品出しの型（マイセット。#27）。
+ * マイセット（#27）。
  *
  * **島ごとに品出しを変え続けるのが面倒**という issue。四島を10日ごとに回り、
  * 島ごとに需要が違う（方針6）ので、**同じ並べ替えを周回のたびに繰り返すことになる。**

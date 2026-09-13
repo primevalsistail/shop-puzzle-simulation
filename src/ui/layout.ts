@@ -390,7 +390,7 @@ export function peddlerSubtitleText(moneyText: string): string {
 export const PEDDLER_TITLE = '行商人バレン'
 
 /**
- * 品出しの型の升に出す1行（`ハルヴェラ島 12区画`。#67）の文字の大きさ。
+ * マイセットの升に出す1行（`ハルヴェラ島 12区画`。#67）の文字の大きさ。
  *
  * ⚠ **升の文字欄は 308px**（升の幅 400 から、縮小図 70 と余白 22 を引いたもの）。
  *   いちばん長い `ミフユリア島 全部下ろす` で **136.1px**。**まだ半分以上あいている。**
@@ -406,7 +406,7 @@ export const PRESET_TEXT_FONT_PX = 12
 export const PRESET_SUB_FONT_PX = 11
 
 /**
- * 品出しの型の升の**横の寸法**（`PresetMenu` が並べる 2列 × 5行 の升）。
+ * マイセットの升の**横の寸法**（`PresetMenu` が並べる 2列 × 5行 の升）。
  *
  * ⚠ **`PresetMenu` と `layout.test.ts` の両方が使う。**以前は両方が同じ式を書き写していて、
  *   **片方を動かしてももう片方が気づかない**形だった（#83 で片付けた）。

@@ -135,11 +135,11 @@ describe('rowsThatFit — 行数は高さから出す', () => {
 })
 
 /**
- * ⚠ **品出しの型（#27）が全部1画面に入るか。**
+ * ⚠ **マイセット（#27）が全部1画面に入るか。**
  *   型を選ぶのに送らせたくないので、**数を増やしたら行が縮む。**
  *   縮みすぎて読めなくなったら、ページ送りに切り替える合図。
  */
-describe('品出しの型が1画面に入る（2列 × 5行）', () => {
+describe('マイセットが1画面に入る（2列 × 5行）', () => {
   const COLS = PRESET_COLS
   const rows = PRESET_COUNT / COLS
   const cellH = Math.floor((ROWS_BOTTOM - ROWS_TOP) / rows)

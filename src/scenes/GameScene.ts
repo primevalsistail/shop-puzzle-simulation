@@ -97,7 +97,7 @@ export class GameScene extends Phaser.Scene {
    *   載せると「引き直せる状態」を増やすだけになる（`ensureDay` の注記）。
    */
   private storyEvents = new StoryEventScheduler()
-  /** 品出しの型（マイセット。#27） */
+  /** マイセット（#27） */
   private shelfPresets = new ShelfPresets()
 
   private floorRenderer!: FloorRenderer
@@ -499,7 +499,7 @@ export class GameScene extends Phaser.Scene {
     const iconDefs: { emoji: string; tip: string; action: () => void }[] = [
       { emoji: '💾', tip: 'セーブ',    action: () => this.doSave() },
       { emoji: '📂', tip: 'ロード',    action: () => this.doLoad() },
-      { emoji: '🗂', tip: '品出しの型', action: () => this.openPresetMenu() },
+      { emoji: '🗂', tip: 'マイセット', action: () => this.openPresetMenu() },
       { emoji: '⚙️', tip: 'オプション', action: () => this.updateStatus('オプション: 準備中') },
       { emoji: '❓', tip: 'ヘルプ',    action: () => this.tutorial.show(() => this.updateStatus()) },
     ]
@@ -1220,7 +1220,7 @@ export class GameScene extends Phaser.Scene {
     this.shelfPresets.save(index, slots, this.world.getIsland())
     this.presetMenu.refresh()
     this.updateStatus(
-      slots.length === 0 ? '「全部下ろす」を型に覚えた' : `いまの${slots.length}区画を型に覚えた`,
+      slots.length === 0 ? '「全部下ろす」をマイセットに覚えた' : `いまの${slots.length}区画をマイセットに覚えた`,
     )
   }
 
@@ -1229,7 +1229,7 @@ export class GameScene extends Phaser.Scene {
     if (!this.shelfPresets.get(index)) return
     this.shelfPresets.clear(index)
     this.presetMenu.refresh()
-    this.updateStatus('型を1つ消した')
+    this.updateStatus('マイセットを1つ消した')
   }
 
   /**
@@ -1258,8 +1258,8 @@ export class GameScene extends Phaser.Scene {
     this.refreshInventoryPanel()
     this.updateStatus(
       dropped === 0
-        ? `型を呼び出した（${placed}区画）`
-        : `型を呼び出した（${placed}区画。${dropped}区画は盤面に入らず外した）`,
+        ? `マイセットを呼び出した（${placed}区画）`
+        : `マイセットを呼び出した（${placed}区画。${dropped}区画は盤面に入らず外した）`,
     )
   }
 
