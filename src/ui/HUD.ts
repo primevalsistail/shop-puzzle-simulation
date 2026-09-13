@@ -4,10 +4,9 @@ import type { Location } from '../components/progress/WorldState.js'
 import type { IslandName } from '../taxonomy/islands.js'
 import { money } from './money.js'
 import {
-  HUD_PANEL_W, HUD_MONEY_FONT_PX, HUD_BAR_W, phaseLabel,
+  HUD_PANEL_W, HUD_MONEY_FONT_PX, phaseLabel,
   HUD_NEXT_PORT_FONT_PX, HUD_NEXT_PORT_H, nextPortLabel,
   HUD_PANEL_T, HUD_PANEL_H, HUD_ROW_TIME_Y, HUD_ROW_PLACE_Y, HUD_RULE_Y, HUD_ROW_MONEY_Y,
-  CHAR_ART_T,
 } from './layout.js'
 
 /** panel width（右パネル 190px - 余白 16px）。⚠ **値は `layout.ts` にある**（テストが見ている） */
@@ -24,6 +23,8 @@ export class HUD {
   private nextPortBg!: Phaser.GameObjects.Rectangle
   private nextPortText!: Phaser.GameObjects.Text
   private onNextPortClick: (() => void) | null = null
+  /** ⚠ **次の寄港地が出た／消えたときに、現在地の行を出し直すために覚えておく** */
+  private lastLocation: Location | null = null
   private panelX!: number
   private panelY!: number
 
@@ -74,18 +75,18 @@ export class HUD {
     }).setOrigin(0.5, 0.5).setDepth(5)
 
     // 次の寄港地（#7）。**クリア後だけ出す。**
-    // ⚠ **枠の外、キャラ絵の枠の上端に置く**（PO 指示 2026-09-14「ここの空白は不要」）。
-    //   **枠の中に居場所を取ると、クリア前はずっと空の帯が残る。**
-    // ⚠ **#15 の絵は、クリア後にこの 26px を取られることを見込むこと**（`layout.ts` の注記）。
-    const barW = HUD_BAR_W
-    const npY = CHAR_ART_T + HUD_NEXT_PORT_H / 2
-    this.nextPortBg = this.scene.add.rectangle(px, npY, barW, HUD_NEXT_PORT_H, 0x2a2a4a)
+    // ⚠ **現在地の行の右に置く**（PO 指示 2026-09-14）。
+    //   **クリア後は `あと N日` が消えて島名だけになる**ので、そこが空く。
+    // ⚠ **キャラ絵の枠は動かない。**枠の外に行を足すと、絵の置き場所が変わる
+    const npW = 72
+    const npY = HUD_ROW_PLACE_Y
+    this.nextPortBg = this.scene.add.rectangle(px + PW / 2 - 8 - npW / 2, npY, npW, HUD_NEXT_PORT_H, 0x2a2a4a)
       .setStrokeStyle(1, 0x5566aa).setDepth(5).setVisible(false)
       .setInteractive({ useHandCursor: true })
     this.nextPortBg.on('pointerover', () => this.nextPortBg.setFillStyle(0x3a3a6a))
     this.nextPortBg.on('pointerout', () => this.nextPortBg.setFillStyle(0x2a2a4a))
     this.nextPortBg.on('pointerdown', () => this.onNextPortClick?.())
-    this.nextPortText = this.scene.add.text(px, npY, '', {
+    this.nextPortText = this.scene.add.text(px + PW / 2 - 8 - npW / 2, npY, '', {
       fontSize: `${HUD_NEXT_PORT_FONT_PX}px`, color: '#ffdd88',
     }).setOrigin(0.5, 0.5).setDepth(6).setVisible(false)
   }
@@ -107,6 +108,8 @@ export class HUD {
     this.nextPortBg.setVisible(on)
     this.nextPortText.setVisible(on)
     if (on) this.nextPortText.setText(nextPortLabel(next))
+    // ⚠ **現在地の行も書き換わる**（`あと N日` が消える）ので、出し直す
+    if (this.lastLocation) this.updateLocation(this.lastLocation)
   }
 
   updateMoney(amount: number): void {
@@ -120,7 +123,12 @@ export class HUD {
    *   出すのは正式名（ハルヴェラ島…）と、次の寄港までの残り日数だけ。
    */
   updateLocation(location: Location): void {
-    this.placeText.setText(`${location.island}島  あと${location.daysLeftAtPort}日`)
+    // ⚠ **クリア後は `あと N日` を出さない**（PO 指示 2026-09-14）。
+    //   **空いたところに次の寄港地を置く。**枠もキャラ絵の枠も動かさずに済む
+    this.placeText.setText(this.nextPortBg.visible
+      ? `${location.island}島`
+      : `${location.island}島  あと${location.daysLeftAtPort}日`)
+    this.lastLocation = location
     this.placeText.setStyle({ color: '#88bbdd' })
   }
 

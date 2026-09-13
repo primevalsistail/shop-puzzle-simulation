@@ -3,10 +3,16 @@ import { describe, it, expect } from 'vitest'
 import menuSource from './SaveLoadMenu.ts?raw'
 
 /**
- * ロードの確認（PO 指示 2026-09-14「ロードの時は確認メッセージを表示する」）。
+ * **戻らない操作に確認を挟む。**
+ *   **上書き**（PO スクリーンショット指示 2026-09-13）と
+ *   **ロード**（PO スクリーンショット指示 2026-09-14）。
  *
  * ⚠ **`SaveLoadMenu` は Phaser を読むのでここから import できない。**
- *   **押した先で何が呼ばれるかをソースとして縛る**（`PresetMenu.test.ts` と同じやり方）。
+ *   `PresetMenu.test.ts` と同じく**ソースとして縛る。**
+ *   縛りたいのは1つ —— **押した時点では実行しないこと。**
+ *
+ * ⚠ **2026-09-13 には「ロードは確認を挟まない」と決めていた。**
+ *   **2026-09-14 に PO が覆した**ので、そのテストは反対向きに書き直してある。
  *   受入条件は `construction/plans/load-confirm.md`。
  */
 const body = menuSource
@@ -23,47 +29,62 @@ function methodBody(name: string): string {
   return rest.slice(0, end)
 }
 
-describe('ロードは確認を挟んでから実行する', () => {
-  /** ⚠ **これが受入条件そのもの。**枠を押しただけでは戻らない操作を起こさない */
-  it('枠の一覧（build）からは onLoad を呼ばない', () => {
-    expect(methodBody('private build()')).not.toContain('this.onLoad(')
+describe('上書きとロードの確認', () => {
+  /** ⚠ **これが指示そのもの。**押した瞬間に保存したら確認の意味が無い */
+  it('枠を押して即 onSave するのは、空の枠のときだけ', () => {
+    const slots = methodBody('private buildSlots(')
+    expect(slots).toContain('if (isEmpty) { this.onSave(i)')
+    // 中身のある枠は番号を控えて作り直すだけ
+    expect(slots).toContain('this.confirmSlot = i')
   })
 
-  it('枠を押すと確認の面へ移る', () => {
-    expect(methodBody('private build()')).toContain('this.buildConfirm()')
+  it('onSave を呼ぶのは「空の枠」と「上書きする」の2箇所だけ', () => {
+    expect(body.match(/this\.onSave\(/g)).toHaveLength(2)
+    expect(methodBody('private buildConfirm(')).toContain('this.onSave(slot)')
   })
 
-  it('onLoad を呼ぶのは確認の面の1箇所だけ', () => {
-    expect(body.match(/this\.onLoad\(/g)).toHaveLength(1)
-    expect(methodBody('private buildConfirm()')).toContain('this.onLoad(slot)')
+  it('確認には「上書きする」と「やめる」が出る', () => {
+    const confirm = methodBody('private buildConfirm(')
+    expect(confirm).toContain("'上書きする'")
+    expect(confirm).toContain("'やめる'")
+    // やめるは保存せず、枠の一覧へ戻る
+    expect(confirm).toContain('this.confirmSlot = null')
   })
 
-  /** ⚠ **やめるは閉じない。**枠を選び直せること */
-  it('確認の面から一覧へ戻れる', () => {
-    const confirm = methodBody('private buildConfirm()')
-    expect(confirm).toContain('やめる')
-    expect(confirm).toContain('this.build()')
-  })
-
-  /** ⚠ **セーブは今までどおり。**上書きの確認は PO 判断待ち（計画ファイル参照） */
-  it('セーブは押した時点で保存する', () => {
-    expect(methodBody('private build()')).toContain('this.onSave(i)')
-  })
-})
-
-describe('確認の面でも棚に手が出せない', () => {
   /**
-   * ⚠ **`GameScene.isShelfBlocked()` が `isVisible()` を見ている。**
-   *   確認の面を出している間に偽になると、**確認を出したまま棚を掴める。**
+   * ⚠ **`build()` が `close()` を呼ぶと、確認を出すために作り直した瞬間に番号が消える**
+   *   （`close()` は `confirmSlot` を `null` に戻すため）。ここを踏むと確認が一切出ない
    */
-  it('isVisible は中身があるかで判定していて、確認の面でも中身がある', () => {
-    expect(body).toContain('isVisible(): boolean { return this.objects.length > 0 }')
-    expect(methodBody('private buildConfirm()')).toContain('this.buildFrame(')
+  it('build() は close() ではなく clearObjects() で捨てる', () => {
+    const build = methodBody('private build(): void')
+    expect(build).toContain('this.clearObjects()')
+    expect(build).not.toContain('this.close()')
+    expect(methodBody('close(): void')).toContain('this.confirmSlot = null')
   })
 
-  /** ⚠ **面を入れ替えるときに `close()` を使わない。**使うと確認待ちの枠まで捨てる */
-  it('面の作り直しは clearObjects で、close ではない', () => {
-    expect(methodBody('private buildConfirm()')).toContain('this.clearObjects()')
-    expect(methodBody('private build()')).toContain('this.clearObjects()')
+  /** ⚠ **2026-09-14 に反転した。**押し間違えると、いま遊んでいる分が戻らない */
+  it('ロードも確認を挟む（枠を押した時点では読み込まない）', () => {
+    const slots = methodBody('private buildSlots(')
+    expect(slots).not.toContain('this.onLoad(')
+    expect(slots).toContain('this.confirmSlot = i')
+  })
+
+  it('onLoad を呼ぶのは確認の「読み込む」1箇所だけ', () => {
+    expect(body.match(/this\.onLoad\(/g)).toHaveLength(1)
+    expect(methodBody('private buildConfirm(')).toContain('this.onLoad(slot)')
+  })
+
+  it('確認には「読み込む」と、いま遊んでいる分が消えることが出る', () => {
+    const confirm = methodBody('private buildConfirm(')
+    expect(confirm).toContain("'読み込む'")
+    expect(confirm).toContain('いま遊んでいる分は消えます')
+  })
+
+  /** ⚠ **1行メソッドなので `methodBody()` では区切れない。**行ごと縛る */
+  it('開き直すと確認は残らない', () => {
+    for (const m of ['openSave', 'openLoad']) {
+      const line = body.split('\n').find(l => l.includes(`${m}(): void`)) ?? ''
+      expect(line, `${m} が無い`).toContain('this.confirmSlot = null')
+    }
   })
 })
