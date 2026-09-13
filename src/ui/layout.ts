@@ -818,24 +818,42 @@ export const ORDER_BAR_FONT_PX = 12
  *
  * ⚠ **納品の帯（#28）とメッセージ欄に被せない。**帯はいま受けている注文で、
  *   **選ぶ材料になる**（「見る」かどうかは何が要るかで決まる）。
- *   ⚠ **左右は帯とそろえてある。**そろえないと、同じ中央の領域に幅の違う箱が2つ並ぶ。
+ *   ⚠ **帯とそろえるのは「中心」であって「左右」ではない**（PO 2026-09-13）。
+ *   以前は左右をそろえていたが、**帯の幅にそろえる限り横の余白は消せない** ——
+ *   本文は5文字、ボタン2つで 332px しかないのに、帯は 748px ある。
+ *   **中心をそろえておけば、幅が違っても軸は1本のまま。**
  * ⚠ **キャラ帯（980〜1090）を覆わない。**`PlaceFrame` は帯を隠してからその領域まで使うが、
  *   こちらは**隠さない**ので、覆うと店番と来店客が窓に切られる。
  *   ⚠ **話し手の絵はいずれあの帯に入る**（#21・#15）。覆うと絵が見えない窓になる。
  * ⚠ **盤面には重なる。**盤面はいちばん広いとき y588 まで来るので、
  *   帯より上に置く以上は避けようがない。**消さずに重ねる**のがここの線引き。
  */
-export const MSG_WIN_L = ORDER_BAR_L
-export const MSG_WIN_R = ORDER_BAR_R
 export const MSG_WIN_B = ORDER_BAR_T - 6
-/** ⚠ **高さを増やすなら `MSG_LINES_MAX` と一緒に見ること**（本文の行が入らなくなる） */
-export const MSG_WIN_H = 160
+/**
+ * 窓の幅。**帯（748px）より狭く、中心だけそろえる**（PO 2026-09-13「大きすぎる」）。
+ *
+ * ⚠ **広げるなら、何が入らなかったのかを書くこと。**ここは
+ *   **選択肢3つぶん（110×3 ＋ 隙間）＋内側の余白**でできていて、
+ *   **それより1つぶん以上広いと `layout.test.ts` が落ちる。**
+ */
+export const MSG_WIN_W = 440
+/**
+ * 窓の高さ。**中身（話し手1行・本文・ボタン1行）ぶんしか無い。**
+ *
+ * ⚠ **`MSG_LINES_MAX` と一緒に見ること。**入る行数はここから導いていて、
+ *   **いまは1行。2行のできごとを足すと `layout.test.ts` が落ちる** ——
+ *   落ちたら、ここを `MSG_LINE_H` ぶん（22px）上げる。
+ *   **黙って余らせておかない**（PO 2026-09-13「余白が多すぎる」）。
+ */
+export const MSG_WIN_H = 120
 export const MSG_WIN_T = MSG_WIN_B - MSG_WIN_H
-export const MSG_WIN_W = MSG_WIN_R - MSG_WIN_L
-export const MSG_WIN_CX = (MSG_WIN_L + MSG_WIN_R) / 2
+/** ⚠ **中心は帯とそろえる**（左右はそろえない。上の注記） */
+export const MSG_WIN_CX = (ORDER_BAR_L + ORDER_BAR_R) / 2
+export const MSG_WIN_L = MSG_WIN_CX - MSG_WIN_W / 2
+export const MSG_WIN_R = MSG_WIN_CX + MSG_WIN_W / 2
 export const MSG_WIN_CY = (MSG_WIN_T + MSG_WIN_B) / 2
 /** 窓の内側の余白 */
-export const MSG_WIN_PAD = 20
+export const MSG_WIN_PAD = 14
 /** 本文と名前に使える幅 */
 export const MSG_TEXT_MAX_W = MSG_WIN_W - MSG_WIN_PAD * 2
 
@@ -845,12 +863,12 @@ export const MSG_SPEAKER_Y = MSG_WIN_T + MSG_WIN_PAD
 
 /** 本文。**1行ずつ置く**（自動で折り返さない ＝ node のテストから測れる） */
 export const MSG_TEXT_FONT_PX = 16
-export const MSG_LINE_H = 24
-export const MSG_TEXT_TOP = MSG_SPEAKER_Y + 30
+export const MSG_LINE_H = 22
+export const MSG_TEXT_TOP = MSG_SPEAKER_Y + 26
 
 /** 選択肢のボタン。**窓の下端に1行で並べる** */
-export const MSG_CHOICE_W = 160
-export const MSG_CHOICE_H = 34
+export const MSG_CHOICE_W = 110
+export const MSG_CHOICE_H = 30
 export const MSG_CHOICE_GAP = 12
 export const MSG_CHOICE_FONT_PX = 15
 export const MSG_CHOICE_CY = MSG_WIN_B - MSG_WIN_PAD - MSG_CHOICE_H / 2

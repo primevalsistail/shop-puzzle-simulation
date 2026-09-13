@@ -34,6 +34,7 @@ import {
   DELIVERY_DISCARD_L, DELIVERY_DISCARD_W,
   TAB_ROW_TITLE_FONT_PX,
   MSG_WIN_L, MSG_WIN_R, MSG_WIN_T, MSG_WIN_B, MSG_WIN_PAD, MSG_TEXT_MAX_W,
+  MSG_WIN_W, MSG_WIN_CX,
   MSG_SPEAKER_FONT_PX, MSG_SPEAKER_Y, MSG_TEXT_FONT_PX, MSG_TEXT_TOP, MSG_LINE_H,
   MSG_LINES_MAX, MSG_CHOICE_W, MSG_CHOICE_H, MSG_CHOICE_GAP, MSG_CHOICE_FONT_PX,
   MSG_CHOICE_CY, msgChoiceCx,
@@ -649,10 +650,28 @@ describe('できごとの窓（#24）', () => {
     expect(MSG_WIN_R).toBeLessThanOrEqual(STRIP_L)
   })
 
-  /** ⚠ **納品の帯と左右をそろえる**（同じ領域に幅の違う箱を2つ並べない） */
-  it('納品の帯と左右がそろっている', () => {
-    expect(MSG_WIN_L).toBe(ORDER_BAR_L)
-    expect(MSG_WIN_R).toBe(ORDER_BAR_R)
+  /**
+   * ⚠ **そろえるのは中心であって左右ではない**（PO 2026-09-13「大きすぎる」）。
+   *   **帯の幅（748px）にそろえる限り、横の余白は消しようがない** ——
+   *   本文は5文字、ボタン2つで 332px しか要らない。
+   *   **中心が同じなら、幅が違っても軸は1本のまま。**
+   */
+  it('納品の帯と中心がそろい、帯より狭い', () => {
+    expect(MSG_WIN_CX).toBe((ORDER_BAR_L + ORDER_BAR_R) / 2)
+    expect(MSG_WIN_W).toBeLessThan(ORDER_BAR_R - ORDER_BAR_L)
+  })
+
+  /**
+   * **幅に余りが無い**（受入条件3）。
+   *
+   * ⚠ **窓の幅を決めているのは選択肢の列。**本文ではない
+   *   （いちばん長い本文より、ボタン3つのほうが広い）。
+   *   **ボタン1つぶん以上余っていたら、それは余白である。**
+   */
+  it('幅が、選択肢3つぶん＋余白より広すぎない', () => {
+    const need = 3 * MSG_CHOICE_W + 2 * MSG_CHOICE_GAP + MSG_WIN_PAD * 2
+    expect(MSG_WIN_W).toBeGreaterThanOrEqual(need)
+    expect(MSG_WIN_W - need).toBeLessThan(MSG_CHOICE_W)
   })
 
   /** ⚠ **帯はいま受けている注文で、選ぶ材料そのもの**（何が要るかで「見る」かが決まる） */
@@ -749,6 +768,19 @@ describe('できごとの文字が窓に収まる', () => {
       expect(def.lines.length, def.id).toBeGreaterThan(0)
       expect(def.lines.length, def.id).toBeLessThanOrEqual(MSG_LINES_MAX)
     }
+  })
+
+  /**
+   * **高さに余りが無い**（受入条件2 ／ PO 2026-09-13「余白が多すぎる」）。
+   *
+   * ⚠ **使わない行を先に取っておかない。**以前は2行ぶん取って1行しか使っておらず、
+   *   その22px がそのまま余白になっていた。
+   * ⚠ **2行のできごとを足すと、ここが落ちる。**そのときは
+   *   `MSG_WIN_H` を `MSG_LINE_H` ぶん（22px）上げること。**落ちるのが仕事の検査である。**
+   */
+  it('本文の行を余らせていない（窓の高さが中身ぶんしか無い）', () => {
+    const used = Math.max(...STORY_EVENTS.map((def) => def.lines.length))
+    expect(MSG_LINES_MAX).toBe(used)
   })
 
   it('選択肢の文字がボタンに収まる', () => {
