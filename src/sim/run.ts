@@ -14,6 +14,7 @@
 import { DEFAULT_OPTIONS, SimWorld } from './SimWorld.js'
 import type { DayRecord, SimOptions, SimResult } from './SimWorld.js'
 import { POLICIES } from './policies.js'
+import { DEMAND_RULES, FOREIGN_ORIGIN_RULE, SET_RULES } from '../taxonomy/rules.js'
 
 /**
  * ⚠ **`@types/node` を入れていない**（`package.json` は触らない範囲）。
@@ -113,6 +114,32 @@ function report(result: SimResult, step: number): void {
       `T${Math.max(...chunk.map(r => r.topTier))}`,
     ]
     console.log('  ' + cells.map((c, k) => pad(c, COLS[k])).join(''))
+  }
+
+  console.log('')
+  console.log('効き目の平均（毎朝、組み終えた盤面を `evaluate()` にかけて測ったもの）')
+  console.log(
+    `  区画平均: 売れやすさ ×${result.modifiers.売れやすさ.toFixed(3)}` +
+    ` ／ 値段 ×${result.modifiers.値段.toFixed(3)}` +
+    ` ／ 集客 ×${result.modifiers.集客.toFixed(3)}`,
+  )
+  console.log(`  店全体の集客（客が来るかどうかに掛かる）: ×${result.modifiers.店全体の集客.toFixed(3)}`)
+  console.log(
+    `  R5 が当たりうる区画（産地が1島に定まる）: ${(result.modifiers.産地あり * 100).toFixed(1)}%` +
+    `　／　いちばん大きい同産地の固まり: ${(result.modifiers.最大の同産地 * 100).toFixed(1)}%`,
+  )
+
+  console.log('')
+  console.log('当たった規則の回数（1日1回の測定 × 日数ぶん。**0 は一度も当たっていない**）')
+  // ⚠ **規則の名前を書き写さない。**`rules.ts` から引く（足された規則もそのまま出る）
+  const ids = [
+    ...SET_RULES.map(r => ({ id: r.id, description: r.description })),
+    ...DEMAND_RULES.map(r => ({ id: r.id, description: r.description })),
+    { id: FOREIGN_ORIGIN_RULE.id, description: FOREIGN_ORIGIN_RULE.description },
+  ]
+  for (const rule of ids) {
+    const hits = result.ruleHits.get(rule.id) ?? 0
+    console.log(`  ${pad(rule.id, 12)} ${pad(int(hits), 10)}   ${rule.description}`)
   }
 
   const total = {

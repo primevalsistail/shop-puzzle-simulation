@@ -25,8 +25,9 @@ import { ALL_RECIPES } from '../taxonomy/recipes.js'
 import type { ItemDef, ItemId, RecipeDef } from '../taxonomy/axes.js'
 import { DAYS_PER_PORT, ROUTE } from '../taxonomy/islands.js'
 import type { IslandName } from '../taxonomy/islands.js'
-import { tier } from '../taxonomy/derive.js'
-import { merchantListing } from '../taxonomy/evaluate.js'
+import { originReach, tier } from '../taxonomy/derive.js'
+import { evaluate, finalModifiers, merchantListing } from '../taxonomy/evaluate.js'
+import type { GameState, Placement } from '../taxonomy/evaluate.js'
 import { ItemRegistry } from '../components/items/ItemRegistry.js'
 import { FloorGrid } from '../components/floor/FloorGrid.js'
 import { PlacementManager } from '../components/floor/PlacementManager.js'
@@ -46,7 +47,7 @@ import { RecipeUnlocks } from '../components/progress/RecipeUnlocks.js'
 import type { UnlockStore } from '../components/progress/RecipeUnlocks.js'
 import { EventBus } from '../services/EventBus.js'
 import { GameEvents } from '../types/index.js'
-import type { GameTime, SaleResult } from '../types/index.js'
+import type { DisplaySlot, GameTime, GridCell, GridSize, SaleResult } from '../types/index.js'
 import { makeRng } from './rng.js'
 
 /**
@@ -101,6 +102,8 @@ export interface SimContext {
   readonly crafting: CraftingSystem
   readonly upgrades: Upgrades
   readonly recipeUnlocks: RecipeUnlocks
+  /** 規則が読む世界の状態（`WorldState.getState()`）。**条件式を当てるのに要る** */
+  readonly state: GameState
   /** いまこの島の商人が並べている品（`merchantListing().stocked`） */
   readonly stocked: readonly ItemDef[]
   /** 補充目標（`SimOptions.stockTarget`） */
@@ -113,12 +116,34 @@ export interface SimContext {
   readonly shelfKinds: number
 }
 
+/**
+ * 盤面を触るための道具（`arrange` に渡す）。
+ *
+ * ⚠ **升目の勘定は方針に持たせない。**かたち・回転・隣接はすべて `FloorGrid` が持っているので、
+ *   方針が決めるのは**どの品をどこに置くか**だけにする。
+ */
+export interface LayoutTools {
+  readonly size: GridSize
+  /** そこに置けるか（`FloorGrid.canPlace`。**回転はしない**） */
+  canPlace(id: ItemId, cell: GridCell): boolean
+  /** そこに置いたとき**辺を接することになる、すでに置いてある品**（`FloorGrid` が出す） */
+  neighborsOf(id: ItemId, cell: GridCell): ItemId[]
+  /** 置く（`PlacementManager.tryPlace`）。置けたら true */
+  place(id: ItemId, cell: GridCell): boolean
+}
+
 /** 何を仕入れ、何を作り、どう並べるか。⚠ **差し替えられること**（比べられないと意味がない） */
 export interface Policy {
   readonly name: string
   buyTargets(ctx: SimContext): readonly BuyOrder[]
   craftTargets(ctx: SimContext): readonly RecipeDef[]
   displayTargets(ctx: SimContext): readonly ItemId[]
+  /**
+   * **並べ方を自分で決める**（省くと「左上から詰める」既定になる）。
+   *
+   * `order` は `displayTargets` が返した列。**並べ替えても、間引いても構わない。**
+   */
+  arrange?(ctx: SimContext, tools: LayoutTools, order: readonly ItemId[]): void
 }
 
 /** 1日ぶんの記録 */
@@ -169,6 +194,30 @@ export interface SimResult {
   readonly startMoney: number
   /** 所持金が 0 以下になった日（本番なら GAME OVER）。無ければ null */
   readonly gameOverDay: number | null
+  /**
+   * **毎朝、組み終えた盤面を `evaluate()` にかけて測った倍率の平均。**
+   *
+   * `区画平均` は `finalModifiers`（その品ぶん × 店全体ぶん）を区画で平均したもの。
+   * `店全体の集客` は `EvaluationResult.shopWide.集客` で、**客が来るかどうか**に掛かる。
+   *
+   * ⚠ **盤面は日に1度しか組み替えないので、1日1回の測定でその日を言い尽くす。**
+   *   取り合わせの規則は `累計販売数` を読まないので、日中に答えが変わることはない。
+   */
+  readonly modifiers: {
+    readonly 売れやすさ: number
+    readonly 値段: number
+    readonly 集客: number
+    readonly 店全体の集客: number
+    /**
+     * 棚に出した区画のうち、**材料を遡った産地が1島に定まるもの**の割合。
+     * ⚠ **R5 が当たりうるのはここだけ**（`産地 != なし` が甲乙の条件）。**集客の天井はこれで決まる。**
+     */
+    readonly 産地あり: number
+    /** そのうち**いちばん大きい同産地の固まり**の割合。⚠ **R5 は産地が一致しないと当たらない** */
+    readonly 最大の同産地: number
+  }
+  /** どの規則が何回当たったか（`EvaluationResult.firedRules` を日ごとに数えた合計） */
+  readonly ruleHits: ReadonlyMap<string, number>
   /** 終わった時点で解禁されていたレシピの本数 */
   readonly unlockedRecipes: number
   /**
@@ -263,6 +312,11 @@ export class SimWorld {
   private gameOverDay: number | null = null
   /** 始めたときの所持金。`EconomyManager` の既定なので、写さずに読み取る */
   private startMoney = 0
+  /** 当たった規則の回数（`EvaluationResult.firedRules` を数えたもの） */
+  private readonly ruleHits = new Map<string, number>()
+  /** 倍率の合計と、測った日数（平均を出すため） */
+  private modSum = { 売れやすさ: 0, 値段: 0, 集客: 0, 店全体の集客: 0, 産地あり: 0, 最大の同産地: 0 }
+  private modDays = 0
 
   // ── その日ぶんの数え（日の頭で 0 に戻す） ──
   private dResell = 0
@@ -314,6 +368,15 @@ export class SimWorld {
       unlockedTopTier: unlocked.length === 0
         ? 0
         : Math.max(...unlocked.map(r => tier(r.outputItemId))),
+      modifiers: {
+        売れやすさ: this.modAvg('売れやすさ'),
+        値段: this.modAvg('値段'),
+        集客: this.modAvg('集客'),
+        店全体の集客: this.modAvg('店全体の集客'),
+        産地あり: this.modAvg('産地あり'),
+        最大の同産地: this.modAvg('最大の同産地'),
+      },
+      ruleHits: this.ruleHits,
     }
   }
 
@@ -412,7 +475,10 @@ export class SimWorld {
     this.purchase(this.policy.buyTargets(ctx))
     this.craftPass(this.policy.craftTargets(ctx), true)
     this.deliverAll()
-    this.layout(this.policy.displayTargets(this.context()))
+    const layoutCtx = this.context()
+    this.layout(layoutCtx, this.policy.displayTargets(layoutCtx))
+    // ⚠ **組み終えてから測る。**日中は盤面が変わらないので、ここ1回で足りる
+    this.measureBoard()
 
     // 時計を回す。**営業 10:00-20:00 の間だけ客が来る**（`GameService.onMinutePassed`）
     let eveningDone = false
@@ -485,6 +551,7 @@ export class SimWorld {
       crafting: this.crafting,
       upgrades: this.upgrades,
       recipeUnlocks: this.recipeUnlocks,
+      state: this.world.getState(),
       stocked: merchantListing(
         this.registry.getAllItems(), this.world.getState(),
         id => this.inventory.hasEverHeld(id),
@@ -593,8 +660,12 @@ export class SimWorld {
    *   取り合わせ（R1〜R6・S1・S2）が効く並べ方を探すのは**別の方針の仕事**で、
    *   ここは「どの方針でも同じ並べ方」にして、稼ぎ方の違いだけを見えるようにしている。
    */
-  private layout(order: readonly ItemId[]): void {
+  private layout(ctx: SimContext, order: readonly ItemId[]): void {
     this.floorGrid.clear()
+    if (this.policy.arrange) {
+      this.policy.arrange(ctx, this.layoutTools(), order)
+      return
+    }
     const size = this.floorGrid.getGridSize()
     for (const id of order) {
       if (this.inventory.getQuantity(id) <= 0) continue
@@ -606,4 +677,106 @@ export class SimWorld {
       }
     }
   }
+
+  /**
+   * 方針に渡す盤面の道具。**升目の勘定は全部 `FloorGrid` に任せる。**
+   *
+   * ⚠ **回転しない**（`rotation: 0`）。既定の並べ方と条件を揃えるため ——
+   *   回転を入れると「並べ方を変えた」以外の差が混ざる。
+   */
+  private layoutTools(): LayoutTools {
+    const offsetsOf = (id: ItemId): GridCell[] =>
+      this.registry.shapeToOffsets(this.registry.getRotatedShape(this.registry.getItem(id).shape, 0))
+    return {
+      size: this.floorGrid.getGridSize(),
+      canPlace: (id, cell) => this.floorGrid.canPlace(this.registry.getItem(id).shape, cell, 0),
+      neighborsOf: (id, cell) => {
+        const own = new Set(offsetsOf(id).map(o => `${cell.x + o.x},${cell.y + o.y}`))
+        const found = new Set<ItemId>()
+        for (const o of offsetsOf(id)) {
+          const x = cell.x + o.x
+          const y = cell.y + o.y
+          for (const d of [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }]) {
+            if (own.has(`${x + d.x},${y + d.y}`)) continue
+            const slot = this.floorGrid.getSlotAt({ x: x + d.x, y: y + d.y })
+            if (slot) found.add(slot.itemId)
+          }
+        }
+        return [...found]
+      },
+      place: (id, cell) => this.placement.tryPlace(id, cell, 0) !== null,
+    }
+  }
+
+  /**
+   * 組み終えた盤面を **本番と同じ `evaluate()`** にかけ、倍率と当たった規則を数える。
+   *
+   * ⚠ **隣接の組はここで出して渡す**（`GameService.evaluateFloor` と同じ作り）。
+   *   `evaluate()` 既定の `adjacentPairs` は品の**回転前**のかたちで見るので、
+   *   本番は盤面側（`FloorGrid`）が出した組を渡している（#30）。
+   *   ⚠ **`GameService` の private を写している唯一の場所。**
+   *   読むためだけに本番へ口を開けたくないので、ここに置いた。
+   *   **`GameService.evaluateFloor` を変えたら、ここも変える。**
+   */
+  private measureBoard(): void {
+    const slots = this.floorGrid.getAllSlots()
+    if (slots.length === 0) return
+    const result = evaluate(
+      slots.map(toPlacement), this.world.getState(), undefined, this.adjacentPairs(slots),
+    )
+    let 売れやすさ = 0
+    let 値段 = 0
+    let 集客 = 0
+    for (const slot of slots) {
+      const m = finalModifiers(result, slot.id)
+      売れやすさ += m.売れやすさ
+      値段 += m.値段
+      集客 += m.集客
+    }
+    this.modSum.売れやすさ += 売れやすさ / slots.length
+    this.modSum.値段 += 値段 / slots.length
+    this.modSum.集客 += 集客 / slots.length
+    this.modSum.店全体の集客 += result.shopWide.集客
+    // **集客の天井がどこから来ているか**（R5 は「産地が `なし` でなく、かつ一致」で当たる）
+    const byOrigin = new Map<string, number>()
+    for (const slot of slots) {
+      const origin = originReach(this.registry.getItem(slot.itemId))
+      if (origin === 'なし') continue
+      byOrigin.set(origin, (byOrigin.get(origin) ?? 0) + 1)
+    }
+    const withOrigin = [...byOrigin.values()].reduce((a, b) => a + b, 0)
+    this.modSum.産地あり += withOrigin / slots.length
+    this.modSum.最大の同産地 += Math.max(0, ...byOrigin.values()) / slots.length
+    this.modDays++
+    for (const id of result.firedRules) {
+      this.ruleHits.set(id, (this.ruleHits.get(id) ?? 0) + 1)
+    }
+  }
+
+  /** ⚠ `GameService.evaluateFloor` と同じ組み立て（上の注記） */
+  private adjacentPairs(slots: readonly DisplaySlot[]): [Placement, Placement][] {
+    const byId = new Map(slots.map(s => [s.id, toPlacement(s)]))
+    const pairs: [Placement, Placement][] = []
+    const seen = new Set<string>()
+    for (const slot of slots) {
+      for (const otherId of this.floorGrid.getAdjacentSlotIds(slot)) {
+        const key = slot.id < otherId ? `${slot.id}|${otherId}` : `${otherId}|${slot.id}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        const a = byId.get(slot.id)
+        const b = byId.get(otherId)
+        if (a && b) pairs.push([a, b])
+      }
+    }
+    return pairs
+  }
+
+  private modAvg(key: keyof typeof this.modSum): number {
+    return this.modDays === 0 ? 1 : this.modSum[key] / this.modDays
+  }
+}
+
+/** `DisplaySlot` を規則評価の `Placement` にする（`GameService` と同じ形） */
+function toPlacement(slot: DisplaySlot): Placement {
+  return { slotId: slot.id, itemId: slot.itemId, x: slot.position.x, y: slot.position.y }
 }
