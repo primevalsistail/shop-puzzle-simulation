@@ -4,6 +4,8 @@
  * ```
  * npx vite-node src/sim/run.ts
  * npx vite-node src/sim/run.ts -- --days=400 --seed=7 --policy=deep --step=20
+ *
+ * --day-craft=1 で、朝の加工を営業時間まで続ける（客ロス分が出るのはこのときだけ）。
  * ```
  *
  * ⚠ **`vite-node` を使うのは `package.json` を触らないため。**`.ts` を `.js` 拡張子で
@@ -50,6 +52,7 @@ function parseArgs(argv: readonly string[]): { opts: SimOptions; names: string[]
       buyRatio: num('buy-ratio', DEFAULT_OPTIONS.buyRatio),
       cashFloor: num('cash-floor', DEFAULT_OPTIONS.cashFloor),
       upgradeAffordRatio: num('upgrade-ratio', DEFAULT_OPTIONS.upgradeAffordRatio),
+      dayCraft: num('day-craft', 0) !== 0,
     },
   }
 }

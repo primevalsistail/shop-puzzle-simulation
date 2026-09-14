@@ -75,6 +75,14 @@ export interface SimOptions {
   readonly cashFloor: number
   /** 改装は「値段の何倍の所持金があるか」で買う */
   readonly upgradeAffordRatio: number
+  /**
+   * true なら**朝の加工を営業時間まで続ける**（`--day-craft=1`）。
+   *
+   * ⚠ **既定の false では、加工が営業時間を削る場面が一度も起きない** ——
+   *   朝6時と閉店後20時だけで1日456分作れて、空き時間が480分あるため。
+   *   **「作るか、店を開けるか」を測るときだけ true にする。**
+   */
+  readonly dayCraft: boolean
 }
 
 export const DEFAULT_OPTIONS: SimOptions = {
@@ -84,6 +92,7 @@ export const DEFAULT_OPTIONS: SimOptions = {
   buyRatio: 0.5,
   cashFloor: 1000,
   upgradeAffordRatio: 2,
+  dayCraft: false,
 }
 
 /** 仕入れの注文。**個数まで方針が決める**（種まきの1個と、補充の60個を同じ列で扱うため） */
@@ -484,7 +493,7 @@ export class SimWorld {
     const ctx = this.context()
     this.buyUpgrades()
     this.purchase(this.policy.buyTargets(ctx))
-    this.craftPass(this.policy.craftTargets(ctx), true)
+    this.craftPass(this.policy.craftTargets(ctx), !this.opts.dayCraft)
     this.deliverAll()
     const layoutCtx = this.context()
     this.layout(layoutCtx, this.policy.displayTargets(layoutCtx))
