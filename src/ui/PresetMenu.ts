@@ -16,6 +16,24 @@ import {
   PRESET_COLS, PRESET_GAP_X, PRESET_CELL_W, PRESET_PREVIEW_W,
   PRESET_TEXT_L_OFFSET, PRESET_NAME_INPUT_W, PRESET_NAME_INPUT_H, PRESET_BTN_FONT_PX,
 } from './layout.js'
+import {
+  BG_FLOOR,
+  BG_PANEL,
+  BG_SCREEN,
+  BTN_ADVANCE,
+  BTN_ADVANCE_HOVER,
+  BTN_BACK,
+  BTN_BACK_OFF,
+  BTN_TEXT,
+  BTN_TEXT_OFF,
+  BTN_TRADE,
+  LINE_STRONG,
+  LINE_WEAK,
+  TEXT_SUB,
+  TEXT_WEAK,
+  css,
+  kindColor,
+} from './palette.js'
 
 /** 2列 × 5行。**型は10本**（`PRESET_COUNT`） */
 const COLS = PRESET_COLS
@@ -234,8 +252,8 @@ export class PresetMenu {
     const { left, cy, h, textL, nameCy, subCy } = this.cellBox(index)
 
     objs.push(
-      this.scene.add.rectangle(left + CELL_W / 2, cy, CELL_W, h, filled ? 0x232344 : 0x25252f)
-        .setStrokeStyle(1.5, filled ? 0x445577 : 0x383848),
+      this.scene.add.rectangle(left + CELL_W / 2, cy, CELL_W, h, filled ? BG_PANEL : BG_SCREEN)
+        .setStrokeStyle(1.5, LINE_STRONG),
     )
 
     // ── 盤面の縮小図 ──
@@ -247,7 +265,7 @@ export class PresetMenu {
     if (!this.nameInputs[index] || !filled) {
       objs.push(
         this.scene.add.text(textL, nameCy, describePreset(preset), {
-          fontSize: `${PRESET_TEXT_FONT_PX}px`, color: filled ? '#aabbcc' : '#667788',
+          fontSize: `${PRESET_TEXT_FONT_PX}px`, color: filled ? css(TEXT_SUB) : css(TEXT_WEAK),
         }).setOrigin(0, 0.5),
       )
     }
@@ -259,18 +277,18 @@ export class PresetMenu {
     if (filled && preset.name) {
       objs.push(
         this.scene.add.text(textL, subCy, defaultPresetLabel(preset), {
-          fontSize: `${PRESET_SUB_FONT_PX}px`, color: '#667788',
+          fontSize: `${PRESET_SUB_FONT_PX}px`, color: css(TEXT_SUB),
         }).setOrigin(0, 0.5),
       )
     }
 
     // ── セーブ ／ ロード ／ 削除 ──
     const by = cy + h / 2 - 27
-    this.button(objs, textL, by, BTN_W, BTN_H, PRESET_SAVE_LABEL, 0x3a5a8a, true,
+    this.button(objs, textL, by, BTN_W, BTN_H, PRESET_SAVE_LABEL, BTN_ADVANCE, true,
       () => this.askSave(index))
-    this.button(objs, textL + BTN_W + BTN_GAP, by, BTN_W, BTN_H, PRESET_LOAD_LABEL, 0x3a6a3a, filled,
+    this.button(objs, textL + BTN_W + BTN_GAP, by, BTN_W, BTN_H, PRESET_LOAD_LABEL, BTN_TRADE, filled,
       () => this.onApply(index))
-    this.button(objs, textL + (BTN_W + BTN_GAP) * 2, by, BTN_W, BTN_H, PRESET_DELETE_LABEL, 0x6a3a3a, filled,
+    this.button(objs, textL + (BTN_W + BTN_GAP) * 2, by, BTN_W, BTN_H, PRESET_DELETE_LABEL, BTN_BACK, filled,
       () => this.askDelete(index))
   }
 
@@ -343,7 +361,7 @@ export class PresetMenu {
     const oy = top + (PREVIEW_H - h) / 2
 
     const gfx = this.scene.add.graphics()
-    gfx.fillStyle(0x0d2340, 1)
+    gfx.fillStyle(BG_FLOOR, 1)
     gfx.fillRect(ox, oy, w, h)
 
     for (const slot of preset?.slots ?? []) {
@@ -354,12 +372,12 @@ export class PresetMenu {
         const gy = slot.position.y + off.y
         // 入らない区画は描かない（呼び出したときも落ちるため）
         if (gx < 0 || gy < 0 || gx >= size.width || gy >= size.height) continue
-        gfx.fillStyle(item.display.color, 1)
+        gfx.fillStyle(kindColor(item.mainKind), 1)
         gfx.fillRect(ox + gx * cell, oy + gy * cell, cell - 1.5, cell - 1.5)
       }
     }
 
-    gfx.lineStyle(1.5, 0x6688aa, 0.8)
+    gfx.lineStyle(1.5, LINE_WEAK, 0.8)
     gfx.strokeRect(ox, oy, w, h)
     objs.push(gfx)
   }
@@ -370,18 +388,18 @@ export class PresetMenu {
     label: string, fill: number, enabled: boolean, onClick: () => void,
   ): void {
     const cx = left + w / 2
-    const bg = this.scene.add.rectangle(cx, cy, w, h, enabled ? fill : 0x33333f)
-      .setStrokeStyle(1.5, enabled ? 0x6a8ab0 : 0x444455)
+    const bg = this.scene.add.rectangle(cx, cy, w, h, enabled ? fill : BTN_BACK_OFF)
+      .setStrokeStyle(1.5, LINE_STRONG)
     if (enabled) {
       bg.setInteractive({ useHandCursor: true })
       bg.on('pointerdown', onClick)
-      bg.on('pointerover', () => bg.setFillStyle(0x5a7ab0))
+      bg.on('pointerover', () => bg.setFillStyle(BTN_ADVANCE_HOVER))
       bg.on('pointerout', () => bg.setFillStyle(fill))
     }
     objs.push(
       bg,
       this.scene.add.text(cx, cy, label, {
-        fontSize: `${PRESET_BTN_FONT_PX}px`, color: enabled ? '#ffffff' : '#777788',
+        fontSize: `${PRESET_BTN_FONT_PX}px`, color: enabled ? css(BTN_TEXT) : css(BTN_TEXT_OFF),
       }).setOrigin(0.5),
     )
   }

@@ -26,7 +26,7 @@ describe('INV-1 追加しても、既存は変わらない', () => {
 
     const added: ItemDef = {
       id: 'test_new_item',
-      display: { name: '試しの品', reading: 'ためしのしな', color: 0x888888 },
+      display: { name: '試しの品', reading: 'ためしのしな' },
       mainKind: '道具', origin: 'なし', luxury: '上等', suitedLand: 'どこでも',
       shape: [[1]], basePrice: 40,
       originReason: 'INV-1 の判定のためだけに足した品',
@@ -43,7 +43,7 @@ describe('INV-1 追加しても、既存は変わらない', () => {
 
     const newItem: ItemDef = {
       id: 'test_flatbread',
-      display: { name: '試しの焼きもの', reading: 'ためしのやきもの', color: 0x888888 },
+      display: { name: '試しの焼きもの', reading: 'ためしのやきもの' },
       mainKind: '食料', origin: 'ノアキータ', luxury: '日用', suitedLand: 'どこでも',
       shape: [[1]],
       originReason: 'INV-1（レシピ版）の判定のためだけに足した品',
@@ -154,7 +154,7 @@ describe('INV-5 追加コストが定数', () => {
   it('品を1つ足すのに書くのは定義1件だけで、既存の定義も規則も需要表も触らない', () => {
     const added: ItemDef = {
       id: 'test_cost_item',
-      display: { name: '試しの品', reading: 'ためしのしな', color: 0x888888 },
+      display: { name: '試しの品', reading: 'ためしのしな' },
       mainKind: '飲みもの', origin: 'リナツィア', luxury: '上等', suitedLand: '暑い土地',
       shape: [[1]], basePrice: 33,
       originReason: 'INV-5 の判定のためだけに足した品',
@@ -295,7 +295,7 @@ describe('層1 は「升数と格」だけで決まる', () => {
   describe('盤面の総額 —— 大きい品だけに一本化しない（k を両側から挟む）', () => {
     const BOARD = { width: 4, height: 4 }
     const shaped = (shape: readonly (readonly (0 | 1)[])[]): ItemDef => ({
-      id: 'board_probe', display: { name: '検査用', reading: 'けんさよう', color: 0x888888 },
+      id: 'board_probe', display: { name: '検査用', reading: 'けんさよう' },
       mainKind: '道具', origin: 'なし', luxury: '上等', suitedLand: 'どこでも',
       shape, basePrice: 1, originReason: '盤面の総額を測るためだけの品',
     })
@@ -402,7 +402,7 @@ describe('異常入力は必ず落ちる', () => {
 
   it('tier1 なのに basePrice が無い品は落ちる', () => {
     const broken: ItemDef = {
-      id: 'broken', display: { name: '壊れた品', reading: 'こわれたしな', color: 0x888888 },
+      id: 'broken', display: { name: '壊れた品', reading: 'こわれたしな' },
       mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: 'どこでも',
       shape: [[1]], originReason: '判定用',
     }

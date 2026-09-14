@@ -70,7 +70,7 @@ describe('商船は一覧の5行目（#97 受入条件1・3）', () => {
     const fn = methodBody(menu, 'private buildShipRow(')
     expect(fn).toContain('this.economy.canAfford(SHIP_COST)')
     expect(fn).toContain(`afford ? UPGRADE_SHIP_LABEL : UPGRADE_REASON_FUNDS`)
-    expect(fn).toContain("afford ? '#ffffff' : '#886666'")
+    expect(fn).toContain('afford ? css(TEXT_BODY) : css(TEXT_WEAK)')
     // 買えないときはボタンを押せない
     expect(fn).toContain('if (afford) {')
   })

@@ -8,6 +8,7 @@ import {
   CELL_SIZE, GRID_ORIGIN_X, GRID_ORIGIN_Y, DISCARD_MARGIN, GRID_SLOT_LABEL_FONT_PX,
 } from './layout.js'
 import { subtractRect } from './rects.js'
+import { BG_WINDOW, LINE_STRONG, LINE_WEAK, ST_DISCARD, ST_LOW, ST_NG, ST_OK, TEXT_BODY, css, kindColor } from './palette.js'
 
 // Small rendering depth constants
 const DEPTH_GRID = 2
@@ -70,7 +71,7 @@ export class FloorRenderer {
   drawGrid(size: GridSize): void {
     this.gridGraphics.clear()
     // Cell lines (subtle)
-    this.gridGraphics.lineStyle(1.5, 0x446688, 0.7)
+    this.gridGraphics.lineStyle(1.5, LINE_WEAK, 0.7)
     for (let x = 0; x <= size.width; x++) {
       const px = GRID_ORIGIN_X + x * CELL_SIZE
       this.gridGraphics.lineBetween(px, GRID_ORIGIN_Y, px, GRID_ORIGIN_Y + size.height * CELL_SIZE)
@@ -82,7 +83,7 @@ export class FloorRenderer {
 
     // Outer border (bright)
     this.borderGraphics.clear()
-    this.borderGraphics.lineStyle(4.5, 0x88aaff, 1.0)
+    this.borderGraphics.lineStyle(4.5, LINE_STRONG, 1.0)
     this.borderGraphics.strokeRect(
       GRID_ORIGIN_X,
       GRID_ORIGIN_Y,
@@ -110,12 +111,12 @@ export class FloorRenderer {
     for (const cell of cells) {
       const px = GRID_ORIGIN_X + cell.x * CELL_SIZE
       const py = GRID_ORIGIN_Y + cell.y * CELL_SIZE
-      g.fillStyle(item.display.color, quantity > 0 ? 1.0 : 0.25)
+      g.fillStyle(kindColor(item.mainKind), quantity > 0 ? 1.0 : 0.25)
       g.fillRect(px + 1.5, py + 1.5, CELL_SIZE - 3, CELL_SIZE - 3)
       // 空 → 赤 ／ 残りわずか → 橙 ／ ふつう → 白
-      if (quantity === 0) g.lineStyle(4.5, 0xff6655, 0.95)
-      else if (quantity < FloorRenderer.LOW_STOCK) g.lineStyle(4.5, 0xffaa33, 0.9)
-      else g.lineStyle(3, 0xffffff, 0.35)
+      if (quantity === 0) g.lineStyle(4.5, ST_NG, 0.95)
+      else if (quantity < FloorRenderer.LOW_STOCK) g.lineStyle(4.5, ST_LOW, 0.9)
+      else g.lineStyle(3, LINE_STRONG, 0.35)
       g.strokeRect(px + 1.5, py + 1.5, CELL_SIZE - 3, CELL_SIZE - 3)
     }
 
@@ -129,9 +130,9 @@ export class FloorRenderer {
       const label = quantity === 0 ? '売り切れ' : `×${quantity}`
       const text = this.scene.add.text(tx, ty, `${item.display.name}\n${label}`, {
         fontSize: `${GRID_SLOT_LABEL_FONT_PX}px`,
-        color: quantity === 0 ? '#ffbbaa'
-          : quantity < FloorRenderer.LOW_STOCK ? '#ffdd99' : '#ffffff',
-        stroke: '#000000',
+        color: quantity === 0 ? css(ST_NG)
+          : quantity < FloorRenderer.LOW_STOCK ? css(ST_LOW) : css(TEXT_BODY),
+        stroke: css(BG_WINDOW),
         strokeThickness: 3,
         align: 'center',
       }).setOrigin(0.5).setDepth(DEPTH_SLOTS + 1).setVisible(this.shown)
@@ -159,7 +160,7 @@ export class FloorRenderer {
     const item = this.registry.getItem(itemId)
     const rotated = this.registry.getRotatedShape(item.shape, rotation)
     const offsets = this.registry.shapeToOffsets(rotated)
-    const color = valid ? 0x00ff88 : 0xff3333
+    const color = valid ? ST_OK : ST_NG
 
     for (const offset of offsets) {
       const px = GRID_ORIGIN_X + (position.x + offset.x) * CELL_SIZE
@@ -191,9 +192,9 @@ export class FloorRenderer {
     for (const offset of offsets) {
       const px = cursorX + (offset.x - anchor.x) * step - ghostSize / 2
       const py = cursorY + (offset.y - anchor.y) * step - ghostSize / 2
-      this.dragGhostGraphics.fillStyle(item.display.color, 0.80)
+      this.dragGhostGraphics.fillStyle(kindColor(item.mainKind), 0.80)
       this.dragGhostGraphics.fillRoundedRect(px, py, ghostSize, ghostSize, 9)
-      this.dragGhostGraphics.lineStyle(3, 0xffffff, 0.65)
+      this.dragGhostGraphics.lineStyle(3, BG_WINDOW, 0.65)
       this.dragGhostGraphics.strokeRoundedRect(px, py, ghostSize, ghostSize, 9)
     }
   }
@@ -215,7 +216,7 @@ export class FloorRenderer {
     const { width, height } = this.scene.scale
     const m = DISCARD_MARGIN
     this.discardGraphics.clear()
-    this.discardGraphics.fillStyle(0xff8822, cursorInZone ? 0.38 : 0.12)
+    this.discardGraphics.fillStyle(ST_DISCARD, cursorInZone ? 0.38 : 0.12)
 
     const grid = {
       x: GRID_ORIGIN_X, y: GRID_ORIGIN_Y,

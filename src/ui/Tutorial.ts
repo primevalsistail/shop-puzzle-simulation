@@ -4,6 +4,18 @@ import {
   TRADE_TITLE,
   TUTORIAL_TITLE_FONT_PX, TUTORIAL_BODY_FONT_PX, TUTORIAL_STEP_FONT_PX, TUTORIAL_BTN_FONT_PX,
 } from './layout.js'
+import {
+  BG_WINDOW,
+  BTN_ADVANCE,
+  BTN_TEXT,
+  LINE_STRONG,
+  SCRIM,
+  SCRIM_ALPHA,
+  TEXT_BODY,
+  TEXT_SUB,
+  TEXT_WEAK,
+  css,
+} from './palette.js'
 
 const TUTORIAL_KEY = 'shop_puzzle_tutorial_done'
 
@@ -63,20 +75,20 @@ export class Tutorial {
     const objs: Phaser.GameObjects.GameObject[] = []
 
     const backdrop = this.scene.add
-      .rectangle(0, 0, width, height, 0x000000, 0.75)
+      .rectangle(0, 0, width, height, SCRIM, SCRIM_ALPHA)
       .setOrigin(0, 0)
       .setInteractive()
     objs.push(backdrop)
 
     objs.push(
-      this.scene.add.rectangle(width / 2, height / 2, 720, 420, 0x1a1a3a)
-        .setStrokeStyle(3, 0x4a4a8a),
+      this.scene.add.rectangle(width / 2, height / 2, 720, 420, BG_WINDOW)
+        .setStrokeStyle(3, LINE_STRONG),
     )
 
     objs.push(
       this.scene.add.text(width / 2, height / 2 - 150, step.title, {
         fontSize: `${TUTORIAL_TITLE_FONT_PX}px`,
-        color: '#ffffff',
+        color: css(TEXT_BODY),
         fontStyle: 'bold',
       }).setOrigin(0.5),
     )
@@ -84,7 +96,7 @@ export class Tutorial {
     objs.push(
       this.scene.add.text(width / 2, height / 2 - 30, step.body, {
         fontSize: `${TUTORIAL_BODY_FONT_PX}px`,
-        color: '#cccccc',
+        color: css(TEXT_SUB),
         align: 'center',
       }).setOrigin(0.5),
     )
@@ -93,7 +105,7 @@ export class Tutorial {
     objs.push(
       this.scene.add.text(width / 2, height / 2 + 120, stepLabel, {
         fontSize: `${TUTORIAL_STEP_FONT_PX}px`,
-        color: '#888888',
+        color: css(TEXT_WEAK),
       }).setOrigin(0.5),
     )
 
@@ -101,8 +113,8 @@ export class Tutorial {
     const btnText = isLast ? '始める！' : '次へ'
     const nextBtn = this.scene.add.text(width / 2, height / 2 + 165, btnText, {
       fontSize: `${TUTORIAL_BTN_FONT_PX}px`,
-      color: '#ffffff',
-      backgroundColor: '#4a4a8a',
+      color: css(BTN_TEXT),
+      backgroundColor: css(BTN_ADVANCE),
       padding: { x: 36, y: 15 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true })
 

@@ -28,6 +28,30 @@ import {
   BUY_PAGER_ARROW_FONT_PX, BUY_PAGER_FONT_PX, BUY_RANGE_FONT_PX,
 } from './layout.js'
 import type { PeddlerStock } from '../components/progress/PeddlerStock.js'
+import {
+  BTN_BACK,
+  BTN_BACK_HOVER,
+  BTN_TEXT,
+  BTN_TEXT_OFF,
+  BTN_TRADE,
+  BTN_TRADE_OFF,
+  FILTER_OFF_BG,
+  FILTER_OFF_TEXT,
+  FILTER_ON_BG,
+  FILTER_ON_TEXT,
+  INPUT_BG,
+  INPUT_BORDER,
+  LINE_STRONG,
+  LINE_WEAK,
+  ROW_ANY,
+  ROW_LOCAL,
+  ROW_UPCOMING,
+  ST_SELECTED,
+  TEXT_BODY,
+  TEXT_SUB,
+  TEXT_WEAK,
+  css,
+} from './palette.js'
 
 const ROW_H = 84
 /** ⚠ **決め打ちしない。**領域の高さから出す（`layout.ts`） */
@@ -55,10 +79,10 @@ const ROW_W = CONTENT_R - CONTENT_L
  *   **島を出ると同じ品が青の行に変わる**（`まぐろ` のように `origin: なし` の品は常に青）。
  * ⚠ **行商人には産地割引が無い**ので、あちらは全部青になる。
  */
-const ROW_BG_LOCAL = 0x2a3a2a
-const ROW_BG_ANY = 0x2b3048
+const ROW_BG_LOCAL = ROW_LOCAL
+const ROW_BG_ANY = ROW_ANY
 /** まだ買えない行（#66）。⚠ **買える2色のどちらとも違うこと** */
-const ROW_BG_UPCOMING = 0x2a2a2a
+const ROW_BG_UPCOMING = ROW_UPCOMING
 
 /** 1行ぶんの、あとから書き換える部品 */
 interface Row {
@@ -297,11 +321,11 @@ export class PurchaseMenu {
     KIND_BUTTONS.forEach((cat, i) => {
       const bx = PLACE_CX - groupW / 2 + btnW / 2 + i * (btnW + gap)
       const on = this.paging.isKindActive(cat.id)
-      const bg = this.scene.add.rectangle(bx, this.filterY(), btnW, btnH, on ? 0x6a5a2a : 0x232338)
-        .setStrokeStyle(1.5, on ? 0xbb9944 : 0x444455)
+      const bg = this.scene.add.rectangle(bx, this.filterY(), btnW, btnH, on ? FILTER_ON_BG : FILTER_OFF_BG)
+        .setStrokeStyle(1.5, LINE_STRONG)
         .setInteractive({ useHandCursor: true })
       const label = this.scene.add.text(bx, this.filterY(), cat.label, {
-        fontSize: `${BUY_FILTER_FONT_PX}px`, color: on ? '#ffdd88' : '#778899',
+        fontSize: `${BUY_FILTER_FONT_PX}px`, color: on ? css(FILTER_ON_TEXT) : css(FILTER_OFF_TEXT),
       }).setOrigin(0.5)
       bg.on('pointerdown', () => { this.paging.toggleKind(cat.id); this.rebuild() })
       objs.push(bg, label)
@@ -329,7 +353,7 @@ export class PurchaseMenu {
               //   行商人は**今日は積んでいない**だけなので、明日また来ることを言う
               ? '行商人は、今日は何も積んでいません'
               : '商人は、いま何も並べていません', {
-          fontSize: `${BUY_EMPTY_FONT_PX}px`, color: '#889999',
+          fontSize: `${BUY_EMPTY_FONT_PX}px`, color: css(TEXT_SUB),
         }).setOrigin(0.5),
       )
     }
@@ -346,7 +370,7 @@ export class PurchaseMenu {
     const cur = this.paging.currentPage(total)
     const arrow = (x: number, text: string, delta: number, enabled: boolean) => {
       const t = this.scene.add.text(x, PAGER_Y, text, {
-        fontSize: `${BUY_PAGER_ARROW_FONT_PX}px`, color: enabled ? '#ffdd88' : '#555566',
+        fontSize: `${BUY_PAGER_ARROW_FONT_PX}px`, color: enabled ? css(TEXT_SUB) : css(TEXT_WEAK),
       }).setOrigin(0.5)
       if (enabled) {
         t.setInteractive({ useHandCursor: true })
@@ -356,12 +380,12 @@ export class PurchaseMenu {
     }
     arrow(PLACE_CX - 90, '◀', -1, cur > 0)
     objs.push(this.scene.add.text(PLACE_CX, PAGER_Y, this.paging.pageLabel(total), {
-      fontSize: `${BUY_PAGER_FONT_PX}px`, color: '#aa9977',
+      fontSize: `${BUY_PAGER_FONT_PX}px`, color: css(TEXT_SUB),
     }).setOrigin(0.5))
     arrow(PLACE_CX + 90, '▶', 1, cur < pages - 1)
     // 件数はページ送りと同じ行に置く。⚠ **見出しの下には出さない**（島の商人は空の帯）
     objs.push(this.scene.add.text(CONTENT_R, PAGER_Y, this.paging.rangeLabel(total), {
-      fontSize: `${BUY_RANGE_FONT_PX}px`, color: '#aa9977',
+      fontSize: `${BUY_RANGE_FONT_PX}px`, color: css(TEXT_SUB),
     }).setOrigin(1, 0.5))
   }
 
@@ -380,12 +404,12 @@ export class PurchaseMenu {
   ): void {
     objs.push(
       this.scene.add.rectangle(PLACE_CX, y, ROW_W, ROW_H - 9, ROW_BG_UPCOMING)
-        .setStrokeStyle(1.5, 0x444444),
+        .setStrokeStyle(1.5, LINE_WEAK),
     )
 
     objs.push(
       this.scene.add.text(ROW_NAME_X, y, mat.display.name, {
-        fontSize: `${TAB_ROW_TITLE_FONT_PX}px`, color: '#998877',
+        fontSize: `${TAB_ROW_TITLE_FONT_PX}px`, color: css(TEXT_SUB),
       }).setOrigin(0, 0.5),
     )
 
@@ -395,7 +419,7 @@ export class PurchaseMenu {
     //   文字とその大きさは `layout.ts`（`layout.test.ts` が幅を見ている）
     objs.push(
       this.scene.add.text(ROW_BUY_L + BUY_W, y, upcomingLabel(salesLeft), {
-        fontSize: `${UPCOMING_FONT_PX}px`, color: '#aa9977',
+        fontSize: `${UPCOMING_FONT_PX}px`, color: css(TEXT_SUB),
       }).setOrigin(1, 0.5),
     )
   }
@@ -415,11 +439,11 @@ export class PurchaseMenu {
     objs.push(
       this.scene.add.rectangle(PLACE_CX, y, ROW_W, ROW_H - 9,
         isLocal ? ROW_BG_LOCAL : ROW_BG_ANY)
-        .setStrokeStyle(focused ? 3 : 1.5, focused ? 0xffdd88 : 0x555555),
+        .setStrokeStyle(focused ? 3 : 1.5, focused ? ST_SELECTED : LINE_WEAK),
     )
 
     const nameText = this.scene.add.text(ROW_NAME_X, y, mat.display.name, {
-      fontSize: `${TAB_ROW_TITLE_FONT_PX}px`, color: '#ffffff',
+      fontSize: `${TAB_ROW_TITLE_FONT_PX}px`, color: css(TEXT_BODY),
     }).setOrigin(0, 0.5)
     objs.push(nameText)
 
@@ -430,7 +454,7 @@ export class PurchaseMenu {
       objs.push(
         this.scene.add.text(nameText.x + nameText.width + 12, y,
           peddlerRemainText(this.peddler.remaining(mat.id)), {
-          fontSize: `${PEDDLER_REMAIN_FONT_PX}px`, color: '#ddbb88',
+          fontSize: `${PEDDLER_REMAIN_FONT_PX}px`, color: css(TEXT_SUB),
         }).setOrigin(0, 0.5),
       )
     }
@@ -445,7 +469,7 @@ export class PurchaseMenu {
 
     // ⚠ **大きさは `layout.ts` の `INFO_FONT_PX`。**12px だと4桁の仕入れ値で左隣に重なる
     const infoText = this.scene.add.text(ROW_INFO_R, y, '', {
-      fontSize: `${INFO_FONT_PX}px`, color: '#aaaaaa',
+      fontSize: `${INFO_FONT_PX}px`, color: css(TEXT_SUB),
     }).setOrigin(1, 0.5)
     objs.push(infoText)
 
@@ -468,25 +492,25 @@ export class PurchaseMenu {
       objs.push(domEl)
     } else {
       objs.push(
-        this.scene.add.rectangle(ROW_INPUT_L + ROW_INPUT_W / 2, y, ROW_INPUT_W, ROW_INPUT_H, 0x15152a)
-          .setStrokeStyle(1.5, 0x4a4a8a),
+        this.scene.add.rectangle(ROW_INPUT_L + ROW_INPUT_W / 2, y, ROW_INPUT_W, ROW_INPUT_H, INPUT_BG)
+          .setStrokeStyle(1.5, INPUT_BORDER),
       )
       valueText = this.scene.add.text(ROW_INPUT_L + ROW_INPUT_W - 9, y, input.value, {
-        fontSize: `${BUY_QTY_FONT_PX}px`, color: '#ffffff',
+        fontSize: `${BUY_QTY_FONT_PX}px`, color: css(TEXT_BODY),
       }).setOrigin(1, 0.5)
       objs.push(valueText)
     }
 
     // ⚠ **総額はボタンの外**（PO 指示 2026-09-13）。右そろえで、ボタンとのあいだを空ける
     const totalText = this.scene.add.text(ROW_TOTAL_R, y, '', {
-      fontSize: `${BUY_TOTAL_FONT_PX}px`, color: '#ffffff',
+      fontSize: `${BUY_TOTAL_FONT_PX}px`, color: css(TEXT_BODY),
     }).setOrigin(1, 0.5)
     objs.push(totalText)
 
-    const buyBg = this.scene.add.rectangle(ROW_BUY_BTN_L + BUY_BTN_W / 2, y, BUY_BTN_W, 39, 0x6a5a2a)
-      .setStrokeStyle(1.5, 0x8a7a3a)
+    const buyBg = this.scene.add.rectangle(ROW_BUY_BTN_L + BUY_BTN_W / 2, y, BUY_BTN_W, 39, BTN_TRADE)
+      .setStrokeStyle(1.5, LINE_STRONG)
     const buyLabel = this.scene.add.text(ROW_BUY_BTN_L + BUY_BTN_W / 2, y, '', {
-      fontSize: `${BUY_FONT_PX}px`, color: '#ffffff',
+      fontSize: `${BUY_FONT_PX}px`, color: css(TEXT_BODY),
     }).setOrigin(0.5)
     objs.push(buyBg, buyLabel)
 
@@ -542,10 +566,10 @@ export class PurchaseMenu {
     //   **個数が読めないときだけ**、総額の場所にその理由が出る（出せる総額が無いため）。
     //   ⚠ **理由に金額を足さないこと。**総額はすぐ左に出ているので、繰り返すとボタンから出る
     row.totalText.setText(qty === null ? reason : money(row.unitCost * qty))
-    row.totalText.setColor(reason === '' ? '#ffffff' : '#ffaa66')
+    row.totalText.setColor(reason === '' ? css(TEXT_BODY) : css(TEXT_WEAK))
     row.buyLabel.setText(qty === null || reason === '' ? BUY_LABEL : reason)
-    row.buyLabel.setColor(reason === '' ? '#ffffff' : '#998877')
-    row.buyBg.setFillStyle(reason === '' ? 0x6a5a2a : 0x3a3a3a)
+    row.buyLabel.setColor(reason === '' ? css(BTN_TEXT) : css(BTN_TEXT_OFF))
+    row.buyBg.setFillStyle(reason === '' ? BTN_TRADE : BTN_TRADE_OFF)
     if (reason === '') row.buyBg.setInteractive({ useHandCursor: true })
     else row.buyBg.disableInteractive()
   }
@@ -588,15 +612,15 @@ export class PurchaseMenu {
     label: string, onClick: () => void,
   ): void {
     const cx = left + w / 2
-    const bg = this.scene.add.rectangle(cx, cy, w, h, 0x33335a)
-      .setStrokeStyle(1.5, 0x6a6ab0)
+    const bg = this.scene.add.rectangle(cx, cy, w, h, BTN_BACK)
+      .setStrokeStyle(1.5, LINE_STRONG)
       .setInteractive({ useHandCursor: true })
     bg.on('pointerdown', onClick)
-    bg.on('pointerover', () => bg.setFillStyle(0x5a5ab0))
-    bg.on('pointerout', () => bg.setFillStyle(0x33335a))
+    bg.on('pointerover', () => bg.setFillStyle(BTN_BACK_HOVER))
+    bg.on('pointerout', () => bg.setFillStyle(BTN_BACK))
     objs.push(
       bg,
-      this.scene.add.text(cx, cy, label, { fontSize: `${BUY_STEP_BTN_FONT_PX}px`, color: '#ffffff' }).setOrigin(0.5),
+      this.scene.add.text(cx, cy, label, { fontSize: `${BUY_STEP_BTN_FONT_PX}px`, color: css(BTN_TEXT) }).setOrigin(0.5),
     )
   }
 }

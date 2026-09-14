@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { describe, it, expect } from 'vitest'
+import { SCRIM_ALPHA } from './palette.js'
 import purchaseSource from './PurchaseMenu.ts?raw'
 import messageWindowSource from './MessageWindow.ts?raw'
 import craftSource from './CraftMenu.ts?raw'
@@ -62,7 +63,7 @@ import {
   DELIVERY_DISCARD_L, DELIVERY_DISCARD_W,
   TAB_ROW_TITLE_FONT_PX,
   MSG_WIN_L, MSG_WIN_R, MSG_WIN_T, MSG_WIN_B, MSG_WIN_PAD, MSG_TEXT_MAX_W,
-  MSG_WIN_W, MSG_WIN_CX, MSG_WIN_CY, MSG_SCRIM_ALPHA,
+  MSG_WIN_W, MSG_WIN_CX, MSG_WIN_CY,
   MSG_SPEAKER_FONT_PX, MSG_SPEAKER_Y, MSG_TEXT_FONT_PX, MSG_TEXT_TOP, MSG_LINE_H,
   MSG_LINES_MAX, MSG_CHOICE_W, MSG_CHOICE_H, MSG_CHOICE_GAP, MSG_CHOICE_FONT_PX,
   MSG_CHOICE_CY, msgChoiceCx,
@@ -966,10 +967,13 @@ describe('できごとの窓（#24）', () => {
     expect(MSG_WIN_B).toBeLessThan(gridB)
   })
 
-  /** ⚠ **暗幕は透ける。**不透明にすると `PlaceFrame` と同じ「消す」になる */
+  /**
+   * ⚠ **暗幕は透ける。**不透明にすると `PlaceFrame` と同じ「消す」になる。
+   * ⚠ **濃さは `ui/palette.ts` の `SCRIM_ALPHA` が持つ**（2026-09-14 に配色ごと移した）。
+   */
   it('暗幕は透ける（後ろが見えている）', () => {
-    expect(MSG_SCRIM_ALPHA).toBeGreaterThan(0)
-    expect(MSG_SCRIM_ALPHA).toBeLessThan(1)
+    expect(SCRIM_ALPHA).toBeGreaterThan(0)
+    expect(SCRIM_ALPHA).toBeLessThan(1)
   })
 
   /**
@@ -986,11 +990,11 @@ describe('できごとの窓（#24）', () => {
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/[^\n]*/g, '')
     // 暗幕は画面いっぱい
-    expect(src).toContain('SCREEN_W, SCREEN_H, 0x000000, MSG_SCRIM_ALPHA')
+    expect(src).toContain('SCREEN_W, SCREEN_H, SCRIM, SCRIM_ALPHA)')
     // 下を押させない面が2つ（暗幕と窓）
     expect(src.match(/setInteractive\(\)/g)).toHaveLength(2)
     // 窓の面に alpha を渡していない ＝ 不透明
-    expect(src).toContain('MSG_WIN_W, MSG_WIN_H, 0x16213e)')
+    expect(src).toContain('MSG_WIN_W, MSG_WIN_H, BG_WINDOW)')
   })
 
   it('中の行が上から下へ重ならずに並んでいる', () => {

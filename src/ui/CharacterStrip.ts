@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import {
   STRIP_L, STRIP_W, STRIP_H, STRIP_SHOPKEEPER_FONT_PX, STRIP_CUSTOMER_FONT_PX,
 } from './layout.js'
+import { BG_PANEL, LINE_STRONG, LINE_WEAK, TEXT_SUB, TEXT_WEAK, css } from './palette.js'
 
 const STRIP_X = STRIP_L
 const STRIP_WIDTH = STRIP_W
@@ -36,10 +37,10 @@ export class CharacterStrip {
 
     // ── 店番エリア（上半分） ─────────────────────────────
     this.frame.push(
-      this.scene.add.rectangle(cx, MID_Y / 2, STRIP_WIDTH, MID_Y, 0x1a2a3a)
-        .setStrokeStyle(1.5, 0x2a4a6a).setDepth(1),
+      this.scene.add.rectangle(cx, MID_Y / 2, STRIP_WIDTH, MID_Y, BG_PANEL)
+        .setStrokeStyle(1.5, LINE_STRONG).setDepth(1),
       this.scene.add.text(cx, 24, '店番', {
-        fontSize: `${STRIP_SHOPKEEPER_FONT_PX}px`, color: '#7799bb',
+        fontSize: `${STRIP_SHOPKEEPER_FONT_PX}px`, color: css(TEXT_SUB),
       }).setOrigin(0.5, 0).setDepth(2),
     )
 
@@ -49,16 +50,16 @@ export class CharacterStrip {
 
     // ── 来店客エリア（下半分） ───────────────────────────
     this.frame.push(
-      this.scene.add.rectangle(cx, MID_Y + (STRIP_HEIGHT - MID_Y) / 2, STRIP_WIDTH, STRIP_HEIGHT - MID_Y, 0x1a3a2a)
-        .setStrokeStyle(1.5, 0x2a6a4a).setDepth(1),
+      this.scene.add.rectangle(cx, MID_Y + (STRIP_HEIGHT - MID_Y) / 2, STRIP_WIDTH, STRIP_HEIGHT - MID_Y, BG_PANEL)
+        .setStrokeStyle(1.5, LINE_STRONG).setDepth(1),
       this.scene.add.text(cx, MID_Y + 12, '来店客', {
-        fontSize: `${STRIP_CUSTOMER_FONT_PX}px`, color: '#77bb99',
+        fontSize: `${STRIP_CUSTOMER_FONT_PX}px`, color: css(TEXT_SUB),
       }).setOrigin(0.5, 0).setDepth(2),
     )
 
     // 区切り線
     const divGfx = this.scene.add.graphics().setDepth(2)
-    divGfx.lineStyle(1.5, 0x445566, 0.8)
+    divGfx.lineStyle(1.5, LINE_WEAK, 0.8)
     divGfx.lineBetween(STRIP_X + 6, MID_Y, STRIP_X + STRIP_WIDTH - 6, MID_Y)
     this.frame.push(divGfx)
   }
@@ -68,10 +69,10 @@ export class CharacterStrip {
     const cy = MID_Y / 2
     this.shopkeeperGfx.clear()
     // 頭
-    this.shopkeeperGfx.fillStyle(0x4a7a9b, 1)
+    this.shopkeeperGfx.fillStyle(TEXT_SUB, 1)
     this.shopkeeperGfx.fillCircle(cx, cy - 30, 27)
     // 体
-    this.shopkeeperGfx.fillStyle(0x3a6a8b, 1)
+    this.shopkeeperGfx.fillStyle(TEXT_WEAK, 1)
     this.shopkeeperGfx.fillRoundedRect(cx - 24, cy + 0, 48, 42, 9)
   }
 
@@ -83,9 +84,9 @@ export class CharacterStrip {
     if (baseY > STRIP_HEIGHT - 30) return
 
     const gfx = this.scene.add.graphics().setDepth(2).setVisible(this.shown)
-    gfx.fillStyle(0x3a8b5a, 1)
+    gfx.fillStyle(TEXT_SUB, 1)
     gfx.fillCircle(cx, baseY, 18)
-    gfx.fillStyle(0x2a7a4a, 1)
+    gfx.fillStyle(TEXT_WEAK, 1)
     gfx.fillRoundedRect(cx - 15, baseY + 21, 30, 27, 6)
     this.customerSlots.set(id, gfx)
   }

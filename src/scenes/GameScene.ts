@@ -56,6 +56,30 @@ import type { DisplaySlot, GameTime, GridCell, GridSize, Rotation } from '../typ
 import { ALL_ITEMS } from '../taxonomy/items.js'
 import { ALL_RECIPES } from '../taxonomy/recipes.js'
 import { becameBuyable, merchantListing } from '../taxonomy/evaluate.js'
+import {
+  BG_FLOOR,
+  BG_PANEL,
+  BG_SCREEN,
+  BG_WINDOW,
+  BTN_ADVANCE,
+  BTN_ADVANCE_HOVER,
+  BTN_BACK,
+  BTN_BACK_HOVER,
+  BTN_CRAFT,
+  BTN_CRAFT_HOVER,
+  BTN_TEXT,
+  BTN_TRADE,
+  BTN_TRADE_HOVER,
+  FILTER_ON_TEXT,
+  LINE_STRONG,
+  LINE_WEAK,
+  SCRIM,
+  ST_NG,
+  ST_OK,
+  TEXT_BODY,
+  TEXT_SUB,
+  css,
+} from '../ui/palette.js'
 
 /** 初期の盤面。**棚の強化で広がる**（`Upgrades.gridSize()`） */
 const INITIAL_GRID = { width: 6, height: 5 }
@@ -499,23 +523,23 @@ export class GameScene extends Phaser.Scene {
 
   private setupBackground(): void {
     // 全体背景
-    this.add.rectangle(SCREEN_W / 2, SCREEN_H / 2, SCREEN_W, SCREEN_H, 0x1a1a2e)
+    this.add.rectangle(SCREEN_W / 2, SCREEN_H / 2, SCREEN_W, SCREEN_H, BG_SCREEN)
     // 左パネル（船倉の中身）
-    this.add.rectangle(LEFT_PANEL_R / 2, SCREEN_H / 2, LEFT_PANEL_R, SCREEN_H, 0x16213e)
+    this.add.rectangle(LEFT_PANEL_R / 2, SCREEN_H / 2, LEFT_PANEL_R, SCREEN_H, BG_PANEL)
     // グリッドエリア下地。⚠ **棚を広げたら `applyShelfSize` で一緒に広げること。**
     //   ここを固定にすると、広げた部分だけ地の色が違って見える
-    this.gridBackdrop = this.add.rectangle(0, 0, 1, 1, 0x0d2340)
+    this.gridBackdrop = this.add.rectangle(0, 0, 1, 1, BG_FLOOR)
     this.resizeGridBackdrop(INITIAL_GRID)
     // 右パネル
-    this.add.rectangle((RIGHT_PANEL_L + SCREEN_W) / 2, LOG_T / 2, SCREEN_W - RIGHT_PANEL_L, LOG_T, 0x13122a)
-      .setStrokeStyle(1.5, 0x2a2a4a)
+    this.add.rectangle((RIGHT_PANEL_L + SCREEN_W) / 2, LOG_T / 2, SCREEN_W - RIGHT_PANEL_L, LOG_T, BG_PANEL)
+      .setStrokeStyle(1.5, LINE_STRONG)
     // キャラ絵プレースホルダー（HUD の下〜ボタン列の上）。
     // ⚠ **高さを直書きしないこと。**ボタン列に行を足すと列が上へ伸びる（`layout.ts` の注記）
-    this.add.rectangle(CHAR_ART_CX, CHAR_ART_CY, CHAR_ART_W, CHAR_ART_H, 0x0d1530)
-      .setStrokeStyle(1.5, 0x223355).setDepth(1)
+    this.add.rectangle(CHAR_ART_CX, CHAR_ART_CY, CHAR_ART_W, CHAR_ART_H, BG_WINDOW)
+      .setStrokeStyle(1.5, LINE_STRONG).setDepth(1)
     // メッセージウィンドウ区切り（グリッド+キャラ+右パネルのみ。左パネルはアイテムリストが続く）
     const divGfx = this.add.graphics()
-    divGfx.lineStyle(1.5, 0x334455, 0.6)
+    divGfx.lineStyle(1.5, LINE_WEAK, 0.6)
     divGfx.lineBetween(LEFT_PANEL_R, LOG_T - 1.5, SCREEN_W, LOG_T - 1.5)
   }
 
@@ -550,8 +574,8 @@ export class GameScene extends Phaser.Scene {
 
     // ── Tooltip ──────────────────────────────────────
     this.tooltip = this.add.text(0, 0, '', {
-      fontSize: `${BTN_TOOLTIP_FONT_PX}px`, color: '#dddddd',
-      backgroundColor: '#111133',
+      fontSize: `${BTN_TOOLTIP_FONT_PX}px`, color: css(FILTER_ON_TEXT),
+      backgroundColor: css(SCRIM),
       padding: { x: 12, y: 7.5 },
     }).setDepth(DEPTH + 1).setVisible(false)
 
@@ -573,12 +597,12 @@ export class GameScene extends Phaser.Scene {
     ]
     iconDefs.forEach(({ emoji, tip, action }, i) => {
       const cx = L + IW / 2 + i * (IW + iconGap)
-      const bg = this.add.rectangle(cx, yIcon, IW, IH, 0x2a2a4a)
-        .setStrokeStyle(1.5, 0x555577).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
+      const bg = this.add.rectangle(cx, yIcon, IW, IH, BTN_BACK)
+        .setStrokeStyle(1.5, LINE_STRONG).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
       this.add.text(cx, yIcon, emoji, { fontSize: `${BTN_ICON_FONT_PX}px` }).setOrigin(0.5).setDepth(DEPTH)
       bg.on('pointerdown', action)
-      bg.on('pointerover', () => { bg.setFillStyle(0x4a4a6a); showTip(cx, yIcon, tip) })
-      bg.on('pointerout',  () => { bg.setFillStyle(0x2a2a4a); hideTip() })
+      bg.on('pointerover', () => { bg.setFillStyle(BTN_BACK_HOVER); showTip(cx, yIcon, tip) })
+      bg.on('pointerout',  () => { bg.setFillStyle(BTN_BACK); hideTip() })
     })
 
     // ── Action buttons ───────────────────────────────
@@ -590,8 +614,8 @@ export class GameScene extends Phaser.Scene {
       action: () => void,
     ) => {
       const bg = this.add.rectangle(acx, cy, PW, AH, normal)
-        .setStrokeStyle(1.5, 0x666688).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
-      this.add.text(acx, cy, `${icon}  ${label}`, { fontSize: `${BTN_ACTION_FONT_PX}px`, color: '#ffffff' })
+        .setStrokeStyle(1.5, LINE_STRONG).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
+      this.add.text(acx, cy, `${icon}  ${label}`, { fontSize: `${BTN_ACTION_FONT_PX}px`, color: css(BTN_TEXT) })
         .setOrigin(0.5).setDepth(DEPTH)
       bg.on('pointerdown', action)
       bg.on('pointerover', () => bg.setFillStyle(hover))
@@ -602,33 +626,33 @@ export class GameScene extends Phaser.Scene {
     // ⚠ **行った先の見出しと同じ名にすること**（`PlaceFrame.show(TRADE_TITLE)`）。
     //   同じ場所を2つの名で呼ばない（`クラフト`→`工房` と同じ直し。束M）。
     //   ⚠ **`改装` と `商人のところ` はここにもう無い**（#96）。どちらも「取引」の中のタブ
-    makeAction(yTrade, TRADE_TITLE, '🛒', 0x6a5a2a, 0x8a7a3a, () => this.openTrade())
+    makeAction(yTrade, TRADE_TITLE, '🛒', BTN_TRADE, BTN_TRADE_HOVER, () => this.openTrade())
     // ⚠ **行商人はここに並べない**（#90）。**向こうから来る**ので、
     //   いつでも押せるボタンとして置くと「そこに在る店」になり、来訪という形が消える。
     //   開くのはできごとの窓の「見る」だけ（`resolveStoryChoice`）
-    makeAction(yCraft, '工房', '🔨', 0x4a6a3a, 0x5a8a4a, () => this.openCraftMenu())
+    makeAction(yCraft, '工房', '🔨', BTN_CRAFT, BTN_CRAFT_HOVER, () => this.openCraftMenu())
 
     // 速度切り替え。⚠ 飛ばすのではなく速くする（飛ばすと売れた実感が消える）。
     //   **「進める」ボタンの上に独立した行として置く。**ボタンの中に入れると文字が重なる
-    const speedBg = this.add.rectangle(acx, ySpeed, PW, 24, 0x2a2a4a)
-      .setStrokeStyle(1.5, 0x555577).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
+    const speedBg = this.add.rectangle(acx, ySpeed, PW, 24, BTN_BACK)
+      .setStrokeStyle(1.5, LINE_STRONG).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
     this.speedLabel = this.add.text(acx, ySpeed, `速さ ×${this.timeManager.getSpeed()}`, {
-      fontSize: `${BTN_SPEED_FONT_PX}px`, color: '#ccddff',
+      fontSize: `${BTN_SPEED_FONT_PX}px`, color: css(BTN_TEXT),
     }).setOrigin(0.5).setDepth(DEPTH)
     speedBg.on('pointerdown', () => {
       this.speedLabel.setText(`速さ ×${this.timeManager.cycleSpeed()}`)
     })
 
-    this.advanceBtnBg = this.add.rectangle(acx, yAdv, PW, AH, 0x4a4a8a)
-      .setStrokeStyle(1.5, 0x6666aa).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
-    this.advanceBtnLabel = this.add.text(acx, yAdv, '▶  進める', { fontSize: `${BTN_ADVANCE_FONT_PX}px`, color: '#ffffff' })
+    this.advanceBtnBg = this.add.rectangle(acx, yAdv, PW, AH, BTN_ADVANCE)
+      .setStrokeStyle(1.5, LINE_STRONG).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
+    this.advanceBtnLabel = this.add.text(acx, yAdv, '▶  進める', { fontSize: `${BTN_ADVANCE_FONT_PX}px`, color: css(BTN_TEXT) })
       .setOrigin(0.5).setDepth(DEPTH)
     this.advanceBtnBg.on('pointerdown', () => this.onAdvancePressed())
     this.advanceBtnBg.on('pointerover', () => {
-      if (!this.timeManager.isAdvancing()) this.advanceBtnBg.setFillStyle(0x6a6aaa)
+      if (!this.timeManager.isAdvancing()) this.advanceBtnBg.setFillStyle(BTN_ADVANCE_HOVER)
     })
     this.advanceBtnBg.on('pointerout', () => {
-      this.advanceBtnBg.setFillStyle(this.timeManager.isAdvancing() ? 0x8a4a4a : 0x4a4a8a)
+      this.advanceBtnBg.setFillStyle(this.timeManager.isAdvancing() ? BTN_BACK : BTN_ADVANCE)
     })
   }
 
@@ -874,7 +898,7 @@ export class GameScene extends Phaser.Scene {
     })
 
     EventBus.on(GameEvents.TIME_ADVANCE_STOPPED, () => {
-      this.advanceBtnLabel.setText('▶  進める'); this.advanceBtnBg.setFillStyle(0x4a4a8a)
+      this.advanceBtnLabel.setText('▶  進める'); this.advanceBtnBg.setFillStyle(BTN_ADVANCE)
       
     })
 
@@ -1093,7 +1117,7 @@ export class GameScene extends Phaser.Scene {
     if (!this.timeManager.isAdvancing()) return
     this.timeManager.stopAdvancing()
     this.advanceBtnLabel.setText('▶  進める')
-    this.advanceBtnBg.setFillStyle(0x4a4a8a)
+    this.advanceBtnBg.setFillStyle(BTN_ADVANCE)
   }
 
   private openCraftMenu(): void {
@@ -1424,8 +1448,8 @@ export class GameScene extends Phaser.Scene {
     const px = GRID_ORIGIN_X + (slot.position.x + cx + 0.5) * CELL_SIZE
     const py = GRID_ORIGIN_Y + (slot.position.y + cy) * CELL_SIZE
     const popup = this.add.text(px, py, `+${money(revenue)}`, {
-      fontSize: `${SALE_POPUP_FONT_PX}px`, color: '#ffee44',
-      stroke: '#000000', strokeThickness: 4.5,
+      fontSize: `${SALE_POPUP_FONT_PX}px`, color: css(ST_OK),
+      stroke: css(BG_WINDOW), strokeThickness: 4.5,
       fontStyle: 'bold',
     }).setOrigin(0.5, 1).setDepth(100)
     this.tweens.add({
@@ -1500,18 +1524,18 @@ export class GameScene extends Phaser.Scene {
   private showGoalComplete(): void {
     const { width, height } = this.scale
     this.curtainShown = true
-    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setDepth(200)
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, BG_WINDOW, 0.96).setDepth(200)
     const title = this.add.text(width / 2, height / 2 - 120, '🎉 目標達成！', {
-      fontSize: `${GOAL_TITLE_FONT_PX}px`, color: '#ffdd44', fontStyle: 'bold',
+      fontSize: `${GOAL_TITLE_FONT_PX}px`, color: css(ST_OK), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(201)
     // ⚠ **所持金は出さない**（#97）。**買った直後なので 1,000万ぶん減っている** ——
     //   出すと `所持金 0レン` がエンディングに出る。額の出どころは `ui/goal.ts` のまま
     const line = this.add.text(width / 2, height / 2, shipBoughtLine(), {
-      fontSize: `${GOAL_LINE_FONT_PX}px`, color: '#ffffff',
+      fontSize: `${GOAL_LINE_FONT_PX}px`, color: css(TEXT_BODY),
     }).setOrigin(0.5).setDepth(201)
 
     const closeBtn = this.add.text(width / 2, height / 2 + 135, GOAL_CLOSE_LABEL, {
-      fontSize: `${GOAL_BTN_FONT_PX}px`, color: '#ffffff', backgroundColor: '#4a4a8a', padding: { x: 36, y: 18 },
+      fontSize: `${GOAL_BTN_FONT_PX}px`, color: css(BTN_TEXT), backgroundColor: css(BTN_ADVANCE), padding: { x: 36, y: 18 },
     }).setOrigin(0.5).setDepth(201).setInteractive({ useHandCursor: true })
     closeBtn.on('pointerdown', () => {
       // ⚠ **幕の文字も一緒に消すこと。**下地だけ消すと `🎉 目標達成！` が店の上に残る
@@ -1525,12 +1549,12 @@ export class GameScene extends Phaser.Scene {
   private showGameOver(): void {
     const { width, height } = this.scale
     this.curtainShown = true
-    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.85).setDepth(200)
+    this.add.rectangle(width / 2, height / 2, width, height, BG_WINDOW, 0.96).setDepth(200)
     this.add.text(width / 2, height / 2 - 60, 'GAME OVER', {
-      fontSize: `${GAMEOVER_TITLE_FONT_PX}px`, color: '#ff4444', fontStyle: 'bold',
+      fontSize: `${GAMEOVER_TITLE_FONT_PX}px`, color: css(ST_NG), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(201)
     this.add.text(width / 2, height / 2 + 45, '資金が尽きました', {
-      fontSize: `${GAMEOVER_LINE_FONT_PX}px`, color: '#cccccc',
+      fontSize: `${GAMEOVER_LINE_FONT_PX}px`, color: css(TEXT_SUB),
     }).setOrigin(0.5).setDepth(201)
   }
 
@@ -1544,7 +1568,7 @@ export class GameScene extends Phaser.Scene {
     if (!this.timeManager.isAdvancing()) return
     this.timeManager.stopAdvancing()
     this.advanceBtnLabel.setText('▶  進める')
-    this.advanceBtnBg.setFillStyle(0x4a4a8a)
+    this.advanceBtnBg.setFillStyle(BTN_ADVANCE)
     this.updateStatus(reason)
   }
 
@@ -1557,7 +1581,7 @@ export class GameScene extends Phaser.Scene {
       this.timeManager.stopAdvancing()
     } else {
       this.timeManager.startAdvancing()
-      this.advanceBtnLabel.setText('⏸  停止'); this.advanceBtnBg.setFillStyle(0x8a4a4a)
+      this.advanceBtnLabel.setText('⏸  停止'); this.advanceBtnBg.setFillStyle(BTN_BACK)
       
     }
   }

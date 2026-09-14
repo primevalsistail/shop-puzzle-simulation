@@ -9,6 +9,18 @@ import {
   HUD_PANEL_T, HUD_PANEL_H, HUD_ROW_TIME_Y, HUD_ROW_PLACE_Y, HUD_RULE_Y, HUD_ROW_MONEY_Y,
   HUD_PHASE_FONT_PX, HUD_TIME_FONT_PX, HUD_PLACE_FONT_PX,
 } from './layout.js'
+import {
+  BG_WINDOW,
+  BTN_BACK,
+  BTN_BACK_HOVER,
+  BTN_TEXT,
+  LINE_STRONG,
+  LINE_WEAK,
+  TEXT_BODY,
+  TEXT_MONEY,
+  TEXT_SUB,
+  css,
+} from './palette.js'
 
 /** panel width（右パネル 285px - 余白 24px）。⚠ **値は `layout.ts` にある**（テストが見ている） */
 const PW = HUD_PANEL_W
@@ -44,35 +56,35 @@ export class HUD {
     const py = this.panelY
 
     // Background panel
-    this.scene.add.rectangle(px, py, PW, PH, 0x0a0a22, 0.85)
-      .setStrokeStyle(1.5, 0x334477).setDepth(5)
+    this.scene.add.rectangle(px, py, PW, PH, BG_WINDOW, 1)
+      .setStrokeStyle(1.5, LINE_STRONG).setDepth(5)
 
     // Row 1 — 区分（左・小）＋ 時刻（右・大）
     // ⚠ **この行に長い文字を足さないこと。**時刻が 39px で右寄せなので、
     //   左の文字と重なる（幅は 261px しかない）
     this.phaseText = this.scene.add.text(px - PW / 2 + 15, HUD_ROW_TIME_Y, `D1 ${phaseLabel('作業')}`, {
-      fontSize: `${HUD_PHASE_FONT_PX}px`, color: '#7788aa',
+      fontSize: `${HUD_PHASE_FONT_PX}px`, color: css(TEXT_SUB),
     }).setOrigin(0, 0.5).setDepth(5)
 
     this.timeText = this.scene.add.text(px + PW / 2 - 18, HUD_ROW_TIME_Y, '06:00', {
-      fontSize: `${HUD_TIME_FONT_PX}px`, color: '#55ddff', fontStyle: 'bold',
+      fontSize: `${HUD_TIME_FONT_PX}px`, color: css(TEXT_BODY), fontStyle: 'bold',
     }).setOrigin(1, 0.5).setDepth(5)
 
     // Row 2 — 現在地（#44）。島名は正式名のみ。**季節名は出さない**（#2 の確定事項）
     this.placeText = this.scene.add.text(px - PW / 2 + 18, HUD_ROW_PLACE_Y, '', {
-      fontSize: `${HUD_PLACE_FONT_PX}px`, color: '#88bbdd',
+      fontSize: `${HUD_PLACE_FONT_PX}px`, color: css(TEXT_SUB),
     }).setOrigin(0, 0.5).setDepth(5)
 
     // Divider line
     const lineGfx = this.scene.add.graphics().setDepth(5)
-    lineGfx.lineStyle(1.5, 0x334477, 0.7)
+    lineGfx.lineStyle(1.5, LINE_WEAK, 0.7)
     lineGfx.lineBetween(px - PW / 2 + 12, HUD_RULE_Y, px + PW / 2 - 12, HUD_RULE_Y)
 
     // Row 3 — Money (center, big)
     // ⚠ **大きさは `layout.ts` の `HUD_MONEY_FONT_PX`。**`10,000,000レン`（クリア条件の額）が
     //   枠 261px に収まるかを `layout.test.ts` が見ている
     this.moneyText = this.scene.add.text(px, HUD_ROW_MONEY_Y, money(0), {
-      fontSize: `${HUD_MONEY_FONT_PX}px`, color: '#ffdd44', fontStyle: 'bold',
+      fontSize: `${HUD_MONEY_FONT_PX}px`, color: css(TEXT_MONEY), fontStyle: 'bold',
     }).setOrigin(0.5, 0.5).setDepth(5)
 
     // 次の寄港地（#7）。**クリア後だけ出す。**
@@ -81,14 +93,14 @@ export class HUD {
     // ⚠ **キャラ絵の枠は動かない。**枠の外に行を足すと、絵の置き場所が変わる
     const npW = 108
     const npY = HUD_ROW_PLACE_Y
-    this.nextPortBg = this.scene.add.rectangle(px + PW / 2 - 12 - npW / 2, npY, npW, HUD_NEXT_PORT_H, 0x2a2a4a)
-      .setStrokeStyle(1.5, 0x5566aa).setDepth(5).setVisible(false)
+    this.nextPortBg = this.scene.add.rectangle(px + PW / 2 - 12 - npW / 2, npY, npW, HUD_NEXT_PORT_H, BTN_BACK)
+      .setStrokeStyle(1.5, LINE_STRONG).setDepth(5).setVisible(false)
       .setInteractive({ useHandCursor: true })
-    this.nextPortBg.on('pointerover', () => this.nextPortBg.setFillStyle(0x3a3a6a))
-    this.nextPortBg.on('pointerout', () => this.nextPortBg.setFillStyle(0x2a2a4a))
+    this.nextPortBg.on('pointerover', () => this.nextPortBg.setFillStyle(BTN_BACK_HOVER))
+    this.nextPortBg.on('pointerout', () => this.nextPortBg.setFillStyle(BTN_BACK))
     this.nextPortBg.on('pointerdown', () => this.onNextPortClick?.())
     this.nextPortText = this.scene.add.text(px + PW / 2 - 12 - npW / 2, npY, '', {
-      fontSize: `${HUD_NEXT_PORT_FONT_PX}px`, color: '#ffdd88',
+      fontSize: `${HUD_NEXT_PORT_FONT_PX}px`, color: css(BTN_TEXT),
     }).setOrigin(0.5, 0.5).setDepth(6).setVisible(false)
   }
 
@@ -130,7 +142,7 @@ export class HUD {
       ? `${location.island}島`
       : `${location.island}島  あと${location.daysLeftAtPort}日`)
     this.lastLocation = location
-    this.placeText.setStyle({ color: '#88bbdd' })
+    this.placeText.setStyle({ color: css(TEXT_SUB) })
   }
 
   updateTime(day: number, hour: number, minute: number): void {

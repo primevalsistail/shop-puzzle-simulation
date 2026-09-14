@@ -1,12 +1,23 @@
 import type Phaser from 'phaser'
 import {
-  SCREEN_W, SCREEN_H, MSG_SCRIM_ALPHA,
-  MSG_WIN_L, MSG_WIN_W, MSG_WIN_H, MSG_WIN_CX, MSG_WIN_CY, MSG_WIN_PAD,
+  SCREEN_W, SCREEN_H, MSG_WIN_L, MSG_WIN_W, MSG_WIN_H, MSG_WIN_CX, MSG_WIN_CY, MSG_WIN_PAD,
   MSG_SPEAKER_FONT_PX, MSG_SPEAKER_Y,
   MSG_TEXT_FONT_PX, MSG_TEXT_TOP, MSG_LINE_H,
   MSG_CHOICE_W, MSG_CHOICE_H, MSG_CHOICE_FONT_PX, MSG_CHOICE_CY, msgChoiceCx,
 } from './layout.js'
 import type { StoryChoice, StoryEventDef } from '../components/progress/StoryEvents.js'
+import {
+  BG_WINDOW,
+  BTN_BACK,
+  BTN_BACK_HOVER,
+  BTN_TEXT,
+  LINE_STRONG,
+  SCRIM,
+  SCRIM_ALPHA,
+  ST_SELECTED,
+  TEXT_BODY,
+  css,
+} from './palette.js'
 
 /**
  * ⚠ **棚より上、達成／終了の幕（200）より下。**
@@ -63,7 +74,7 @@ export class MessageWindow {
     //   判定（`isShelfBlocked()`）とは別に、**押せそうに見える状態を作らない**ため。
     this.objects.push(
       this.scene.add
-        .rectangle(MSG_WIN_CX, MSG_WIN_CY, SCREEN_W, SCREEN_H, 0x000000, MSG_SCRIM_ALPHA)
+        .rectangle(MSG_WIN_CX, MSG_WIN_CY, SCREEN_W, SCREEN_H, SCRIM, SCRIM_ALPHA)
         .setInteractive()
         .setDepth(DEPTH),
     )
@@ -72,8 +83,8 @@ export class MessageWindow {
     //   **色は `SaveLoadMenu` と同じ**（同じ作りのダイアログを2つの色で出さない）
     this.objects.push(
       this.scene.add
-        .rectangle(MSG_WIN_CX, MSG_WIN_CY, MSG_WIN_W, MSG_WIN_H, 0x16213e)
-        .setStrokeStyle(3, 0x5566cc)
+        .rectangle(MSG_WIN_CX, MSG_WIN_CY, MSG_WIN_W, MSG_WIN_H, BG_WINDOW)
+        .setStrokeStyle(3, LINE_STRONG)
         .setInteractive()
         .setDepth(DEPTH + 1),
     )
@@ -81,7 +92,7 @@ export class MessageWindow {
     // 話し手。⚠ **名前だけ**（絵は #21・#15 で後から入る）
     this.objects.push(
       this.scene.add.text(MSG_WIN_L + MSG_WIN_PAD, MSG_SPEAKER_Y, def.speaker, {
-        fontSize: `${MSG_SPEAKER_FONT_PX}px`, color: '#00ffee', fontStyle: 'bold',
+        fontSize: `${MSG_SPEAKER_FONT_PX}px`, color: css(ST_SELECTED), fontStyle: 'bold',
       }).setOrigin(0, 0).setDepth(DEPTH + 2),
     )
 
@@ -89,7 +100,7 @@ export class MessageWindow {
     def.lines.forEach((line, i) => {
       this.objects.push(
         this.scene.add.text(MSG_WIN_L + MSG_WIN_PAD, MSG_TEXT_TOP + i * MSG_LINE_H, line, {
-          fontSize: `${MSG_TEXT_FONT_PX}px`, color: '#ffffff',
+          fontSize: `${MSG_TEXT_FONT_PX}px`, color: css(TEXT_BODY),
         }).setOrigin(0, 0).setDepth(DEPTH + 2),
       )
     })
@@ -97,15 +108,15 @@ export class MessageWindow {
     def.choices.forEach((choice, i) => {
       const cx = msgChoiceCx(i, def.choices.length)
       const btn = this.scene.add
-        .rectangle(cx, MSG_CHOICE_CY, MSG_CHOICE_W, MSG_CHOICE_H, 0x2a2a4a)
-        .setStrokeStyle(1.5, 0x6666aa)
+        .rectangle(cx, MSG_CHOICE_CY, MSG_CHOICE_W, MSG_CHOICE_H, BTN_BACK)
+        .setStrokeStyle(1.5, LINE_STRONG)
         .setInteractive({ useHandCursor: true })
         .setDepth(DEPTH + 2)
       const label = this.scene.add.text(cx, MSG_CHOICE_CY, choice.label, {
-        fontSize: `${MSG_CHOICE_FONT_PX}px`, color: '#ccddff',
+        fontSize: `${MSG_CHOICE_FONT_PX}px`, color: css(BTN_TEXT),
       }).setOrigin(0.5).setDepth(DEPTH + 3)
-      btn.on('pointerover', () => btn.setFillStyle(0x4a4a7a))
-      btn.on('pointerout', () => btn.setFillStyle(0x2a2a4a))
+      btn.on('pointerover', () => btn.setFillStyle(BTN_BACK_HOVER))
+      btn.on('pointerout', () => btn.setFillStyle(BTN_BACK))
       btn.on('pointerdown', () => {
         this.close()
         onChoice(choice)

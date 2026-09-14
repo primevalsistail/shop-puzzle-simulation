@@ -18,6 +18,20 @@ import {
 } from './layout.js'
 import { money } from './money.js'
 import { SHIP_COST } from './goal.js'
+import {
+  BTN_TEXT,
+  BTN_TEXT_OFF,
+  BTN_TRADE,
+  BTN_TRADE_OFF,
+  LINE_STRONG,
+  ROW_ANY,
+  ROW_UPCOMING,
+  ST_SELECTED,
+  TEXT_BODY,
+  TEXT_SUB,
+  TEXT_WEAK,
+  css,
+} from './palette.js'
 
 /**
  * 改装。**「取引」の `改装` タブ**（#96。それまでは独立した「行く場所」だった。#58）。
@@ -113,7 +127,7 @@ export class UpgradeMenu {
     })) {
       objs.push(
         this.scene.add.text(CONTENT_R, SUBTITLE_Y, '払えば目標が遠のく。いま買うか、我慢するか', {
-          fontSize: `${TAB_NOTE_FONT_PX}px`, color: '#778899',
+          fontSize: `${TAB_NOTE_FONT_PX}px`, color: css(TEXT_SUB),
         }).setOrigin(1, 0.5),
       )
     }
@@ -139,7 +153,7 @@ export class UpgradeMenu {
     const [now, next, cost] = UPGRADE_COLS
     const head = (x: number, text: string, originX: number) =>
       objs.push(this.scene.add.text(x, UPGRADE_HEAD_Y, text, {
-        fontSize: `${UPGRADE_HEAD_FONT_PX}px`, color: '#8899aa',
+        fontSize: `${UPGRADE_HEAD_FONT_PX}px`, color: css(TEXT_SUB),
       }).setOrigin(originX, 0.5))
 
     head(UPGRADE_NOW_CX, now, 0.5)
@@ -155,17 +169,17 @@ export class UpgradeMenu {
 
     objs.push(
       this.scene.add.rectangle(PLACE_CX, y, UPGRADE_ROW_W, UPGRADE_ROW_H - 18,
-        maxed ? 0x2a2a3a : 0x232344).setStrokeStyle(1.5, 0x445577),
+        maxed ? ROW_UPCOMING : ROW_ANY).setStrokeStyle(1.5, LINE_STRONG),
       this.scene.add.text(UPGRADE_NAME_X, y + UPGRADE_TITLE_DY, kind, {
-        fontSize: `${TAB_ROW_TITLE_FONT_PX}px`, color: '#ffffff', fontStyle: 'bold',
+        fontSize: `${TAB_ROW_TITLE_FONT_PX}px`, color: css(TEXT_BODY), fontStyle: 'bold',
       }).setOrigin(0, 0.5),
       // 何が良くなるかの一言。⚠ **数はここに混ぜない**（列で揃えるため。`layout.ts`）
       this.scene.add.text(UPGRADE_NAME_X, y + UPGRADE_SUB_DY, UPGRADE_WHAT_IT_DOES[kind], {
-        fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: '#8899aa',
+        fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: css(TEXT_SUB),
       }).setOrigin(0, 0.5),
       // 段の表示。●が買った段、○がまだの段
       this.scene.add.text(UPGRADE_STAGE_CX, y, '●'.repeat(stage) + '○'.repeat(MAX_STAGE - stage), {
-        fontSize: `${UPGRADE_STAGE_FONT_PX}px`, color: '#77bbee',
+        fontSize: `${UPGRADE_STAGE_FONT_PX}px`, color: css(ST_SELECTED),
       }).setOrigin(0.5),
     )
 
@@ -176,17 +190,17 @@ export class UpgradeMenu {
         fontSize: `${UPGRADE_VALUE_FONT_PX}px`, color,
       }).setOrigin(0.5))
 
-    value(UPGRADE_NOW_CX, effectValue(kind, stage) ?? '', '#ffffff')
+    value(UPGRADE_NOW_CX, effectValue(kind, stage) ?? '', css(TEXT_BODY))
     // 最大まで買った行には `強化後` が無いので、矢印もろとも出さない
     const nextValue = maxed ? null : effectValue(kind, stage + 1)
     if (nextValue !== null) {
-      value(UPGRADE_ARROW_CX, UPGRADE_ARROW, '#667788')
-      value(UPGRADE_NEXT_CX, nextValue, '#aaddff')
+      value(UPGRADE_ARROW_CX, UPGRADE_ARROW, css(TEXT_WEAK))
+      value(UPGRADE_NEXT_CX, nextValue, css(ST_SELECTED))
     }
 
     if (maxed) {
       objs.push(this.scene.add.text(UPGRADE_BTN_R, y, UPGRADE_MAXED, {
-        fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: '#667788',
+        fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: css(TEXT_WEAK),
       }).setOrigin(1, 0.5))
       return
     }
@@ -195,16 +209,16 @@ export class UpgradeMenu {
     //   ⚠ **`不足` を付けないこと。**付けると費用が「あと足りない額」と読まれる
     //     （`layout.ts` の `UPGRADE_LABEL` に経緯）。**買えるかどうかは色とボタンの字で出す。**
     objs.push(this.scene.add.text(UPGRADE_COST_R, y, money(cost), {
-      fontSize: `${UPGRADE_COST_FONT_PX}px`, color: afford ? '#ffffff' : '#886666',
+      fontSize: `${UPGRADE_COST_FONT_PX}px`, color: afford ? css(TEXT_BODY) : css(TEXT_WEAK),
     }).setOrigin(1, 0.5))
 
     // ⚠ **ボタンは `改装` とだけ書く。**買えないときだけ理由に差し替わる（商人タブと同じ作り）
     const bg = this.scene.add.rectangle(UPGRADE_BTN_L + UPGRADE_BTN_W / 2, y,
-      UPGRADE_BTN_W, UPGRADE_BTN_H, afford ? 0x3a5a8a : 0x3a3a3a)
-      .setStrokeStyle(1.5, afford ? 0x5a7aaa : 0x4a4a4a)
+      UPGRADE_BTN_W, UPGRADE_BTN_H, afford ? BTN_TRADE : BTN_TRADE_OFF)
+      .setStrokeStyle(1.5, LINE_STRONG)
     const label = this.scene.add.text(UPGRADE_BTN_L + UPGRADE_BTN_W / 2, y,
       afford ? UPGRADE_LABEL : UPGRADE_REASON_FUNDS, {
-      fontSize: `${BUY_FONT_PX}px`, color: afford ? '#ffffff' : '#998877',
+      fontSize: `${BUY_FONT_PX}px`, color: afford ? css(BTN_TEXT) : css(BTN_TEXT_OFF),
     }).setOrigin(0.5)
     if (afford) {
       bg.setInteractive({ useHandCursor: true })
@@ -230,19 +244,19 @@ export class UpgradeMenu {
 
     objs.push(
       this.scene.add.rectangle(PLACE_CX, y, UPGRADE_ROW_W, UPGRADE_ROW_H - 18,
-        bought ? 0x2a2a3a : 0x232344).setStrokeStyle(1.5, 0x445577),
+        bought ? ROW_UPCOMING : ROW_ANY).setStrokeStyle(1.5, LINE_STRONG),
       this.scene.add.text(UPGRADE_NAME_X, y + UPGRADE_TITLE_DY, UPGRADE_SHIP_NAME, {
-        fontSize: `${TAB_ROW_TITLE_FONT_PX}px`, color: '#ffffff', fontStyle: 'bold',
+        fontSize: `${TAB_ROW_TITLE_FONT_PX}px`, color: css(TEXT_BODY), fontStyle: 'bold',
       }).setOrigin(0, 0.5),
       this.scene.add.text(UPGRADE_NAME_X, y + UPGRADE_SUB_DY, UPGRADE_SHIP_WHAT_IT_DOES, {
-        fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: '#8899aa',
+        fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: css(TEXT_SUB),
       }).setOrigin(0, 0.5),
     )
 
     // 買ったあと。**`UPGRADE_MAXED` と同じ置き方**（費用もボタンも出さない）
     if (bought) {
       objs.push(this.scene.add.text(UPGRADE_BTN_R, y, UPGRADE_SHIP_BOUGHT, {
-        fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: '#667788',
+        fontSize: `${TAB_ROW_SUB_FONT_PX}px`, color: css(TEXT_WEAK),
       }).setOrigin(1, 0.5))
       return
     }
@@ -251,15 +265,15 @@ export class UpgradeMenu {
     //   ⚠ **`10,000,000レン` は `UPGRADE_COST_W` に入らない**ので、
     //     商船の行だけ `UPGRADE_SHIP_COST_W`（`現在値` の列の左端まで）で測ってある
     objs.push(this.scene.add.text(UPGRADE_COST_R, y, money(SHIP_COST), {
-      fontSize: `${UPGRADE_COST_FONT_PX}px`, color: afford ? '#ffffff' : '#886666',
+      fontSize: `${UPGRADE_COST_FONT_PX}px`, color: afford ? css(TEXT_BODY) : css(TEXT_WEAK),
     }).setOrigin(1, 0.5))
 
     const bg = this.scene.add.rectangle(UPGRADE_BTN_L + UPGRADE_BTN_W / 2, y,
-      UPGRADE_BTN_W, UPGRADE_BTN_H, afford ? 0x3a5a8a : 0x3a3a3a)
-      .setStrokeStyle(1.5, afford ? 0x5a7aaa : 0x4a4a4a)
+      UPGRADE_BTN_W, UPGRADE_BTN_H, afford ? BTN_TRADE : BTN_TRADE_OFF)
+      .setStrokeStyle(1.5, LINE_STRONG)
     const label = this.scene.add.text(UPGRADE_BTN_L + UPGRADE_BTN_W / 2, y,
       afford ? UPGRADE_SHIP_LABEL : UPGRADE_REASON_FUNDS, {
-      fontSize: `${BUY_FONT_PX}px`, color: afford ? '#ffffff' : '#998877',
+      fontSize: `${BUY_FONT_PX}px`, color: afford ? css(BTN_TEXT) : css(BTN_TEXT_OFF),
     }).setOrigin(0.5)
     if (afford) {
       bg.setInteractive({ useHandCursor: true })

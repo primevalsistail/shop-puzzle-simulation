@@ -1,5 +1,6 @@
 import type Phaser from 'phaser'
 import { LEFT_PANEL_R, LOG_T, SCREEN_W, SCREEN_H, LOG_LINE_FONT_PX } from './layout.js'
+import { BG_PANEL, LINE_STRONG, LINE_WEAK, SCROLL_THUMB, ST_OK, ST_SELECTED, TEXT_SUB, css } from './palette.js'
 
 export type MessageType = 'sale' | 'event' | 'info'
 
@@ -30,9 +31,9 @@ const BAR_W = 6
 const BAR_MARGIN = 9
 
 const TYPE_COLORS: Record<MessageType, string> = {
-  sale: '#ffee44',
-  event: '#00ffee',
-  info: '#aaaaaa',
+  sale: css(ST_OK),
+  event: css(ST_SELECTED),
+  info: css(TEXT_SUB),
 }
 
 /**
@@ -65,13 +66,13 @@ export class MessageLog {
       LOG_Y + LOG_HEIGHT / 2,
       LOG_WIDTH,
       LOG_HEIGHT,
-      0x0d1117,
+      BG_PANEL,
       0.92,
-    ).setDepth(DEPTH).setStrokeStyle(1.5, 0x223344)
+    ).setDepth(DEPTH).setStrokeStyle(1.5, LINE_STRONG)
 
     // 上部区切り線
     const lineGfx = this.scene.add.graphics().setDepth(DEPTH)
-    lineGfx.lineStyle(1.5, 0x334455, 0.9)
+    lineGfx.lineStyle(1.5, LINE_WEAK, 0.9)
     lineGfx.lineBetween(LOG_X, LOG_Y, LOG_X + LOG_WIDTH, LOG_Y)
 
     // テキスト行（固定数を事前生成して再利用）
@@ -79,7 +80,7 @@ export class MessageLog {
       const y = LOG_Y + PADDING_Y + i * LINE_HEIGHT
       const t = this.scene.add.text(LOG_X + PADDING_X, y, '', {
         fontSize: `${LOG_LINE_FONT_PX}px`,
-        color: '#aaaaaa',
+        color: css(TEXT_SUB),
         fontStyle: 'normal',
       }).setDepth(DEPTH + 1)
       this.lines.push(t)
@@ -188,13 +189,13 @@ export class MessageLog {
     const x = LOG_X + LOG_WIDTH - BAR_MARGIN - BAR_W
     const top = LOG_Y + BAR_MARGIN
     const trackH = LOG_HEIGHT - BAR_MARGIN * 2
-    bar.fillStyle(0x223344, 0.9)
+    bar.fillStyle(LINE_WEAK, 0.9)
     bar.fillRect(x, top, BAR_W, trackH)
     const thumbH = Math.max(15, Math.round((MAX_MESSAGES / total) * trackH))
     // scroll が 0（最新）なら一番下
     const ratio = this.maxScroll() === 0 ? 0 : this.scroll / this.maxScroll()
     const thumbY = top + Math.round((1 - ratio) * (trackH - thumbH))
-    bar.fillStyle(this.scroll > 0 ? 0x00ffee : 0x55688a, 0.9)
+    bar.fillStyle(this.scroll > 0 ? SCROLL_THUMB : LINE_WEAK, 0.9)
     bar.fillRect(x, thumbY, BAR_W, thumbH)
   }
 }

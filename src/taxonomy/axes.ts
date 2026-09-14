@@ -168,8 +168,14 @@ export interface Display {
    *   選ばなかった側で打った人には出ない。
    */
   readonly reading: string
-  readonly color: number
 }
+
+/**
+ * ⚠ **品ごとの色を持たせないこと**（PO 判断 2026-09-14）。
+ *   **色は `mainKind` から引く**（`ui/palette.ts` の `kindColor`）。
+ *   **以前は161品それぞれに `color` を書いていて、見分けられない組が多数あった。**
+ *   ここに戻すと、**品を1つ足すたびに161色の中で衝突を探すことになる。**
+ */
 
 // ─── アイテム定義 ─────────────────────────────────────
 export type ItemId = string
