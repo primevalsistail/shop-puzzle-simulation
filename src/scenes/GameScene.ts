@@ -13,7 +13,6 @@ import { GameProgress } from '../components/progress/GameProgress.js'
 import { WorldState } from '../components/progress/WorldState.js'
 import { DeliveryOrders } from '../components/progress/DeliveryOrders.js'
 import { PeddlerStock } from '../components/progress/PeddlerStock.js'
-import { RescueSupply } from '../components/progress/RescueSupply.js'
 import { StoryEventScheduler } from '../components/progress/StoryEventScheduler.js'
 import { STORY_EVENTS } from '../components/progress/StoryEvents.js'
 import type { StoryChoice } from '../components/progress/StoryEvents.js'
@@ -94,8 +93,6 @@ export class GameScene extends Phaser.Scene {
   private deliveryOrders!: DeliveryOrders
   /** 行商人バレンの積荷（#9）。**来た日ぶんを1回だけ引く** */
   private peddler!: PeddlerStock
-  /** 救済の品の、その日ぶん（買値0 の品の1日の上限。`RescueSupply`） */
-  private rescue!: RescueSupply
   /**
    * 選択肢のあるできごとの発火（#24）。
    *
@@ -189,10 +186,9 @@ export class GameScene extends Phaser.Scene {
     )
     this.deliveryOrders = new DeliveryOrders(this.inventory, this.economy)
     this.peddler = new PeddlerStock()
-    this.rescue = new RescueSupply()
     this.progress = new GameProgress(
       this.economy, this.inventory, this.floorGrid, this.timeManager, this.world, this.upgrades,
-      this.shelfPresets, this.deliveryOrders, this.peddler, this.rescue,
+      this.shelfPresets, this.deliveryOrders, this.peddler,
     )
     this.recipeUnlocks = new RecipeUnlocks(this.registry_, this.inventory, this.progress)
 
@@ -233,7 +229,6 @@ export class GameScene extends Phaser.Scene {
       this.inventory,
       this.placeFrame,
       () => this.onPurchaseMenuClosed(),
-      this.rescue,
     )
 
     this.upgradeMenu = new UpgradeMenu(
@@ -358,9 +353,6 @@ export class GameScene extends Phaser.Scene {
         // ⚠ **積荷ごと戻す。**戻さずに引き直すと、**欲しい品が出るまでロードし直せる**
         //   （10種類・各10個という上限が意味を失う。`PeddlerStock` の注記）
         this.peddler.restore(data.peddler)
-        // ⚠ **救済の品のその日ぶんも戻す。**戻さないと、**ただで買える品を買ってから
-        //   ロードし直すだけで1日の上限が戻る**（`RescueSupply` の注記）
-        this.rescue.restore(data.rescue)
         this.progress.restoreUnlockedRecipes(data.unlockedRecipes ?? [])
         // ⚠ **自由航行の航路を戻す**（#7）。**無いセーブは空で来る**（クリア前 ／ #7 より前）。
         //   空なら日付からの導出へ戻り、**クリア済みなのに空**なら今日の島から始める。
@@ -386,9 +378,6 @@ export class GameScene extends Phaser.Scene {
         // ⚠ **行商人が無かった頃のセーブは日が 0 で来る。**その日ぶんをここで引く。
         //   同じ日の積荷が入っていれば `refresh` は何もしない（1日1回。`PeddlerStock`）
         this.visitPeddler(data.currentTime.day)
-        // ⚠ **救済の品が無かった頃のセーブは日が 0 で来る。**その日ぶんをここで配る。
-        //   同じ日のぶんが入っていれば `refresh` は何もしない（1日1回。`RescueSupply`）
-        this.rescue.refresh(data.currentTime.day)
         // ⚠ **その日ぶんのできごとも引き直す。**引かないと、**別の日のセーブを読んだあと
         //   その日が終わるまで何も起きない**（控えは前の日のままになる）
         this.storyEvents.ensureDay(data.currentTime.day)
@@ -414,7 +403,6 @@ export class GameScene extends Phaser.Scene {
     this.rollMission(t0.day)
     // 初日ぶんの行商人と、その日のできごと（#24・#90）
     this.visitPeddler(t0.day)
-    this.rescue.refresh(t0.day)
     this.storyEvents.ensureDay(t0.day)
     this.inventoryPanel.onSelect(id => {
       // 1つの品は棚に1区画まで。**掴んだ時点で知らせる**（どこへ持って行っても置けないため）
@@ -973,9 +961,6 @@ export class GameScene extends Phaser.Scene {
     // ⚠ **島が変わったあとに引く。**次の寄港地は島が変わった時点で変わるので、
     //   先に引くと「1日だけ、いまの次の島の産を積んだ行商人」が出る（#9）
     this.visitPeddler(day)
-    // ⚠ **救済の品も1日ぶんに戻る**（`RescueSupply`）。**島は見ない** ——
-    //   どの島でも同じだけ買える（`origin: なし` なので商人は常に並べる）
-    this.rescue.refresh(day)
     // ⚠ **納品のミッションも島が変わったあと**（#98）。候補は**いまの島で買える品**から出るので、
     //   先に引くと**もう居ない島の品ぞろえ**で選ぶことになる
     this.rollMission(day)

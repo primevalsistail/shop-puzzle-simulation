@@ -2,7 +2,6 @@ import type { Shape } from '../taxonomy/axes.js'
 import type { ShelfPreset } from '../components/floor/ShelfPresets.js'
 import type { DeliveryOrder } from '../components/progress/DeliveryOrders.js'
 import type { PeddlerRecord } from '../components/progress/PeddlerStock.js'
-import type { RescueRecord } from '../components/progress/RescueSupply.js'
 import type { VoyageRecord } from '../components/progress/WorldState.js'
 
 // ─── グリッド ─────────────────────────────────────────
@@ -95,15 +94,6 @@ export interface SaveData {
    *   欲しい品が出るまでロードし直せるので、**10種類・各10個という上限が意味を失う。**
    */
   peddler?: PeddlerRecord
-  /**
-   * 救済の品の、その日ぶん（買った日と数）。
-   * ⚠ **無いセーブを読めるようにしておくこと**（`peddler` と同じ）。
-   *
-   * ⚠ **積まないと上限が消える。**救済の品はただで買えるので、
-   *   **買った数を覚えていないと、買ってからロードし直すだけで何度でも買える**
-   *   （`peddler.day` ／ `orderDay` と同じ事故）。
-   */
-  rescue?: RescueRecord
   /**
    * 自由航行の航路（#7）。**クリア後にしか入らない。**
    * ⚠ **無いセーブを読めるようにしておくこと**（`orders` ／ `peddler` と同じ）。

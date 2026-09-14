@@ -25,7 +25,7 @@ import { ALL_RECIPES } from '../taxonomy/recipes.js'
 import type { ItemDef, ItemId, RecipeDef } from '../taxonomy/axes.js'
 import { DAYS_PER_PORT, ROUTE } from '../taxonomy/islands.js'
 import type { IslandName } from '../taxonomy/islands.js'
-import { isRescueItem, originReach, tier } from '../taxonomy/derive.js'
+import { originReach, tier } from '../taxonomy/derive.js'
 import { finalModifiers, merchantListing } from '../taxonomy/evaluate.js'
 import type { GameState } from '../taxonomy/evaluate.js'
 import { ItemRegistry } from '../components/items/ItemRegistry.js'
@@ -43,7 +43,6 @@ import { Upgrades, UPGRADE_KINDS } from '../components/progress/Upgrades.js'
 import type { UpgradeKind } from '../components/progress/Upgrades.js'
 import { DeliveryOrders } from '../components/progress/DeliveryOrders.js'
 import { PeddlerStock } from '../components/progress/PeddlerStock.js'
-import { RescueSupply } from '../components/progress/RescueSupply.js'
 import { RecipeUnlocks } from '../components/progress/RecipeUnlocks.js'
 import type { UnlockStore } from '../components/progress/RecipeUnlocks.js'
 import { EventBus } from '../services/EventBus.js'
@@ -307,8 +306,6 @@ export class SimWorld {
   private readonly gameService: GameService
   private readonly delivery: DeliveryOrders
   private readonly peddler = new PeddlerStock()
-  /** 救済の品の1日の上限。**本番と同じ関を通す**（通さないと ただの品を無限に買える） */
-  private readonly rescue = new RescueSupply()
   private readonly recipeUnlocks: RecipeUnlocks
   private readonly ledger = new CostLedger()
   private readonly rng: () => number
@@ -441,7 +438,6 @@ export class SimWorld {
     this.world.setDay(t0.day)
     this.rollMission(t0.day)
     this.visitPeddler(t0.day)
-    this.rescue.refresh(t0.day)
     this.time.startAdvancing()
   }
 
@@ -449,7 +445,6 @@ export class SimWorld {
   private onDayChanged(day: number): void {
     this.world.setDay(day)
     this.visitPeddler(day)
-    this.rescue.refresh(day)
     this.rollMission(day)
     this.recipeUnlocks.unlockEligible()
   }
@@ -608,14 +603,11 @@ export class SimWorld {
       const want = Math.min(
         order.qty - this.inventory.getQuantity(order.id),
         this.inventory.spaceFor(order.id),
-        // ⚠ **ただの品を「予算 ÷ 0」で数えない。**上限は下の1日の数のほうが持つ
+        // ⚠ **ただの品を「予算 ÷ 0」で数えない。**上限は在庫の空きのほうが持つ
         unit > 0 ? Math.floor(budget / unit) : Number.MAX_SAFE_INTEGER,
-        // ⚠ **救済の品は1日の上限まで**（`RescueSupply`）。**本番と同じ関を通す**
-        isRescueItem(order.id) ? this.rescue.remaining() : Number.MAX_SAFE_INTEGER,
       )
       if (want <= 0) continue
       if (!this.economy.spend(unit * want)) continue
-      if (isRescueItem(order.id)) this.rescue.take(want)
       this.inventory.add(order.id, want)
       this.ledger.add(order.id, want, unit * want)
       this.dPurchase += unit * want

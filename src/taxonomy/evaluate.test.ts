@@ -5,8 +5,10 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { ALL_ITEMS } from './items.js'
-import { tier, salePrice, purchasePrice, originReach } from './derive.js'
+import { ALL_ITEMS, getItem } from './items.js'
+import {
+  tier, salePrice, purchasePrice, originReach, RESCUE_ITEM_ID, isRescueItem,
+} from './derive.js'
 import { ALL_RECIPES } from './recipes.js'
 import {
   adjacentPairs, evaluate, finalModifiers, stockedByIslandMerchant,
@@ -717,5 +719,57 @@ describe('merchantListing — 買えるもの ＋ もうすぐ買えるもの（
       expect(stocked.map(i => i.id))
         .toEqual(stockedByIslandMerchant(ALL_ITEMS, at(island)).map(i => i.id))
     }
+  })
+})
+
+/**
+ * **救済の品（砂）**（PO 判断 2026-09-15）。
+ *
+ * **詰みを無くすために、ただで買える品を1つ置いた。**ここで見るのは
+ * **所持金0でも買って並べて売れること**と、**買値0 の例外が1品のままであること。**
+ *
+ * ⚠ **1日に買える数の上限は無い**（PO 判断 2026-09-15 で外した）。
+ *   **1つの品は棚に1区画まで**（`PlacementManager.isDisplayed`）なので、
+ *   **ただで買えても盤面は埋まらない** —— 天井は **1升 × 5.4個/日 × 5レン ＝ 27レン/日**。
+ *   （**加工の稼ぎを超えないこと**は `src/sim/` の `--policy=rescue` で測る。）
+ */
+describe('救済の品（買値0・上限なし）', () => {
+  it('品が1つだけあり、tier1・1升・売値5レンである', () => {
+    const item = getItem(RESCUE_ITEM_ID)
+    expect(ALL_ITEMS.filter(i => isRescueItem(i.id))).toHaveLength(1)
+    expect(tier(item.id)).toBe(1)
+    expect(item.shape).toEqual([[1]])
+    expect(salePrice(item.id)).toBe(5)
+    // ⚠ **いちばん安い仕入れ品よりはっきり下**（「店に並べたくない」水準。PO 指示）
+    const cheapest = Math.min(
+      ...ALL_ITEMS.filter(i => !isRescueItem(i.id)).map(i => salePrice(i.id)),
+    )
+    expect(salePrice(item.id)).toBeLessThan(cheapest)
+  })
+
+  /**
+   * **所持金0でも、買って並べて売れる。**
+   *
+   * ⚠ **規則を1本も足していない。**産地 `なし` ＋ tier1 なので、
+   *   **U4（産地を持たない品はどこでも並ぶ）と U1（並ぶのは素材だけ）だけで常に並ぶ。**
+   */
+  it('4島すべてで、売った実績ゼロでも商人が並べている', () => {
+    for (const island of ROUTE) {
+      const stocked = stockedByIslandMerchant(ALL_ITEMS, at(island))
+      expect(stocked.map(i => i.id), island).toContain(RESCUE_ITEM_ID)
+    }
+  })
+
+  /**
+   * ⚠ **例外は買値だけ。**「率が3つ目に増えた」ではないことの検査
+   *   （`derive.ts` の `PURCHASE_RATE` の注記）。
+   */
+  it('買値0 はこの品だけ。ほかの全品は今までどおり 売値 × 0.7', () => {
+    expect(purchasePrice(RESCUE_ITEM_ID)).toBe(0)
+    for (const island of ROUTE) {
+      expect(purchasePrice(RESCUE_ITEM_ID, island), island).toBe(0)
+    }
+    const free = ALL_ITEMS.filter(i => purchasePrice(i.id) === 0)
+    expect(free.map(i => i.id)).toEqual([RESCUE_ITEM_ID])
   })
 })

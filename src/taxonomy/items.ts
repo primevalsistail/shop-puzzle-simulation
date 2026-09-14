@@ -384,7 +384,9 @@ export const ALL_ITEMS: readonly ItemDef[] = [
 
   // ── 救済の品 ──
   // ⚠ **ただで買える唯一の品**（買値0 の例外は `derive.ts` の `isRescueItem`）。
-  //   **1日に買える数の上限は `RescueSupply`**（無いと盤面を埋めるのが最良の稼ぎ方になる）。
+  //   **1日に買える数の上限は無い**（PO 判断 2026-09-15）。**盤面は埋まらない** ——
+  //   **1つの品は棚に1区画まで**（`PlacementManager.isDisplayed`）なので、
+  //   この品の稼ぎの天井は **1升 × 5.4個/日 × 5レン ＝ 27レン/日**である。
   //   産地 `なし` ＋ tier1 なので、**U1・U4 だけでどの島でも常に並ぶ**（規則は1本も足していない）。
   {
     id: 'sand', display: { name: '砂', reading: 'すな', color: 0xd9c89a },
