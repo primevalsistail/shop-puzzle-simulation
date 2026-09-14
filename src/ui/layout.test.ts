@@ -33,7 +33,9 @@ import {
   CRAFT_REASON_EMPTY, CRAFT_REASON_NOT_INT,
   CRAFT_QTY_L, CRAFT_QTY_W, CRAFT_INPUT_W, CRAFT_STEP_XS, CRAFT_STEP_LABELS, CRAFT_STEP_FONT_PX,
   CRAFT_STEP_BTN_FONT_PX, CRAFT_STEP_BIG_W, CRAFT_STEP_ONE_W, CRAFT_MAX_W,
-  LEFT_PANEL_R, STRIP_L, STRIP_W, RIGHT_PANEL_L, LOG_T,
+  LEFT_PANEL_R, STRIP_L, STRIP_W, STRIP_H, RIGHT_PANEL_L, LOG_T,
+  STRIP_CUSTOMER_FONT_PX, STRIP_CUSTOMER_SLOT_H, STRIP_CUSTOMER_SLOT_MAX,
+  STRIP_CUSTOMER_SLOT_TOP_CY, STRIP_CUSTOMER_DWELL_MIN,
   INV_PANEL_L, INV_PANEL_W, INV_ITEM_W, INV_ITEM_H, INV_ITEM_GAP,
   INV_ITEM_TOP, INV_LIST_BOTTOM, INV_VISIBLE_COUNT, INV_ITEM_TEXT_L, INV_ITEM_PRICE_R,
   INV_PAGER_Y, INV_HEAD_Y, INV_SEARCH_L, INV_SEARCH_W, INV_SEARCH_H,
@@ -1866,5 +1868,56 @@ describe('はじまりの場面', () => {
     for (const word of ['グリッド', '¥', 'クリック', 'ドラッグ', 'ボタン']) {
       expect(all, word).not.toContain(word)
     }
+  })
+})
+
+/**
+ * 来店客の3枠（#21）。
+ *
+ * ⚠ **絵は 162×138 を等倍で置く**（縮めると輪郭がぼやける）ので、
+ *   **枠の側が絵に合わせる。**入らないなら枠数を減らす、が正しい向き。
+ * ⚠ **目で見ても数pxのはみ出しは分からない。**ここで落とす。
+ */
+describe('来店客の枠は、キャラ帯の下半分に収まる', () => {
+  /** 帯の下半分の上端。`CharacterStrip` の `MID_Y` と同じ出し方 */
+  const MID_Y = STRIP_H / 2
+  /** 見出し（`来店客`）の下端。`MID_Y + 12` に置いた字の高さぶん */
+  const HEADING_B = MID_Y + 12 + STRIP_CUSTOMER_FONT_PX * 1.35
+  const slotCy = (i: number) => STRIP_CUSTOMER_SLOT_TOP_CY + i * STRIP_CUSTOMER_SLOT_H
+  const top = (i: number) => slotCy(i) - STRIP_CUSTOMER_SLOT_H / 2
+  const bottom = (i: number) => slotCy(i) + STRIP_CUSTOMER_SLOT_H / 2
+
+  it('いちばん上の枠が見出しに重ならない', () => {
+    expect(top(0)).toBeGreaterThanOrEqual(HEADING_B)
+  })
+
+  it('いちばん下の枠が帯からはみ出さない', () => {
+    expect(bottom(STRIP_CUSTOMER_SLOT_MAX - 1)).toBeLessThanOrEqual(STRIP_H)
+  })
+
+  it('枠どうしが重ならない', () => {
+    for (let i = 1; i < STRIP_CUSTOMER_SLOT_MAX; i++) {
+      expect(top(i), `${i}枠目`).toBeGreaterThanOrEqual(bottom(i - 1))
+    }
+  })
+
+  /** ⚠ **4枠目は帯からはみ出す。**だから `addCustomer` は4人目を立たせない */
+  it('4枠目は入らない（だから4人目は立たせない）', () => {
+    expect(STRIP_CUSTOMER_SLOT_MAX).toBe(3)
+    expect(bottom(STRIP_CUSTOMER_SLOT_MAX)).toBeGreaterThan(STRIP_H)
+  })
+
+  it('絵は幅ぶんも帯に収まる（162 ≦ 165）', () => {
+    expect(162).toBeLessThanOrEqual(STRIP_W)
+  })
+
+  /**
+   * ⚠ **客はおよそ6〜7分に1人来る**（1日90人 ÷ 営業600分）。
+   *   **居る分数が枠の数 × 来る間隔を超えると、3枠が埋まりっぱなしになり、**
+   *   **来た人が立たない分が出る。**
+   */
+  it('居る分数が、3枠を埋め尽くすほど長くない', () => {
+    const 来る間隔 = 600 / 90
+    expect(STRIP_CUSTOMER_DWELL_MIN).toBeLessThan(来る間隔 * STRIP_CUSTOMER_SLOT_MAX)
   })
 })

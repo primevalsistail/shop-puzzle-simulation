@@ -1,7 +1,9 @@
 import type { DisplaySlot, SaleResult } from '../../types/index.js'
 import type { ItemRegistry } from '../items/ItemRegistry.js'
-import type { EvaluationResult, Modifiers } from '../../taxonomy/evaluate.js'
+import type { EvaluationResult, GameState, Modifiers } from '../../taxonomy/evaluate.js'
 import { finalModifiers } from '../../taxonomy/evaluate.js'
+import type { CustomerType } from '../../taxonomy/customers.js'
+import { pickCustomerType, preferenceMultiplier } from '../../taxonomy/customers.js'
 import { luxuryTurnover } from '../../taxonomy/derive.js'
 
 /**
@@ -26,6 +28,18 @@ export const CUSTOMER_ARRIVAL_RATE = 0.15
 export const BASE_PURCHASE_PROB = 0.06
 
 const NEUTRAL: Modifiers = { 売れやすさ: 1, 値段: 1, 集客: 1 }
+
+/**
+ * 1分ぶんの結果。
+ *
+ * ⚠ **「誰も来なかった」と「来たが何も買わなかった」を分けるために作った**（#21）。
+ *   **売れたものの列だけでは、キャラ帯に誰を立てればよいか分からない。**
+ */
+export interface MinuteResult {
+  /** 来なかった分は `null`。**居る／居ないは売買には効かない**（効かせると二重計上になる） */
+  readonly visitor: CustomerType | null
+  readonly sales: SaleResult[]
+}
 
 /** Fisher-Yates。渡された乱数をそのまま使うのでテストから固定できる */
 function shuffle<T>(items: T[], rng: () => number): T[] {
@@ -62,8 +76,15 @@ export class CustomerSimulator {
      * 規則の合成は加算なので、ここに混ぜると配置の工夫が誤差になる。
      */
     upgrade: { 来客: number; 利益率: number } = { 来客: 1, 利益率: 1 },
-  ): SaleResult[] {
-    if (rng() > CUSTOMER_ARRIVAL_RATE * evaluation.shopWide.集客 * upgrade.来客) return []
+    /** 好みの判定に要る（`現在地` を見る規則が書けるため）。**渡さない分は好みが効かない** */
+    state?: GameState,
+  ): MinuteResult {
+    if (rng() > CUSTOMER_ARRIVAL_RATE * evaluation.shopWide.集客 * upgrade.来客) {
+      return { visitor: null, sales: [] }
+    }
+
+    // ⚠ **来ると決まってから引く。**来なかった分でも引くと、**店を閉じている間の乱数がずれる**
+    const visitor = pickCustomerType(rng)
 
     const results: SaleResult[] = []
     // ⚠ **巡回順をランダムにする。**`getAllSlots()` の順は挿入順＝**置いた順**で、
@@ -74,7 +95,7 @@ export class CustomerSimulator {
       const own = evaluation.perSlot.get(slot.id) ?? NEUTRAL
       const final = finalModifiers(evaluation, slot.id)
 
-      if (rng() < this.calcPurchaseProb(slot, own, final)) {
+      if (rng() < this.calcPurchaseProb(slot, own, final, visitor, state)) {
         results.push({
           slotId: slot.id,
           itemId: slot.itemId,
@@ -85,12 +106,20 @@ export class CustomerSimulator {
       }
     }
 
-    return results
+    return { visitor, sales: results }
   }
 
-  private calcPurchaseProb(slot: DisplaySlot, own: Modifiers, final: Modifiers): number {
+  /**
+   * ⚠ **年ごろの好みは「売れやすさ」に1つ掛かるだけ**（`customers.ts` の `preferenceMultiplier`）。
+   *   **値段には掛けない** —— 誰が来たかで値が動くと、**同じ品の値段が理由なく揺れて見える。**
+   */
+  private calcPurchaseProb(
+    slot: DisplaySlot, own: Modifiers, final: Modifiers,
+    visitor: CustomerType, state: GameState | undefined,
+  ): number {
     const item = this.registry.getItem(slot.itemId)
-    const prob = BASE_PURCHASE_PROB * luxuryTurnover(item) * final.売れやすさ * own.集客
+    const taste = state ? preferenceMultiplier(visitor, item, state) : 1
+    const prob = BASE_PURCHASE_PROB * luxuryTurnover(item) * final.売れやすさ * own.集客 * taste
     return Math.min(1, prob)
   }
 }

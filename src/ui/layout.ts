@@ -131,6 +131,24 @@ export const STRIP_SHOPKEEPER_FONT_PX = 16.5
 /** 下半分の見出し（`来店客`）。⚠ **上と同じ大きさだが別の字**なので、別に持つ */
 export const STRIP_CUSTOMER_FONT_PX = 16.5
 
+// ─── 来店客の3枠（#21） ──────────────────────────────────────
+/**
+ * 来店客の絵は **162 × 138**。⚠ **拡大縮小をかけない**（かけると輪郭がぼやける）ので、
+ * **枠の高さも 138 のまま**にする。
+ */
+export const STRIP_CUSTOMER_SLOT_H = 138
+/** 枠は3つ。⚠ **4つ目は出さない**（帯からはみ出す。`layout.test.ts` が見張る） */
+export const STRIP_CUSTOMER_SLOT_MAX = 3
+/** いちばん上の枠の中心。**見出し（`来店客`）の下から始める** */
+export const STRIP_CUSTOMER_SLOT_TOP_CY = 566
+/**
+ * 1人が店に居る分数（**見た目だけ**）。
+ * ⚠ **売買には一切効かない。**居る人数を売れ行きの条件にすると、
+ *   **来店の判定（`CustomerSimulator`）と二重に数えることになる。**
+ * ⚠ 客はおよそ1日90人＝**6〜7分に1人**来る。ここを長くすると3枠が埋まりっぱなしになる
+ */
+export const STRIP_CUSTOMER_DWELL_MIN = 4
+
 // ─── ログ欄 ──────────────────────────────────────────────────
 /** 1行ぶんの字。⚠ **行の高さ（`LINE_HEIGHT`）は `MessageLog` にある** */
 export const LOG_LINE_FONT_PX = 19.5

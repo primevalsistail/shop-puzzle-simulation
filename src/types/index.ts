@@ -144,6 +144,13 @@ export const GameEvents = {
   FLOOR_SLOT_REMOVED: 'floor:slot-removed',
   FLOOR_SLOT_EMPTIED: 'floor:slot-emptied',
   FLOOR_SLOT_SOLD: 'floor:slot-sold',
+  // 来店客
+  /**
+   * 客が1人入ってきた（#21）。**乗せるのは年ごろ（`CustomerType`）だけ。**
+   * ⚠ **見た目のためだけの報せ。**売買はこれと関係なく `FLOOR_SLOT_SOLD` で進む
+   *   （**居る客を売買の条件にすると二重計上になる**）。
+   */
+  CUSTOMER_ARRIVED: 'customer:arrived',
   // 時間
   TIME_PHASE_CHANGED: 'time:phase-changed',
   TIME_DAY_CHANGED: 'time:day-changed',

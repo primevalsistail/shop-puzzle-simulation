@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import { FACE_KEYS, SHOPKEEPER_KEY, facePath, shopkeeperPath } from '../ui/faces.js'
+import { CUSTOMER_ART, CUSTOMER_ART_READY, FACE_KEYS, SHOPKEEPER_KEY, facePath, shopkeeperPath } from '../ui/faces.js'
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -16,6 +16,11 @@ export class BootScene extends Phaser.Scene {
   preload(): void {
     for (const key of FACE_KEYS) this.load.image(key, facePath(key))
     this.load.image(SHOPKEEPER_KEY, shopkeeperPath())
+    // ⚠ **来店客の絵は揃ってから読む**（`faces.ts` の `CUSTOMER_ART_READY`）。
+    //   **無い絵を読ませると 404 が並ぶ**ので、旗が立つまでは読み込まない
+    if (CUSTOMER_ART_READY) {
+      for (const art of CUSTOMER_ART) this.load.image(art.key, art.path)
+    }
   }
 
   create(): void {

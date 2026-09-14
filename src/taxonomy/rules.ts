@@ -188,6 +188,7 @@ export interface CustomerPreferenceRule {
 
 const item = <P extends ItemPredicate>(p: P): P => p
 const かつ = (...of: Condition[]): Condition => ({ kind: 'かつ', of })
+const または = (...of: Condition[]): Condition => ({ kind: 'または', of })
 
 /**
  * 取り合わせ 層1。**R1〜R6（隣接）と S1・S2（同棚）が同じ器に入っている。**
@@ -423,5 +424,54 @@ export const UNLOCK_RULES: readonly UnlockRule[] = [
  * → Phase 3 の申し送り。条件言語に足すかどうかは Phase 4 以降の判断
  */
 
-/** 客の好み。**Cycle 5 で書く。**器だけ用意し、データは空のままにする */
-export const CUSTOMER_PREFERENCE_RULES: readonly CustomerPreferenceRule[] = []
+/**
+ * 客の好み（P1〜P13）。**年ごろ6通りが、何を欲しがり、何を控えるか。**
+ *
+ * ⚠ **ItemId を書かない**（INV-4）。**軸だけで書く。**品が増えても規則は増えない。
+ * ⚠ **効き目は「売れやすさ」1本**（掛けるのは `customers.ts` の `preferenceMultiplier`）。
+ *
+ * ⚠ **軸の値ひとつずつで、来る割合を掛けた足し引きが 0 になるように組んである。**
+ *   **どんな品でも、平均すれば倍率は 1.0。**変わるのは「その日たまたま誰が来たか」だけで、
+ *   **並べる品を変えても店全体の売上は動かない。**`customers.test.ts` が全品で見張る。
+ *
+ *   **好む人と控える人を必ず対にすること。**片側だけ書くと、**その軸の品が静かに売れなくなる。**
+ *   **実測**: 「子どもと年配が贅沢を控える」だけを書いた版は、**贅沢な品の平均が ×0.75**になり、
+ *   深い品を作る遊び方で**200日の売上が 1割落ちた**（だから「働き盛りは奮発する」が要る）。
+ *
+ *   **足し引きの幅は、来る割合の逆比で決まる。**おとなは年配の2倍来るので、
+ *   **同じ幅を打ち消すには半分の倍率でよい。数字だけ見て左右そろえないこと。**
+ */
+export const CUSTOMER_PREFERENCE_RULES: readonly CustomerPreferenceRule[] = [
+  // ── 子ども。**食べもの飲みもの。暮らしの品と奮発する品は、そもそも買う立場にない** ──
+  ...(['男子', '女子'] as const).flatMap(who => [
+    {
+      id: `P1_${who}`, customerType: who,
+      condition: または(
+        item({ axis: '主種類', op: '==', value: '食料' }),
+        item({ axis: '主種類', op: '==', value: '飲みもの' }),
+      ),
+      multiplier: 1.3,
+    },
+    { id: `P2_${who}`, customerType: who, condition: item({ axis: '贅沢さ', op: '==', value: '贅沢' }), multiplier: 0.55 },
+    { id: `P3_${who}`, customerType: who, condition: item({ axis: '贅沢さ', op: '==', value: '日用' }), multiplier: 0.7 },
+  ]),
+
+  // ── 働き盛り。**道具と衣類で裏返しの組。奮発する品を買うのはこの人たち** ──────
+  { id: 'P4', customerType: '男性', condition: item({ axis: '主種類', op: '==', value: '道具' }), multiplier: 1.2 },
+  { id: 'P5', customerType: '男性', condition: item({ axis: '主種類', op: '==', value: '衣類' }), multiplier: 0.65 },
+  { id: 'P6', customerType: '男性', condition: item({ axis: '主種類', op: '==', value: '食料' }), multiplier: 0.85 },
+  { id: 'P7', customerType: '女性', condition: item({ axis: '主種類', op: '==', value: '衣類' }), multiplier: 1.35 },
+  { id: 'P8', customerType: '女性', condition: item({ axis: '主種類', op: '==', value: '道具' }), multiplier: 0.8 },
+  // ⚠ **男女そろって奮発する側に立つ。**子どもと年配が控えるぶんを、ここで受ける
+  ...(['男性', '女性'] as const).map(who => ({
+    id: `P9_${who}`, customerType: who,
+    condition: item({ axis: '贅沢さ', op: '==', value: '贅沢' }), multiplier: 1.31,
+  })),
+
+  // ── 年配。**暮らしの品。奮発する品は控え、飲みものは買わない** ──────────
+  ...(['老人男性', '老人女性'] as const).flatMap(who => [
+    { id: `P10_${who}`, customerType: who, condition: item({ axis: '贅沢さ', op: '==', value: '日用' }), multiplier: 1.15 },
+    { id: `P11_${who}`, customerType: who, condition: item({ axis: '贅沢さ', op: '==', value: '贅沢' }), multiplier: 0.6 },
+    { id: `P12_${who}`, customerType: who, condition: item({ axis: '主種類', op: '==', value: '飲みもの' }), multiplier: 0.85 },
+  ]),
+]

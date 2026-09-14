@@ -40,7 +40,7 @@ function soldRevenue(itemId: string, margin: number, priceModifier = 1): number 
     shopWide: NEUTRAL,
     firedRules: [],
   }
-  const sales = sim.simulateMinute([slot], evaluation, () => 0, { 来客: 1, 利益率: margin })
+  const { sales } = sim.simulateMinute([slot], evaluation, () => 0, { 来客: 1, 利益率: margin })
   expect(sales).toHaveLength(1)
   return sales[0].revenue
 }

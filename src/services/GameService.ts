@@ -76,10 +76,14 @@ export class GameService {
     if (slots.length === 0) return
 
     const evaluation = this.evaluateFloor(slots)
-    const sales = this.customerSim.simulateMinute(slots, evaluation, rng, {
+    const { visitor, sales } = this.customerSim.simulateMinute(slots, evaluation, rng, {
       来客: this.upgrades.customerMultiplier(),
       利益率: this.upgrades.marginMultiplier(),
-    })
+    }, this.world.getState())
+
+    // ⚠ **売れたかどうかに関わらず報せる。**見ているのはキャラ帯だけで、
+    //   **買わずに出ていく客も立つ**（`GameScene.setupEvents`）
+    if (visitor) EventBus.emit(GameEvents.CUSTOMER_ARRIVED, visitor)
 
     for (const sale of sales) {
       // 売れたら持ち物が減る。棚は「どこに出しているか」だけなので触らない

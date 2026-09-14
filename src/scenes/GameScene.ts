@@ -46,7 +46,9 @@ import {
   BTN_ACTION_FONT_PX, BTN_ADVANCE_FONT_PX, BTN_ICON_FONT_PX, BTN_TOOLTIP_FONT_PX,
   BTN_SPEED_FONT_PX, SALE_POPUP_FONT_PX,
   GOAL_TITLE_FONT_PX, GOAL_LINE_FONT_PX, GOAL_BTN_FONT_PX, GOAL_CLOSE_LABEL,
+  STRIP_CUSTOMER_SLOT_MAX, STRIP_CUSTOMER_DWELL_MIN,
 } from '../ui/layout.js'
+import type { CustomerType } from '../taxonomy/customers.js'
 import { MessageLog } from '../ui/MessageLog.js'
 import { money } from '../ui/money.js'
 import { shipBoughtLine } from '../ui/goal.js'
@@ -159,6 +161,13 @@ export class GameScene extends Phaser.Scene {
   private restockFocus: string | null = null
   private tutorial!: Tutorial
   private characterStrip!: CharacterStrip
+  /**
+   * いま立っている客と、**あと何分居るか**（#21）。
+   * ⚠ **時計そのものではなく残り分数で持つ。**日をまたぐ・時間を飛ばす場面があるので、
+   *   **「何時に帰る」で持つと、飛ばした先で帰らない客が残る。**
+   */
+  private customersInShop: { id: string; left: number }[] = []
+  private customerSeq = 0
   private messageLog!: MessageLog
   /** 「行く場所」の枠（#58）。**いまどこに居るかはこれが持つ** */
   private placeFrame!: PlaceFrame
@@ -910,6 +919,22 @@ export class GameScene extends Phaser.Scene {
     this.updateStatus()
   }
 
+  /** 来た客を1人立たせる。**3人埋まっているときは立たせない**（売買は今までどおり進む） */
+  private showCustomer(type: CustomerType): void {
+    if (this.characterStrip.customerCount() >= STRIP_CUSTOMER_SLOT_MAX) return
+    const id = `c${++this.customerSeq}`
+    this.characterStrip.addCustomer(id, this.world.getIsland(), type)
+    this.customersInShop.push({ id, left: STRIP_CUSTOMER_DWELL_MIN })
+  }
+
+  /** 1分ごとに残りを減らし、0になった客を帰す */
+  private retireCustomers(): void {
+    for (const c of this.customersInShop) c.left--
+    const leaving = this.customersInShop.filter(c => c.left <= 0)
+    for (const c of leaving) this.characterStrip.removeCustomer(c.id)
+    this.customersInShop = this.customersInShop.filter(c => c.left > 0)
+  }
+
   private setupEvents(): void {
     EventBus.on(GameEvents.TIME_MINUTE_PASSED, (time: unknown) => {
       const t = time as GameTime
@@ -922,10 +947,18 @@ export class GameScene extends Phaser.Scene {
       // ⚠ **できごとは時間を進めている最中に起きる**（#24・#90）。
       //   日の変わり目に出すと、`pauseAt` で止まったところに窓が重なるだけになる
       this.pumpStoryEvents(t)
+      this.retireCustomers()
+    })
+
+    // 来た客をキャラ帯に立たせる（#21）。⚠ **見た目だけ。**売買はこれと関係なく進む
+    EventBus.on(GameEvents.CUSTOMER_ARRIVED, (type: unknown) => {
+      this.showCustomer(type as CustomerType)
     })
 
     // 日が変わると現在地が動く（#2）
     EventBus.on(GameEvents.TIME_DAY_CHANGED, (time: unknown) => {
+      // ⚠ **昨日の客を持ち越さない**（閉店から翌朝までは1分ごとの呼びが無い）
+      this.clearCustomers()
       const day = (time as GameTime).day
       this.onDayChanged(day)
       this.pauseAt(`Day ${day} が始まった`)
@@ -1159,6 +1192,15 @@ export class GameScene extends Phaser.Scene {
     //   そこに居ないのだからおかしい（PO 2026-09-12）。
     //   場所の領域はこの帯に重なるので、隠さないと下から覗く
     this.characterStrip.setVisible(visible)
+    // ⚠ **店を離れるときは立っている客も帰す。**居る分数が減るのは店に居る間だけなので、
+    //   帰さないと**商人から戻った瞬間に、行く前の客がそのまま立っている**
+    if (!visible) this.clearCustomers()
+  }
+
+  /** 立っている客を全員帰す（時間が飛ぶところで呼ぶ） */
+  private clearCustomers(): void {
+    this.characterStrip.clearCustomers()
+    this.customersInShop = []
   }
 
   /** 時間が進んでいたら止める。場所へ移る前に必ず呼ぶ */
