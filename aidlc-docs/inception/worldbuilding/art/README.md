@@ -26,6 +26,10 @@
 ⚠ **来店客はまだ画面に出せない。**`CharacterStrip.addCustomer` を呼ぶ側が無く、
 **客は1ゲーム分で消える**（滞在時間を持っていない）ので、**出すには滞留の仕組みが要る。**
 
+⚠ **名前のある9人の `*_customer.png` とは別に、名前を持たない来店客12体を作る。**
+**置き場は `sd/customer/`**（島ごとに3体 ＝ `halvera-1` … `mifuyria-3`）。
+依頼書 → [handoff-customers.md](../prompts/handoff-customers.md)（**12体を1回でまとめて出す形**）
+
 寸法の根拠と納品条件 → [handoff-art-size.md](../prompts/handoff-art-size.md)
 
 ## 設計資料（主人公の検討過程）
