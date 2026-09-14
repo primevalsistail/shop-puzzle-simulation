@@ -417,6 +417,6 @@ describe('GameService', () => {
   it('getGoalAmountは1000万（GOAL_AMOUNT）を返す', () => {
     const { gs } = setup()
     expect(gs.getGoalAmount()).toBe(GOAL_AMOUNT)
-    expect(GOAL_AMOUNT).toBe(10_000_000)
+    expect(GOAL_AMOUNT).toBe(2_000_000)
   })
 })

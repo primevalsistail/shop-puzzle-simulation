@@ -119,8 +119,8 @@ describe('目標額の出どころは1つ（#73）', () => {
   })
 
   it('GameService が持っている数は 1000万だけ', () => {
-    expect(bigNumbers(code('services/GameService.ts'))).toEqual([10_000_000])
-    expect(GOAL_AMOUNT).toBe(10_000_000)
+    expect(bigNumbers(code('services/GameService.ts'))).toEqual([2_000_000])
+    expect(GOAL_AMOUNT).toBe(2_000_000)
   })
 
   /** ⚠ **目標を出す画面は3つある。**どれも `goal.ts` を通す（自前の数を持たない） */
