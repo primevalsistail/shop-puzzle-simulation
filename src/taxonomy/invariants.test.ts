@@ -12,7 +12,7 @@ import { describe, it, expect } from 'vitest'
 import type { ItemDef, RecipeDef } from './axes.js'
 import { ALL_ITEMS, getItem } from './items.js'
 import { ALL_RECIPES, RECIPES_BY_OUTPUT } from './recipes.js'
-import { craftProfit, dumpAll, ingredientCost, originReach, salePrice, tier } from './derive.js'
+import { cellCount, craftProfit, dumpAll, ingredientCost, originReach, salePrice, tier } from './derive.js'
 import { SIGNATURE_SETS, SET_RULES, DEMAND_RULES, UNLOCK_RULES, combine } from './rules.js'
 import { evalCondition, evaluate, type GameState, type Placement } from './evaluate.js'
 
@@ -26,7 +26,7 @@ describe('INV-1 追加しても、既存は変わらない', () => {
 
     const added: ItemDef = {
       id: 'test_new_item',
-      display: { name: '試しの品', reading: 'ためしのしな', color: 0x000000 },
+      display: { name: '試しの品', reading: 'ためしのしな', color: 0x888888 },
       mainKind: '道具', origin: 'なし', luxury: '上等', suitedLand: 'どこでも',
       shape: [[1]], basePrice: 40,
       originReason: 'INV-1 の判定のためだけに足した品',
@@ -43,7 +43,7 @@ describe('INV-1 追加しても、既存は変わらない', () => {
 
     const newItem: ItemDef = {
       id: 'test_flatbread',
-      display: { name: '試しの焼きもの', reading: 'ためしのやきもの', color: 0x000000 },
+      display: { name: '試しの焼きもの', reading: 'ためしのやきもの', color: 0x888888 },
       mainKind: '食料', origin: 'ノアキータ', luxury: '日用', suitedLand: 'どこでも',
       shape: [[1]],
       originReason: 'INV-1（レシピ版）の判定のためだけに足した品',
@@ -154,7 +154,7 @@ describe('INV-5 追加コストが定数', () => {
   it('品を1つ足すのに書くのは定義1件だけで、既存の定義も規則も需要表も触らない', () => {
     const added: ItemDef = {
       id: 'test_cost_item',
-      display: { name: '試しの品', reading: 'ためしのしな', color: 0x111111 },
+      display: { name: '試しの品', reading: 'ためしのしな', color: 0x888888 },
       mainKind: '飲みもの', origin: 'リナツィア', luxury: '上等', suitedLand: '暑い土地',
       shape: [[1]], basePrice: 33,
       originReason: 'INV-5 の判定のためだけに足した品',
@@ -224,8 +224,158 @@ describe('INV-6 作った品は、材料より高い', () => {
     // 旧式は「加工倍率 > 1」に依存していた。
     for (const recipe of ALL_RECIPES) {
       const item = getItem(recipe.outputItemId)
-      expect(craftProfit(recipe, item), recipe.id).toBeGreaterThan(0)
+      expect(craftProfit(item), recipe.id).toBeGreaterThan(0)
     }
+  })
+})
+
+// ══ 値段の決まり方（2026-09-15 に層1 を作り替えた） ══════
+/**
+ * `加工利益 = 係数 × 升数^k × 格の倍率`。**時間も tier も出力数も入らない。**
+ * 計画: `aidlc-docs/construction/plans/price-model-rework.md`
+ */
+describe('層1 は「升数と格」だけで決まる', () => {
+  const median = (xs: readonly number[]): number => {
+    const s = [...xs].sort((a, b) => a - b)
+    const m = (s.length / 2) | 0
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2
+  }
+
+  /**
+   * ⚠ **「深く作るほど取り分が増える」を、tier の係数ではなく実測で見張る。**
+   *
+   * **層1 に tier の係数は無い**（材料費と升数で二重に払うことになるため。r = 0.659）。
+   * 代わりに、**材料費の積み上げ**と **tier↔升数の相関**が深さの報酬を運んでいる。
+   * ⚠ **それが本当に成り立っているかは、データを見ないと分からない。**
+   *   レシピを足したときにここが崩れたら、**設計のほうが壊れている。**
+   */
+  it('tier ごとの売値の中央値が単調に増える', () => {
+    const byTier = new Map<number, number[]>()
+    for (const item of ALL_ITEMS) {
+      const t = tier(item.id)
+      byTier.set(t, [...(byTier.get(t) ?? []), salePrice(item.id)])
+    }
+    const tiers = [...byTier.keys()].sort((a, b) => a - b)
+    const medians = tiers.map(t => median(byTier.get(t)!))
+    for (let i = 1; i < medians.length; i++) {
+      expect(
+        medians[i],
+        `T${tiers[i]} の中央値 ${medians[i]} が T${tiers[i - 1]} の ${medians[i - 1]} を超えていない` +
+        `（全段: ${tiers.map((t, k) => `T${t}=${medians[k]}`).join(' ')}）`,
+      ).toBeGreaterThan(medians[i - 1])
+    }
+  })
+
+  // ── 盤面の総額（ペルソナが出した条件） ──────────────
+  /**
+   * > **比例を下回ると「小さい品を敷き詰めるのが正解」、上回ると「大きい品だけ」に一本化して、
+   * > テトリスの形の意味が消えます**（経営シム好き。`profit-persona-review.md`）
+   *
+   * **k を両側から挟む。**盤面は **4×4 ＝ 16升**、大きい品は **3×3 ＝ 9升**（実在の形。
+   * `grand_outfit` ／ `celebration_hamper`）、小さい品は 1升。
+   * ⚠ **4×4 に 3×3 は1つしか入らない**（下でしらみつぶしに数えている）ので、
+   *   「大きい品だけ」の盤面は **7升が死ぬ。**
+   *
+   * | 盤面 | 総額（格をそろえ、係数を約す） | |
+   * |---|---|---|
+   * | A 大きい品だけ | `9^k` | 7升が空き |
+   * | B 隙間を小さい品で埋めた | `9^k + 7` | 升を使い切る |
+   * | C 小さい品だけ | `16` | 升を使い切る |
+   *
+   * - **B > A** … 受入条件そのもの（隙間は埋めたほうが高い）
+   * - ⚠ **A < C** … `9^k < 16` ⟺ **k < 1.262**。**k が行き過ぎたらここが落ちる**
+   *   （7升を捨ててなお「大きい品だけ」が勝つなら、形の意味が消える）
+   * - ⚠ **B > C** … `9^k > 9` ⟺ **k > 1**。**比例を下回ったらここが落ちる**
+   *   （小さい品を敷き詰めるのが常に正解になる）
+   *
+   * ⚠ **材料費を混ぜない。**比べているのは**層1 の加工利益だけ**で、
+   *   ここが k で動く唯一の部分である。材料費は升数と別の理由（下の段の積み上げ）で動く。
+   * ⚠ **格もそろえる。**そろえないと `LUXURY_PROFIT`（0.9 / 1.1 / 1.7）の差が k の効きを覆う。
+   */
+  describe('盤面の総額 —— 大きい品だけに一本化しない（k を両側から挟む）', () => {
+    const BOARD = { width: 4, height: 4 }
+    const shaped = (shape: readonly (readonly (0 | 1)[])[]): ItemDef => ({
+      id: 'board_probe', display: { name: '検査用', reading: 'けんさよう', color: 0x888888 },
+      mainKind: '道具', origin: 'なし', luxury: '上等', suitedLand: 'どこでも',
+      shape, basePrice: 1, originReason: '盤面の総額を測るためだけの品',
+    })
+    const BIG = shaped([[1, 1, 1], [1, 1, 1], [1, 1, 1]])
+    const SMALL = shaped([[1]])
+
+    /** その形が盤面に重ならずいくつ置けるか（しらみつぶし。回転しない） */
+    const maxFit = (item: ItemDef): number => {
+      const used = Array.from({ length: BOARD.height }, () => Array(BOARD.width).fill(false))
+      let placed = 0
+      for (let y = 0; y < BOARD.height; y++) {
+        for (let x = 0; x < BOARD.width; x++) {
+          const cells: { x: number; y: number }[] = []
+          let ok = true
+          item.shape.forEach((row, dy) => row.forEach((c, dx) => {
+            if (c !== 1) return
+            const cx = x + dx, cy = y + dy
+            if (cx >= BOARD.width || cy >= BOARD.height || used[cy][cx]) ok = false
+            else cells.push({ x: cx, y: cy })
+          }))
+          if (!ok) continue
+          cells.forEach(c => { used[c.y][c.x] = true })
+          placed++
+        }
+      }
+      return placed
+    }
+
+    const BOARD_CELLS = BOARD.width * BOARD.height
+    const bigFit = maxFit(BIG)
+    const gaps = BOARD_CELLS - bigFit * cellCount(BIG)
+
+    const 大きい品だけ = bigFit * craftProfit(BIG)
+    const 隙間を小さい品で埋めた = 大きい品だけ + gaps * craftProfit(SMALL)
+    const 小さい品だけ = maxFit(SMALL) * craftProfit(SMALL)
+
+    it('盤面の前提: 4×4 に 3×3 は1つしか入らず、7升が余る', () => {
+      expect(BOARD_CELLS).toBe(16)
+      expect(cellCount(BIG)).toBe(9)
+      expect(bigFit).toBe(1)
+      expect(gaps).toBe(7)
+      expect(maxFit(SMALL)).toBe(16)
+      // ⚠ 格をそろえていること（そろっていないと下の比較が k を測っていない）
+      expect(BIG.luxury).toBe(SMALL.luxury)
+    })
+
+    it('隙間を小さい品で埋めた盤面のほうが、大きい品だけの盤面より総額が高い', () => {
+      expect(隙間を小さい品で埋めた).toBeGreaterThan(大きい品だけ)
+    })
+
+    it('⚠ k の上限: 7升を捨ててなお「大きい品だけ」が勝つことはない（k < 1.262）', () => {
+      expect(
+        大きい品だけ,
+        `大きい品だけ ${大きい品だけ.toFixed(2)} が小さい品だけ ${小さい品だけ.toFixed(2)} 以上。` +
+        '升数の指数が行き過ぎている（derive.ts の CELL_EXPONENT）',
+      ).toBeLessThan(小さい品だけ)
+    })
+
+    it('⚠ k の下限: 小さい品を敷き詰めるのが常に正解にはならない（k > 1）', () => {
+      expect(
+        隙間を小さい品で埋めた,
+        `混ぜた盤面 ${隙間を小さい品で埋めた.toFixed(2)} が小さい品だけ ${小さい品だけ.toFixed(2)} 以下。` +
+        '升数の指数が比例を下回っている（derive.ts の CELL_EXPONENT）',
+      ).toBeGreaterThan(小さい品だけ)
+    })
+  })
+
+  /** 層1 に時間・出力数・tier が入っていないこと（形そのものを見張る） */
+  it('加工利益は、升数と格が同じなら同じ —— 時間・出力数・tier で動かない', () => {
+    const byShapeAndLuxury = new Map<string, Set<number>>()
+    for (const recipe of ALL_RECIPES) {
+      const item = getItem(recipe.outputItemId)
+      const key = `${cellCount(item)}升/${item.luxury}`
+      const set = byShapeAndLuxury.get(key) ?? new Set<number>()
+      set.add(craftProfit(item))
+      byShapeAndLuxury.set(key, set)
+    }
+    // ⚠ 所要分も出力数も tier もばらばらな品が同じ組に入っている。値が1つなら、どれも効いていない
+    const 散っている = [...byShapeAndLuxury.entries()].filter(([, v]) => v.size > 1)
+    expect(散っている.map(([k]) => k)).toEqual([])
   })
 })
 
@@ -252,7 +402,7 @@ describe('異常入力は必ず落ちる', () => {
 
   it('tier1 なのに basePrice が無い品は落ちる', () => {
     const broken: ItemDef = {
-      id: 'broken', display: { name: '壊れた品', reading: 'こわれたしな', color: 0 },
+      id: 'broken', display: { name: '壊れた品', reading: 'こわれたしな', color: 0x888888 },
       mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: 'どこでも',
       shape: [[1]], originReason: '判定用',
     }
