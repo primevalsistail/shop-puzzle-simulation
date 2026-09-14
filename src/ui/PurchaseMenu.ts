@@ -264,6 +264,15 @@ export class PurchaseMenu {
     this.onClose()
   }
 
+  /**
+   * **行商人として開いているか**（#21）。
+   * ⚠ **同じ画面を、島の商人と行商人の両方で使い回している**ので、
+   *   **出す顔を決めるには外から見分けが要る。**
+   */
+  isPeddler(): boolean {
+    return this.peddler !== null
+  }
+
   isVisible(): boolean {
     return this.isOpen
   }

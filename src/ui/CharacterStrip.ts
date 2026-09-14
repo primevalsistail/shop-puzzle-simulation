@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import {
   STRIP_L, STRIP_W, STRIP_H, STRIP_SHOPKEEPER_FONT_PX, STRIP_CUSTOMER_FONT_PX,
 } from './layout.js'
+import { SHOPKEEPER_KEY } from './faces.js'
 import { BG_PANEL, LINE_STRONG, LINE_WEAK, TEXT_SUB, TEXT_WEAK, css } from './palette.js'
 
 const STRIP_X = STRIP_L
@@ -10,7 +11,8 @@ const STRIP_HEIGHT = STRIP_H
 const MID_Y = STRIP_HEIGHT / 2  // 305
 
 export class CharacterStrip {
-  private shopkeeperGfx!: Phaser.GameObjects.Graphics
+  /** 店番＝主人公ノエラの立ち姿（#21。PO 回答 2026-09-14「店番は主人公だけでいい」） */
+  private shopkeeperImg!: Phaser.GameObjects.Image
   private customerSlots: Map<string, Phaser.GameObjects.Graphics> = new Map()
   /** 枠・見出し・区切り線。**店にいる間だけ出す** */
   private frame: (Phaser.GameObjects.Rectangle | Phaser.GameObjects.Text | Phaser.GameObjects.Graphics)[] = []
@@ -28,7 +30,7 @@ export class CharacterStrip {
   setVisible(visible: boolean): void {
     this.shown = visible
     for (const obj of this.frame) obj.setVisible(visible)
-    this.shopkeeperGfx?.setVisible(visible)
+    this.shopkeeperImg?.setVisible(visible)
     for (const gfx of this.customerSlots.values()) gfx.setVisible(visible)
   }
 
@@ -44,9 +46,10 @@ export class CharacterStrip {
       }).setOrigin(0.5, 0).setDepth(2),
     )
 
-    // 店主キャラクタープレースホルダー（丸）
-    this.shopkeeperGfx = this.scene.add.graphics().setDepth(2)
-    this.drawShopkeeper()
+    // 店番の立ち姿。⚠ **絵は 162×216 で、上半分（165×約458）にそのまま収まる。**
+    //   拡大縮小をかけないこと（かけると輪郭がぼやける）
+    this.shopkeeperImg = this.scene.add.image(cx, MID_Y / 2, SHOPKEEPER_KEY)
+      .setOrigin(0.5, 0.5).setDepth(2).setVisible(this.shown)
 
     // ── 来店客エリア（下半分） ───────────────────────────
     this.frame.push(
@@ -62,18 +65,6 @@ export class CharacterStrip {
     divGfx.lineStyle(1.5, LINE_WEAK, 0.8)
     divGfx.lineBetween(STRIP_X + 6, MID_Y, STRIP_X + STRIP_WIDTH - 6, MID_Y)
     this.frame.push(divGfx)
-  }
-
-  private drawShopkeeper(): void {
-    const cx = STRIP_X + STRIP_WIDTH / 2
-    const cy = MID_Y / 2
-    this.shopkeeperGfx.clear()
-    // 頭
-    this.shopkeeperGfx.fillStyle(TEXT_SUB, 1)
-    this.shopkeeperGfx.fillCircle(cx, cy - 30, 27)
-    // 体
-    this.shopkeeperGfx.fillStyle(TEXT_WEAK, 1)
-    this.shopkeeperGfx.fillRoundedRect(cx - 24, cy + 0, 48, 42, 9)
   }
 
   // ── 将来の拡張 API ──────────────────────────────────────

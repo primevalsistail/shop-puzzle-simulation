@@ -81,7 +81,7 @@ export class HUD {
     lineGfx.lineBetween(px - PW / 2 + 12, HUD_RULE_Y, px + PW / 2 - 12, HUD_RULE_Y)
 
     // Row 3 — Money (center, big)
-    // ⚠ **大きさは `layout.ts` の `HUD_MONEY_FONT_PX`。**`10,000,000レン`（クリア条件の額）が
+    // ⚠ **大きさは `layout.ts` の `HUD_MONEY_FONT_PX`。**`10,000,000レン`（見込む最大の桁）が
     //   枠 261px に収まるかを `layout.test.ts` が見ている
     this.moneyText = this.scene.add.text(px, HUD_ROW_MONEY_Y, money(0), {
       fontSize: `${HUD_MONEY_FONT_PX}px`, color: css(TEXT_MONEY), fontStyle: 'bold',

@@ -39,6 +39,11 @@ export class TradeMenu {
     return this.isOpen
   }
 
+  /** いま開いているタブ（`TRADE_TABS` の並び）。**顔絵を誰にするかの判定に使う**（#21） */
+  currentTab(): number {
+    return this.tab
+  }
+
   /** @param tab どのタブで開くか。既定は `商人`（`TRADE_TABS` の先頭） */
   open(tab = 0): void {
     if (this.isOpen) {

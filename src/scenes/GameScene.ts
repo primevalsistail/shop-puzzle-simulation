@@ -24,6 +24,8 @@ import { ShelfPresets } from '../components/floor/ShelfPresets.js'
 import { PresetMenu } from '../ui/PresetMenu.js'
 import { CraftMenu } from '../ui/CraftMenu.js'
 import { HUD } from '../ui/HUD.js'
+import { ISLAND_MERCHANT_FACE } from '../ui/faces.js'
+import type { FaceKey } from '../ui/faces.js'
 import { PurchaseMenu } from '../ui/PurchaseMenu.js'
 import { UpgradeMenu } from '../ui/UpgradeMenu.js'
 import { DeliveryTab } from '../ui/DeliveryTab.js'
@@ -163,6 +165,10 @@ export class GameScene extends Phaser.Scene {
   /** 選択肢のあるできごとの窓（#24）。**開いている間は時間も配置も止まる** */
   private messageWindow!: MessageWindow
   private presetMenu!: PresetMenu
+  /** いま向き合っている相手の顔（#21） */
+  private faceArt!: Phaser.GameObjects.Image
+  /** ⚠ **いま出している絵の名札。**同じなら差し替えない（毎フレーム見るので） */
+  private faceKey: FaceKey = 'noela'
 
   private speedLabel!: Phaser.GameObjects.Text
   /** グリッドの下地。棚を広げたら一緒に広げる */
@@ -486,6 +492,36 @@ export class GameScene extends Phaser.Scene {
     this.timeManager.update(delta)
     this.craftingSystem.update(delta)
     this.syncDomInputs()
+    this.syncFaceArt()
+  }
+
+  /**
+   * いま向き合っている相手の顔を出す（#21）。
+   *
+   * ⚠ **開く側・閉じる側に足さないこと。**入口は仕入れ・行商人・改装・案内と4つ以上あり、
+   *   **タブの行き来でも相手が変わる。****どれか1つを必ず忘れる**ので、
+   *   `<input>` を隠すのと同じく**毎フレームここで見る。**
+   */
+  private syncFaceArt(): void {
+    const key = this.faceKeyNow()
+    if (key === this.faceKey) return
+    this.faceKey = key
+    this.faceArt.setTexture(key)
+  }
+
+  /**
+   * 誰の顔を出すか。⚠ **上に重なっているものから順に見る。**
+   * ⚠ **納品のタブは相手が居ない**ので、ふだんと同じノエラのまま。
+   */
+  private faceKeyNow(): FaceKey {
+    if (this.tutorial.isShown()) return 'nem'
+    if (this.purchaseMenu.isVisible() && this.purchaseMenu.isPeddler()) return 'baren'
+    if (this.tradeMenu.isVisible()) {
+      const tab = this.tradeMenu.currentTab()
+      if (tab === 0) return ISLAND_MERCHANT_FACE[this.world.getIsland()]
+      if (tab === 1) return 'izel'
+    }
+    return 'noela'
   }
 
   /**
@@ -531,10 +567,14 @@ export class GameScene extends Phaser.Scene {
     // 右パネル
     this.add.rectangle((RIGHT_PANEL_L + SCREEN_W) / 2, LOG_T / 2, SCREEN_W - RIGHT_PANEL_L, LOG_T, BG_PANEL)
       .setStrokeStyle(1.5, LINE_STRONG)
-    // キャラ絵プレースホルダー（HUD の下〜ボタン列の上）。
+    // キャラ絵の枠（HUD の下〜ボタン列の上）。
     // ⚠ **高さを直書きしないこと。**ボタン列に行を足すと列が上へ伸びる（`layout.ts` の注記）
     this.add.rectangle(CHAR_ART_CX, CHAR_ART_CY, CHAR_ART_W, CHAR_ART_H, BG_WINDOW)
       .setStrokeStyle(1.5, LINE_STRONG).setDepth(1)
+    // いま向き合っている相手の顔（#21）。⚠ **絵は 252×370 で枠（255×約420）にそのまま収まる。**
+    //   誰を出すかは `faceKeyNow()` が毎フレーム決める
+    this.faceArt = this.add.image(CHAR_ART_CX, CHAR_ART_CY, this.faceKey)
+      .setOrigin(0.5, 0.5).setDepth(2)
     // メッセージウィンドウ区切り（グリッド+キャラ+右パネルのみ。左パネルはアイテムリストが続く）
     const divGfx = this.add.graphics()
     divGfx.lineStyle(1.5, LINE_WEAK, 0.6)
