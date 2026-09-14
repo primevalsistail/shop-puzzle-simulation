@@ -38,13 +38,14 @@ export function shopkeeperPath(): string {
 // ─── 来店客（#21） ────────────────────────────────────────────
 
 /**
- * ⚠ **絵が揃うまで `false`。**`BootScene` はこの旗が立つまで来店客の絵を読み込まず、
- *   **キャラ帯は人の形のまま**出る（無い絵を読ませると 404 が並ぶ）。
+ * **24枚が揃ったので `true`**（2026-09-15。PO 回答「いったん入れて、画面で見てから決める」）。
  *
- * **絵が届いたときにやること**: 原本（`aidlc-docs/.../art/sd/customer/`）の24枚を
- * `public/art/sd/customer/` へ写し、**ここを `true` にする。それだけ。**
+ * ⚠ **`false` に戻すと、キャラ帯は人の形に戻る**（`BootScene` が読み込まなくなる）。
+ *   **絵を取り下げるときは、この1行だけ。**写した絵は消さない。
+ * ⚠ **原本は `aidlc-docs/inception/worldbuilding/art/sd/customer/`。**
+ *   `public/art/sd/customer/` はそこからの写しで、**描き直したら原本を直してから写す**（逆をしない）。
  */
-export const CUSTOMER_ART_READY = false
+export const CUSTOMER_ART_READY = true
 
 /** 年ごろ → 絵のファイル名。⚠ **`customers.ts` の6通りと1対1**（片方だけ増やさない） */
 const CUSTOMER_ART_NAME: Readonly<Record<CustomerType, string>> = {
