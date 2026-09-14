@@ -25,7 +25,7 @@ import { ALL_RECIPES } from '../taxonomy/recipes.js'
 import type { ItemDef, ItemId, RecipeDef } from '../taxonomy/axes.js'
 import { DAYS_PER_PORT, ROUTE } from '../taxonomy/islands.js'
 import type { IslandName } from '../taxonomy/islands.js'
-import { originReach, tier } from '../taxonomy/derive.js'
+import { cellCount, originReach, tier } from '../taxonomy/derive.js'
 import { finalModifiers, merchantListing } from '../taxonomy/evaluate.js'
 import type { GameState } from '../taxonomy/evaluate.js'
 import { ItemRegistry } from '../components/items/ItemRegistry.js'
@@ -172,6 +172,14 @@ export interface DayRecord {
   readonly lostBusinessMinutes: number
   /** 棚に並んでいた区画の数 */
   readonly slots: number
+  /**
+   * そのうち**埋まっていた升の数**と、**棚の升の総数**。
+   *
+   * ⚠ **区画の数だけ見ると「棚が余っている」を読み違える** ——
+   *   **1区画は 2〜9升を占める**ので、区画が少なくても升は埋まりうる。
+   */
+  readonly cells: number
+  readonly cellCapacity: number
   /**
    * その日に作った品のいちばん深い tier（作らなかった日は 0）。
    * ⚠ **「深い品を作る」方針が本当に深く作れているか**は、これを見ないと分からない
@@ -508,8 +516,11 @@ export class SimWorld {
   }
 
   private closeDay(day: number, island: IslandName): void {
-    const slots = this.floorGrid.getAllSlots().length
+    const placed = this.floorGrid.getAllSlots()
+    const slots = placed.length
     this.shelfKinds = Math.max(3, slots)
+    const cells = placed.reduce((sum, s) => sum + cellCount(this.registry.getItem(s.itemId)), 0)
+    const size = this.floorGrid.getGridSize()
     const money = this.economy.getMoney()
     this.records.push({
       day,
@@ -526,6 +537,8 @@ export class SimWorld {
       craftMinutes: this.dCraftMinutes,
       lostBusinessMinutes: this.dLostMinutes,
       slots,
+      cells,
+      cellCapacity: size.width * size.height,
       topTier: this.dTopTier,
     })
     // ⚠ **止めない。**測るのが目的なので、踏んだ日だけ覚えて回し続ける

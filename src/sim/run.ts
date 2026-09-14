@@ -55,7 +55,7 @@ function parseArgs(argv: readonly string[]): { opts: SimOptions; names: string[]
 }
 
 /** 表の桁幅 */
-const COLS = [11, 9, 9, 9, 10, 10, 10, 15, 8, 9, 4, 5]
+const COLS = [11, 9, 9, 9, 10, 10, 10, 15, 8, 9, 4, 9, 5]
 
 const int = (n: number): string => Math.round(n).toLocaleString('en-US')
 const pad = (s: string, w: number): string => s.padStart(w)
@@ -93,7 +93,7 @@ function report(result: SimResult, step: number): void {
   console.log('')
   console.log('1日の稼ぎの内訳（**取り分**＝売上−元手。区間の1日あたり平均／レン）')
   console.log(
-    '  ' + ['区間', '転売', '加工', '納品', '仕入', '改装', '純増/日', '所持金(区間末)', '加工分', '客ロス分', '升', '最深'].
+    '  ' + ['区間', '転売', '加工', '納品', '仕入', '改装', '純増/日', '所持金(区間末)', '加工分', '客ロス分', '区画', '升/棚', '最深'].
       map((h, i) => pad(h, COLS[i])).join(''),
   )
   for (let i = 0; i < rows.length; i += step) {
@@ -112,6 +112,7 @@ function report(result: SimResult, step: number): void {
       int(sum(chunk, r => r.craftMinutes) / n),
       int(sum(chunk, r => r.lostBusinessMinutes) / n),
       String(end.slots),
+      `${end.cells}/${end.cellCapacity}`,
       `T${Math.max(...chunk.map(r => r.topTier))}`,
     ]
     console.log('  ' + cells.map((c, k) => pad(c, COLS[k])).join(''))
