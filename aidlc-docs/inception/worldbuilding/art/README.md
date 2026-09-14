@@ -29,7 +29,9 @@
 ⚠ **名前のある9人の `*_customer.png` とは別に、名前を持たない来店客24体を作る。**
 **置き場は `sd/customer/`**（**四つの島 × 6通り** ＝ `halvera-boy` … `mifuyria-oldwoman`）。
 **6通りは 男子・女子・男性・女性・老人男性・老人女性**（PO 指定 2026-09-14）。
-依頼書 → [handoff-customers.md](../prompts/handoff-customers.md)（**24体を1回でまとめて出す形**）
+**12体は納品済み**（`halvera-boy` ほか。⚠ **`1`〜`3` の名で届いたものを、6通りの名に改めた**）。
+**残り12体は、済んだ絵を見本に添えて追加で頼む。**
+依頼書 → [handoff-customers.md](../prompts/handoff-customers.md)
 
 寸法の根拠と納品条件 → [handoff-art-size.md](../prompts/handoff-art-size.md)
 
