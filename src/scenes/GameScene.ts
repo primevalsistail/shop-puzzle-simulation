@@ -13,6 +13,7 @@ import { GameProgress } from '../components/progress/GameProgress.js'
 import { WorldState } from '../components/progress/WorldState.js'
 import { DeliveryOrders } from '../components/progress/DeliveryOrders.js'
 import { PeddlerStock } from '../components/progress/PeddlerStock.js'
+import { RescueSupply } from '../components/progress/RescueSupply.js'
 import { StoryEventScheduler } from '../components/progress/StoryEventScheduler.js'
 import { STORY_EVENTS } from '../components/progress/StoryEvents.js'
 import type { StoryChoice } from '../components/progress/StoryEvents.js'
@@ -44,7 +45,6 @@ import {
   BTN_ACTION_FONT_PX, BTN_ADVANCE_FONT_PX, BTN_ICON_FONT_PX, BTN_TOOLTIP_FONT_PX,
   BTN_SPEED_FONT_PX, SALE_POPUP_FONT_PX,
   GOAL_TITLE_FONT_PX, GOAL_LINE_FONT_PX, GOAL_BTN_FONT_PX, GOAL_CLOSE_LABEL,
-  GAMEOVER_TITLE_FONT_PX, GAMEOVER_LINE_FONT_PX,
 } from '../ui/layout.js'
 import { MessageLog } from '../ui/MessageLog.js'
 import { money } from '../ui/money.js'
@@ -94,6 +94,8 @@ export class GameScene extends Phaser.Scene {
   private deliveryOrders!: DeliveryOrders
   /** 行商人バレンの積荷（#9）。**来た日ぶんを1回だけ引く** */
   private peddler!: PeddlerStock
+  /** 救済の品の、その日ぶん（買値0 の品の1日の上限。`RescueSupply`） */
+  private rescue!: RescueSupply
   /**
    * 選択肢のあるできごとの発火（#24）。
    *
@@ -115,7 +117,8 @@ export class GameScene extends Phaser.Scene {
    *   戻さないと、**以降ずっと `<input>` が全部隠れたまま**になる
    *   （仕入れの個数・工房の回数・一覧の検索・マイセットの名前が打てない）。
    * ⚠ **ロードでも戻す**（#97 受入条件5）。**幕を閉じずにロードすると隠れたままになる。**
-   * ⚠ **GAME OVER の幕だけは戻らない。**閉じる口が無いので真のまま。
+   * ⚠ **戻らない経路はもう無い**（2026-09-15）。**閉じる口の無い GAME OVER の幕を外した**ので、
+   *   **いま立つのはエンディングの幕だけ**で、閉じれば必ず戻る。
    */
   private curtainShown = false
   /** いま `<input>` を隠しているか。**毎フレーム DOM を触らないための控え** */
@@ -186,9 +189,10 @@ export class GameScene extends Phaser.Scene {
     )
     this.deliveryOrders = new DeliveryOrders(this.inventory, this.economy)
     this.peddler = new PeddlerStock()
+    this.rescue = new RescueSupply()
     this.progress = new GameProgress(
       this.economy, this.inventory, this.floorGrid, this.timeManager, this.world, this.upgrades,
-      this.shelfPresets, this.deliveryOrders, this.peddler,
+      this.shelfPresets, this.deliveryOrders, this.peddler, this.rescue,
     )
     this.recipeUnlocks = new RecipeUnlocks(this.registry_, this.inventory, this.progress)
 
@@ -229,6 +233,7 @@ export class GameScene extends Phaser.Scene {
       this.inventory,
       this.placeFrame,
       () => this.onPurchaseMenuClosed(),
+      this.rescue,
     )
 
     this.upgradeMenu = new UpgradeMenu(
@@ -353,6 +358,9 @@ export class GameScene extends Phaser.Scene {
         // ⚠ **積荷ごと戻す。**戻さずに引き直すと、**欲しい品が出るまでロードし直せる**
         //   （10種類・各10個という上限が意味を失う。`PeddlerStock` の注記）
         this.peddler.restore(data.peddler)
+        // ⚠ **救済の品のその日ぶんも戻す。**戻さないと、**ただで買える品を買ってから
+        //   ロードし直すだけで1日の上限が戻る**（`RescueSupply` の注記）
+        this.rescue.restore(data.rescue)
         this.progress.restoreUnlockedRecipes(data.unlockedRecipes ?? [])
         // ⚠ **自由航行の航路を戻す**（#7）。**無いセーブは空で来る**（クリア前 ／ #7 より前）。
         //   空なら日付からの導出へ戻り、**クリア済みなのに空**なら今日の島から始める。
@@ -378,6 +386,9 @@ export class GameScene extends Phaser.Scene {
         // ⚠ **行商人が無かった頃のセーブは日が 0 で来る。**その日ぶんをここで引く。
         //   同じ日の積荷が入っていれば `refresh` は何もしない（1日1回。`PeddlerStock`）
         this.visitPeddler(data.currentTime.day)
+        // ⚠ **救済の品が無かった頃のセーブは日が 0 で来る。**その日ぶんをここで配る。
+        //   同じ日のぶんが入っていれば `refresh` は何もしない（1日1回。`RescueSupply`）
+        this.rescue.refresh(data.currentTime.day)
         // ⚠ **その日ぶんのできごとも引き直す。**引かないと、**別の日のセーブを読んだあと
         //   その日が終わるまで何も起きない**（控えは前の日のままになる）
         this.storyEvents.ensureDay(data.currentTime.day)
@@ -403,6 +414,7 @@ export class GameScene extends Phaser.Scene {
     this.rollMission(t0.day)
     // 初日ぶんの行商人と、その日のできごと（#24・#90）
     this.visitPeddler(t0.day)
+    this.rescue.refresh(t0.day)
     this.storyEvents.ensureDay(t0.day)
     this.inventoryPanel.onSelect(id => {
       // 1つの品は棚に1区画まで。**掴んだ時点で知らせる**（どこへ持って行っても置けないため）
@@ -838,14 +850,10 @@ export class GameScene extends Phaser.Scene {
       const t = time as GameTime
       this.hud.updateTime(t.day, t.hour, t.minute)
       this.gameService.onMinutePassed(Math.random, this.timeManager.isOpen())
-      // ⚠ **目標と GAME OVER の判定はここ**（#93）。**売買のすぐ後ろ・`onMinutePassed` の外。**
-      //   - **外**なので、`isOpen` にも棚の空にも遮られない ——
-      //     **棚が空でも閉店中でも見る**（以前は両方の `return` の後ろにあって出なかった）
-      //   - **後ろ**であることが要点。**所持金を全部仕入れに突っ込むのは正当な戦略**なので、
-      //     **先に客が買って戻れば幕は出ない。**⚠ **`ECONOMY_MONEY_CHANGED` へ移さないこと** ——
-      //     残金ちょうどの仕入れ（`canAfford` は `>=`）が**その場で GAME OVER になる**
-      //   - 幕を2回出さない番は `GameService` 側が持つ
-      this.gameService.checkGoalAndGameOver()
+      // ⚠ **`checkGoalAndGameOver()` の呼びは 2026-09-15 に消した**（関数ごと無くなった）。
+      //   **目標も GAME OVER も、毎分見るものが1つも無い。**
+      //   **戻さないこと** —— 目標の入口は「商船を買う」（`buyShip()`）で、
+      //   **詰みは救済の品（`砂`）が無くしている**（`GameService` の注記）
       // ⚠ **できごとは時間を進めている最中に起きる**（#24・#90）。
       //   日の変わり目に出すと、`pauseAt` で止まったところに窓が重なるだけになる
       this.pumpStoryEvents(t)
@@ -937,10 +945,10 @@ export class GameScene extends Phaser.Scene {
     // ⚠ **`PROGRESS_GOAL_COMPLETE` の購読は 2026-09-15 に消した**（#97）。
     //   **目標額に届いても幕は出さない。**エンディングの入口は `buyShip()`（商船を買う）
 
-    EventBus.on(GameEvents.PROGRESS_GAME_OVER, () => {
-      this.timeManager.stopAdvancing()
-      this.showGameOver()
-    })
+    // ⚠ **`PROGRESS_GAME_OVER` の購読は 2026-09-15 に消した**（計画 `rescue-and-no-gameover.md`）。
+    //   **GAME OVER そのものが無くなった** —— **ただで買える救済の品**（`砂`）が
+    //   **どの島でも常に並ぶ**ので、所持金が 0 でも買って・並べて・売れる。
+    //   **立ち直る手段があるのに終わらせない。**
   }
 
   /**
@@ -965,6 +973,9 @@ export class GameScene extends Phaser.Scene {
     // ⚠ **島が変わったあとに引く。**次の寄港地は島が変わった時点で変わるので、
     //   先に引くと「1日だけ、いまの次の島の産を積んだ行商人」が出る（#9）
     this.visitPeddler(day)
+    // ⚠ **救済の品も1日ぶんに戻る**（`RescueSupply`）。**島は見ない** ——
+    //   どの島でも同じだけ買える（`origin: なし` なので商人は常に並べる）
+    this.rescue.refresh(day)
     // ⚠ **納品のミッションも島が変わったあと**（#98）。候補は**いまの島で買える品**から出るので、
     //   先に引くと**もう居ない島の品ぞろえ**で選ぶことになる
     this.rollMission(day)
@@ -1474,9 +1485,9 @@ export class GameScene extends Phaser.Scene {
    * ⚠ **買ったあとはそのまま遊べる**（決定 2026-09-15）。**幕は閉じられる。**
    */
   private buyShip(): void {
-    // ⚠ **旗を先に立てる。**`checkGoalAndGameOver()` が読むので、
-    //   **所持金が 0 になったまま次の分が刻まれても GAME OVER にしない**
-    //   （商船の値段は目標額と同じ＝ぴったりで買うと 0 になる）
+    // ⚠ **旗は HUD と改装タブの5行目が読む**（2026-09-15 以降はそれだけ）。
+    //   **GAME OVER が無くなった**ので、「ぴったりで買って 0 になった次の分」を
+    //   気にする必要はもう無い（商船の値段は目標額と同じ）
     this.gameService.setEndlessMode(true)
     this.progress.setEndlessMode(true)
     // ⚠ **ここから航路を自分で決められる**（#7）。目標のバーがあった場所が
@@ -1522,17 +1533,9 @@ export class GameScene extends Phaser.Scene {
     })
   }
 
-  private showGameOver(): void {
-    const { width, height } = this.scale
-    this.curtainShown = true
-    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.85).setDepth(200)
-    this.add.text(width / 2, height / 2 - 60, 'GAME OVER', {
-      fontSize: `${GAMEOVER_TITLE_FONT_PX}px`, color: '#ff4444', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(201)
-    this.add.text(width / 2, height / 2 + 45, '資金が尽きました', {
-      fontSize: `${GAMEOVER_LINE_FONT_PX}px`, color: '#cccccc',
-    }).setOrigin(0.5).setDepth(201)
-  }
+  // ⚠ **`showGameOver()` は 2026-09-15 に消した**（計画 `rescue-and-no-gameover.md`）。
+  //   **閉じる口の無い幕はこれだけだった**ので、
+  //   **`curtainShown` が戻らない経路も一緒に無くなっている。**
 
   /**
    * 節目で時間を止める。

@@ -78,10 +78,12 @@ describe('上に重ねる画面の間は `<input>` を隠す', () => {
     expect(fn).not.toContain('presetMenu')
   })
 
-  it('幕は出した両方で印を立てる', () => {
-    for (const m of ['private showGoalComplete()', 'private showGameOver()']) {
-      expect(methodBody(scene, m), `${m}`).toContain('this.curtainShown = true')
-    }
+  /**
+   * ⚠ **幕は1つになった**（2026-09-15。計画 `rescue-and-no-gameover.md`）。
+   *   **GAME OVER の幕を外した**ので、印を立てるのはエンディングだけ。
+   */
+  it('幕を出すときに印を立てる', () => {
+    expect(methodBody(scene, 'private showGoalComplete()')).toContain('this.curtainShown = true')
   })
 
   /**
@@ -99,9 +101,16 @@ describe('上に重ねる画面の間は `<input>` を隠す', () => {
     expect(fn).toContain('this.curtainShown = false')
   })
 
-  /** ⚠ **GAME OVER の幕には閉じる口が無い。**出たら真のまま */
-  it('GAME OVER の幕は閉じない（印は戻さない）', () => {
-    expect(methodBody(scene, 'private showGameOver()')).not.toContain('this.curtainShown = false')
+  /**
+   * **閉じる口の無い幕を、もう作らない。**
+   *
+   * ⚠ **GAME OVER の幕がそれだった**（出たら `curtainShown` が真のまま ＝
+   *   **以降ずっと `<input>` が隠れる**）。**幕ごと消えたので、その経路も無い。**
+   *   → 計画 `rescue-and-no-gameover.md`「やること4」
+   */
+  it('GAME OVER の幕は無い', () => {
+    expect(scene).not.toContain('private showGameOver()')
+    expect(scene).not.toContain('GAME OVER')
   })
 
   /**

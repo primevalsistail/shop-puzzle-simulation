@@ -140,9 +140,9 @@ describe('商船を買うとエンディング（#97 受入条件3）', () => {
   })
 
   /**
-   * ⚠ **旗を先に立てる**（#97）。**商船の値段は目標額と同じ**なので、
-   *   ぴったりで買うと所持金が 0 になる —— 旗が後だと、
-   *   **エンディングの次の分でそのまま GAME OVER** になる。
+   * ⚠ **旗を先に立てる**（#97）。幕を出す前に**自由航行と HUD の表示が切り替わる**順序で、
+   *   **画面の見た目が1分ぶん食い違わない**ようにするためのもの。
+   *   （**GAME OVER を止めるため**という以前の理由は、2026-09-15 に幕ごと無くなった。）
    */
   it('旗を立てるのは、幕を出すより先', () => {
     const fn = methodBody(scene, 'private buyShip()')
@@ -173,12 +173,17 @@ describe('目標額に届いても幕は出ない（#97 受入条件2）', () =>
     expect(scene).not.toContain('goalCompleted')
   })
 
-  /** ⚠ **GAME OVER 側は残っている**（消したのは目標側の半分だけ。#97 受入条件6） */
-  it('GAME OVER 側は残っている', () => {
-    expect(service).toContain('PROGRESS_GAME_OVER')
-    expect(service).toContain('gameOverShown')
-    expect(methodBody(service, 'checkGoalAndGameOver()')).toContain('current <= 0')
-    expect(scene).toContain('EventBus.on(GameEvents.PROGRESS_GAME_OVER')
+  /**
+   * ⚠ **GAME OVER 側も消えた**（2026-09-15。計画 `rescue-and-no-gameover.md`）。
+   *   #97 の時点では「消したのは目標側の半分だけ」だったが、
+   *   **ただで買える救済の品で詰みが無くなった**ので、**残り半分も外した。**
+   *   **出ないこと自体は `GameService.test.ts`**（受入条件4）。ここは**出す側が無いこと。**
+   */
+  it('GAME OVER 側も無い（幕を出す側が残っていない）', () => {
+    expect(service).not.toContain('gameOverShown')
+    expect(service).not.toContain('EventBus.emit(GameEvents.PROGRESS_GAME_OVER')
+    expect(scene).not.toContain('EventBus.on(GameEvents.PROGRESS_GAME_OVER')
+    expect(scene).not.toContain('private showGameOver()')
   })
 })
 

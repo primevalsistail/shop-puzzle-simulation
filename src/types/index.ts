@@ -2,6 +2,7 @@ import type { Shape } from '../taxonomy/axes.js'
 import type { ShelfPreset } from '../components/floor/ShelfPresets.js'
 import type { DeliveryOrder } from '../components/progress/DeliveryOrders.js'
 import type { PeddlerRecord } from '../components/progress/PeddlerStock.js'
+import type { RescueRecord } from '../components/progress/RescueSupply.js'
 import type { VoyageRecord } from '../components/progress/WorldState.js'
 
 // ─── グリッド ─────────────────────────────────────────
@@ -95,6 +96,15 @@ export interface SaveData {
    */
   peddler?: PeddlerRecord
   /**
+   * 救済の品の、その日ぶん（買った日と数）。
+   * ⚠ **無いセーブを読めるようにしておくこと**（`peddler` と同じ）。
+   *
+   * ⚠ **積まないと上限が消える。**救済の品はただで買えるので、
+   *   **買った数を覚えていないと、買ってからロードし直すだけで何度でも買える**
+   *   （`peddler.day` ／ `orderDay` と同じ事故）。
+   */
+  rescue?: RescueRecord
+  /**
    * 自由航行の航路（#7）。**クリア後にしか入らない。**
    * ⚠ **無いセーブを読めるようにしておくこと**（`orders` ／ `peddler` と同じ）。
    *   クリア前のセーブと #7 より前のセーブは、**ここが無いまま来る。**
@@ -161,6 +171,16 @@ export const GameEvents = {
    *   **「目標額に届いても、これが出ないこと」**をこの名で見張っている。
    */
   PROGRESS_GOAL_COMPLETE: 'progress:goal-complete',
+  /**
+   * ⚠ **もう誰も出さない**（2026-09-15。計画 `rescue-and-no-gameover.md`）。
+   *   **GAME OVER そのものを外した** —— **ただで買える救済の品**（`derive.ts` の `isRescueItem`）
+   *   がどの島でも常に並ぶので、**所持金が 0 でも立ち直る手段がある。**
+   *   **立ち直れるのに幕を出して終わらせない。**
+   * ⚠ **名前だけ残してある**（`PROGRESS_GOAL_COMPLETE` と同じ扱い）。
+   *   `GameService.test.ts` が**「所持金が 0 以下でも、これが出ないこと」**をこの名で見張っている。
+   * ⚠ **`GameService.checkGoalAndGameOver()` は関数ごと消えた。**戻すなら、
+   *   **救済の品で立ち直れないことを先に示すこと。**
+   */
   PROGRESS_GAME_OVER: 'progress:game-over',
 } as const
 

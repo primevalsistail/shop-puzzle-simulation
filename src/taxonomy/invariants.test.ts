@@ -191,7 +191,8 @@ describe('検索用の読み（#65）', () => {
   it('全品に読みがある（1品でも欠けると、その品だけ検索から黙って外れる）', () => {
     const missing = ALL_ITEMS.filter(i => !i.display.reading)
     expect(missing.map(i => i.id)).toEqual([])
-    expect(ALL_ITEMS).toHaveLength(161)
+    // ⚠ **162品**（2026-09-15 に救済の品 `砂` を足した）
+    expect(ALL_ITEMS).toHaveLength(162)
   })
 
   it('読みはひらがな（と長音符）だけ', () => {

@@ -828,7 +828,11 @@ export const UPCOMING_FONT_PX = 16.5
  */
 
 /**
- * 行商人の行に出す「今日まだ何個買えるか」。
+ * 行に出す「今日まだ何個買えるか」。
+ *
+ * ⚠ **読み手は2つある** —— **行商人の積荷**（#9）と、**救済の品の1日の上限**
+ *   （`RescueSupply`。買値0 の品）。**どちらも「今日ここまで」**なので、字は分けない
+ *   （分けると同じ意味の文言が2つになり、幅の検査も2本になる）。
  *
  * ⚠ **品名の右**に出す。**島の商人の側にはもう字が無い**（産地は行の色。PO 指示 2026-09-13）ので、
  *   **ここが品名の右を使う唯一の字**である。
@@ -1424,11 +1428,12 @@ export const SAVELOAD_INFO_FONT_PX = 18
 /** 確認の面の見出し1行。⚠ **記録の中身は出さない**（PO 指示 2026-09-14） */
 export const SAVELOAD_CONFIRM_FONT_PX = 24
 
-// ─── 幕（目標達成・GAME OVER） ─────────────────────────────────
+// ─── 幕（目標達成） ───────────────────────────────────────────
 /**
- * **画面ぜんぶを覆う幕**（`GameScene`）。
+ * **画面ぜんぶを覆う幕**（`GameScene.showGoalComplete()`）。
  *
- * ⚠ **2つは別の幕**なので、見出しも本文も**同じ大きさだが別に持つ**（#116）。
+ * ⚠ **幕は1つだけになった**（2026-09-15）。**GAME OVER の幕を外した**ので、
+ *   **残っているのは商船を買ったときのエンディングだけ。**
  */
 export const GOAL_TITLE_FONT_PX = 78
 export const GOAL_LINE_FONT_PX = 39
@@ -1442,8 +1447,9 @@ export const GOAL_BTN_FONT_PX = 33
  * ⚠ **文言は PO が指示するもの。いまのは仮。**
  */
 export const GOAL_CLOSE_LABEL = '続ける'
-export const GAMEOVER_TITLE_FONT_PX = 78
-export const GAMEOVER_LINE_FONT_PX = 33
+// ⚠ **`GAMEOVER_TITLE_FONT_PX` / `GAMEOVER_LINE_FONT_PX` は 2026-09-15 に消した。**
+//   **GAME OVER の幕そのものが無くなった**（`GameScene.showGameOver()` ごと）ので、
+//   **読み手が1人もいない定数になった。**→ 計画 `rescue-and-no-gameover.md`
 
 // ─── 確認用の表示（`DebugTools`） ──────────────────────────────
 /** 押せるキーの一覧。⚠ **ログ欄にかからない位置に置く** */

@@ -82,7 +82,8 @@ function report(result: SimResult, step: number): void {
     )
   }
   console.log(
-    `所持金0以下（本番なら GAME OVER）: ${result.gameOverDay === null ? 'なし' : `Day ${result.gameOverDay}`}`,
+    // ⚠ **GAME OVER はもう無い**（2026-09-15）。**詰みかけた日**として出す
+    `所持金0以下になった日: ${result.zeroMoneyDay === null ? 'なし' : `Day ${result.zeroMoneyDay}`}`,
   )
   console.log(
     `解禁されたレシピ ${result.unlockedRecipes} 本（いちばん深いのは tier${result.unlockedTopTier}）` +

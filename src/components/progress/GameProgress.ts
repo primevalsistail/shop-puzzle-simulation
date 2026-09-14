@@ -8,6 +8,7 @@ import type { Upgrades } from './Upgrades.js'
 import type { ShelfPresets } from '../floor/ShelfPresets.js'
 import type { DeliveryOrders } from './DeliveryOrders.js'
 import type { PeddlerStock } from './PeddlerStock.js'
+import type { RescueSupply } from './RescueSupply.js'
 
 const SAVE_KEY = 'shop_puzzle_save'
 const slotKey = (slot: number) => `${SAVE_KEY}_${slot}`
@@ -43,6 +44,11 @@ export class GameProgress {
     private orders: DeliveryOrders,
     /** 行商人の積荷（#9）。⚠ **必須。**`orders` と同じ理由（渡し忘れが静かに通る） */
     private peddler: PeddlerStock,
+    /**
+     * 救済の品の、その日ぶん。⚠ **必須。**`orders` と同じ理由。
+     * **積まないと、買ってからロードし直すだけで上限が戻る。**
+     */
+    private rescue: RescueSupply,
   ) {}
 
   save(slot = 0): void {
@@ -60,6 +66,9 @@ export class GameProgress {
       // ⚠ **引いた日も積む**（#98）。積まないと、**欲しい依頼が出るまでロードし直せる**
       orderDay: this.orders.rolledDay(),
       peddler: this.peddler.toRecord(),
+      // ⚠ **救済の品の、その日ぶんも積む。**積まないと、
+      //   **ただで買える品を買ってからロードし直すだけで、1日の上限が戻る**
+      rescue: this.rescue.toRecord(),
       // 自由航行の航路（#7）。⚠ **積まないとロードで順どおりの島へ戻る**
       voyage: this.world.voyageRecord(),
       unlockedRecipes: Array.from(this.unlockedRecipes),

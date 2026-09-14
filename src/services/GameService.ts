@@ -15,7 +15,7 @@ import { evaluate } from '../taxonomy/evaluate.js'
  *
  * ⚠ **届いただけでは何も起きない**（#97。2026-09-15）。**エンディングの入口は「商船を買う」**で、
  *   **商船の値段がこの額**（`ui/goal.ts` の `SHIP_COST`）。
- *   **届いた瞬間に幕を出していたのをやめた**ので、`checkGoalAndGameOver()` は目標を見ない。
+ *   **届いた瞬間に幕を出していたのをやめた**ので、**目標額を見る判定はどこにも無い。**
  *
  * ⚠ **累計売上ではなく所持金で見る。**強化に払った金は目標から遠ざかるので、
  *   「いま強化を買うか、目標まで我慢するか」という判断がここから生まれる。
@@ -46,20 +46,11 @@ export class GameService {
    *   **目標額に届いただけでは立たないし、幕も出ない。**
    * ⚠ **名前は変えていない。**`SaveData.isEndlessMode` と同じ名で保存するので、
    *   **変えると今あるセーブが読めなくなる**（`src/types/index.ts` にも同じ注記）。
-   * ⚠ **立っているあいだは GAME OVER も出ない**（下の `checkGoalAndGameOver`）。
-   *   **商船の値段は目標額と同じ**なので、ぴったりで買うと所持金が 0 になる ——
-   *   **エンディングの直後に GAME OVER を出さないため**に、ここで止めている。
+   * ⚠ **これが読まれるのは画面だけになった**（2026-09-15）。
+   *   **GAME OVER そのものを外した**ので、「買った直後に幕を出さない」ための番も要らない
+   *   （下の `setEndlessMode` の注記）。**読むのは HUD と改装タブの5行目。**
    */
   private isEndlessMode = false
-  /**
-   * GAME OVER の幕を出したか。**`checkGoalAndGameOver()` を何度呼んでも、幕は1回だけ**
-   * （#93 受入条件2）。
-   *
-   * ⚠ **ロードで降ろす**（`setEndlessMode`）。読み直したら幕はまた出せる状態に戻る。
-   * ⚠ **目標側の控え（`goalShown`）は 2026-09-15 に消した**（#97）。
-   *   **目標額に届いても幕を出さなくなった**ので、数える幕が無い。
-   */
-  private gameOverShown = false
 
   constructor(
     private floorGrid: FloorGrid,
@@ -101,38 +92,20 @@ export class GameService {
   }
 
   /**
-   * GAME OVER を見る。**所持金だけを見る**（#93）。
+   * ⚠ **`checkGoalAndGameOver()` は 2026-09-15 に関数ごと消した**
+   *   （計画 `construction/plans/rescue-and-no-gameover.md`）。
    *
-   * ⚠ **目標側の半分は 2026-09-15 に消した**（#97）。**所持金が目標額に届いても何も起きない。**
-   *   **エンディングの入口は「商船を買う」**（`UpgradeMenu` の5行目 → `GameScene.buyShip()`）。
-   *   ⚠ **戻さないこと。**戻すと、**商船を買う前に幕が出てしまう。**
-   *   **「届いても幕が出ない」ことは `GameService.test.ts`（受入条件2）が見ている。**
-   * ⚠ **名前は `checkGoalAndGameOver` のまま。**見るものは GAME OVER だけになった。
+   *   **目標側は #97 で外れ**（エンディングの入口は「商船を買う」）、
+   *   **GAME OVER 側は「詰みを無くす」ことで要らなくなった** ——
+   *   **ただで買える救済の品**（`derive.ts` の `isRescueItem`）が**どの島でも常に並ぶ**ので、
+   *   **所持金が 0 でも、買って・並べて・売る手が残っている。**
+   *   **立ち直る手段があるのに終わらせない**、というのがこの削除の中身である。
    *
-   * ⚠ **売買の中に戻さないこと。**以前はこの判定が `onMinutePassed()` の
-   *   `if (!isOpen) return` と `if (slots.length === 0) return` の**後ろ**にあり、
-   *   **棚が空だと詰んでも GAME OVER が出ず、閉店中も出なかった。**
-   *   **目標も破産も、営業時間とも棚の中身とも関係が無い。**
-   * ⚠ **判定はここ1箇所。**呼ぶのは `TIME_MINUTE_PASSED` の購読（`GameScene.setupEvents`）で、
-   *   **`onMinutePassed()` のすぐ後ろ、その外**。
-   *   - **外**だから、`isOpen` にも棚の空にも遮られない（これが #93 の直し）
-   *   - **後ろ**だから、**その分で売れて所持金が戻れば幕は出ない**
-   * ⚠ **`ECONOMY_MONEY_CHANGED` で呼ばないこと。**`canAfford()` は `>=` なので
-   *   **残金ちょうどの仕入れが通り、その `spend()` がそのまま GAME OVER になる。**
-   *   **所持金を全部仕入れに突っ込むのは正当な戦略**で、即死にしてはいけない
-   *   （2026-09-14 に一度入れて戻した。`GameService.test.ts` の「残金ちょうど」が見ている）。
-   * ⚠ **届いたあとは毎分通る。**同じ幕を2回出さないよう、出したかをここで覚える。
+   * ⚠ **戻すなら、救済の品で立ち直れないことを先に示すこと。**
+   *   **`GameScene` の毎分の購読からも呼びを消してある**（`setupEvents`）。
+   * ⚠ **`GameEvents.PROGRESS_GAME_OVER` は名前だけ残っている**（`src/types/index.ts`）。
+   *   **誰も出さない**ことを `GameService.test.ts` が見張っている。
    */
-  checkGoalAndGameOver(): void {
-    // ⚠ **商船を買ったあとは GAME OVER も出さない**（#97）。**商船の値段は目標額と同じ**なので、
-    //   ぴったりで買うと所持金が 0 になる —— ここを外すと**エンディングの次の分で GAME OVER** になる
-    if (this.isEndlessMode) return
-    const current = this.economy.getMoney()
-    if (!this.gameOverShown && current <= 0) {
-      this.gameOverShown = true
-      EventBus.emit(GameEvents.PROGRESS_GAME_OVER, current)
-    }
-  }
 
   /** 盤面を規則にかける。**中身は下の `evaluateFloor()`**（写しを作らせないため外に出してある） */
   private evaluateFloor(slots: DisplaySlot[]) {
@@ -148,14 +121,13 @@ export class GameService {
    * ⚠ **両方向あること。**以前は立てる口（`enterEndlessMode`）しか無く、
    *   **クリア済みのセーブを読んだあとにクリア前のセーブを読むと `∞ endless` が居座った。**
    *   ロードは `data.isEndlessMode` を**そのまま**渡すこと（`true` も `false` も）。
-   * ⚠ **幕を出したかも一緒に戻す。**戻さないと、旗を降ろしたのに
-   *   **もう一度詰んでも GAME OVER が出ない**（#94 受入条件4 の形）。
+   * ⚠ **幕の控えを一緒に戻す必要はもう無い**（2026-09-15）。
+   *   **GAME OVER の幕が無くなった**ので、降ろすものが印だけになった。
    * ⚠ **`enterEndlessMode()` は 2026-09-15 に消した**（#97）。
    *   **「エンドレスモードへ」のボタンが消えた**ので、**呼ぶ本番コードが無くなった。**
    */
   setEndlessMode(value: boolean): void {
     this.isEndlessMode = value
-    this.gameOverShown = false
   }
 
   /** **商船を買ったか**（#97）。**改装タブの5行目**（`UpgradeMenu`）と HUD がこれを読む */

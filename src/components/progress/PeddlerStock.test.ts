@@ -6,7 +6,7 @@ import { WorldState } from './WorldState.js'
 import { ALL_ITEMS } from '../../taxonomy/items.js'
 import { ROUTE } from '../../taxonomy/islands.js'
 import type { IslandName } from '../../taxonomy/islands.js'
-import { purchasePrice, ORIGIN_DISCOUNT } from '../../taxonomy/derive.js'
+import { RESCUE_ITEM_ID, isRescueItem, purchasePrice, ORIGIN_DISCOUNT } from '../../taxonomy/derive.js'
 import { stockedByPeddler, passesStockGates } from '../../taxonomy/evaluate.js'
 import type { GameState } from '../../taxonomy/evaluate.js'
 
@@ -136,11 +136,27 @@ describe('行商人の値段（#34 —— 割高・少量の調達）', () => {
    */
   it('どの島のどの品でも、島の商人より高い', () => {
     for (const item of ALL_ITEMS) {
+      // ⚠ **救済の品だけは同じ**（買値0 なので `0 × 1.5 = 0`）。下の行で別に見る
+      if (isRescueItem(item.id)) continue
       for (const island of ROUTE) {
         expect(peddlerPrice(item.id), `${item.id}@${island}`)
           .toBeGreaterThan(purchasePrice(item.id, island))
       }
     }
+  })
+
+  /**
+   * **救済の品（買値0）は、行商人でもただ**（2026-09-15）。
+   *
+   * ⚠ **「安い経路ができた」ではない。**割増は率なので **0 は 0 のまま**で、
+   *   行商人が島の商人より安くなったわけではない。
+   * ⚠ **上限は両方にかかる。**買う画面（`PurchaseMenu.remainingToday`）が
+   *   **島の商人でも行商人でも同じ1日の上限を通す**ので、
+   *   **行商人から上限なしで買う抜け道は無い**（`RescueSupply` の注記）。
+   */
+  it('救済の品は行商人でもただ（率を掛けても 0 のまま）', () => {
+    expect(purchasePrice(RESCUE_ITEM_ID)).toBe(0)
+    expect(peddlerPrice(RESCUE_ITEM_ID)).toBe(0)
   })
 
   /**

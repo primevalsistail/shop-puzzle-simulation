@@ -382,6 +382,17 @@ export const ALL_ITEMS: readonly ItemDef[] = [
     originReason: 'かもめは季節を問わず船について回る',
   },
 
+  // ── 救済の品 ──
+  // ⚠ **ただで買える唯一の品**（買値0 の例外は `derive.ts` の `isRescueItem`）。
+  //   **1日に買える数の上限は `RescueSupply`**（無いと盤面を埋めるのが最良の稼ぎ方になる）。
+  //   産地 `なし` ＋ tier1 なので、**U1・U4 だけでどの島でも常に並ぶ**（規則は1本も足していない）。
+  {
+    id: 'sand', display: { name: '砂', reading: 'すな', color: 0xd9c89a },
+    mainKind: '道具', origin: 'なし', luxury: '日用', suitedLand: 'どこでも',
+    shape: [[1]], basePrice: 5,
+    originReason: 'どの島の浜にもいくらでもあり、旬というものが無い',
+  },
+
   // ══════ 加工品（tier2以上）106品 ══════
   // 産地はすべて `なし`。**加工品は旬を持たないため**（island-goods.md §2）。
   // 「主材料の産地」を採らなかった理由は crafted-goods.md §5 を見ること。

@@ -11,7 +11,9 @@
 
 import type { ItemDef, ItemId, Origin, RecipeDef } from '../taxonomy/axes.js'
 import { luxuryRank } from '../taxonomy/axes.js'
-import { cellCount, ingredientCost, originReach, salePrice, tier } from '../taxonomy/derive.js'
+import {
+  RESCUE_ITEM_ID, cellCount, ingredientCost, originReach, salePrice, tier,
+} from '../taxonomy/derive.js'
 import { craftMinutes } from '../taxonomy/craft.js'
 import { axisValue, evalCondition } from '../taxonomy/evaluate.js'
 import type { GameState } from '../taxonomy/evaluate.js'
@@ -321,10 +323,32 @@ function groupedOrder(ctx: SimContext, order: readonly ItemId[]): ItemId[] {
   return out
 }
 
+// ── ⑤ 救済の品だけで稼ぐ（計画 `rescue-and-no-gameover.md` の受入条件5） ──
+/**
+ * **ただで買える救済の品だけを、買えるだけ買って並べる。**
+ *
+ * ⚠ **これが「最良の稼ぎ方」になっていないことを見るためだけの方針である。**
+ *   救済の品は**買値0・売値5**なので、**上限が無ければ盤面を埋めるのが最適解になる**
+ *   （`RescueSupply` の注記）。**加工の稼ぎを超えないこと**を、
+ *   `shallow` ／ `deep` と同じ条件で回して比べる。
+ *
+ * ⚠ **改装も納品も止めていない。**止めると「救済だけで遊んだ人」ではなく
+ *   「何もしない人」を測ることになる。**違うのは何を買い、何を並べるかだけ。**
+ */
+export const rescueOnly: Policy = {
+  name: '救済の品だけ',
+  // ⚠ **個数は `stockTarget` を素通し。**買える数は `RescueSupply` の1日の上限が決める
+  buyTargets: ctx => [{ id: RESCUE_ITEM_ID, qty: ctx.stockTarget }],
+  craftTargets: () => [],
+  // ⚠ **並べるのも救済の品だけ。**手持ちの初期在庫を並べると、何が稼いだのか分からなくなる
+  displayTargets: ctx => (ctx.inventory.getQuantity(RESCUE_ITEM_ID) > 0 ? [RESCUE_ITEM_ID] : []),
+}
+
 /** `--policy=` で指す名前。⚠ **並びがそのまま `--policy=all` の順になる** */
 export const POLICIES: Record<string, Policy> = {
   resell: resellAll,
   shallow: shallowCraft,
   deep: deepCraft,
   combo: comboCraft,
+  rescue: rescueOnly,
 }

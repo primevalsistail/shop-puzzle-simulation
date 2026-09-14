@@ -28,6 +28,8 @@ import {
   BUY_PAGER_ARROW_FONT_PX, BUY_PAGER_FONT_PX, BUY_RANGE_FONT_PX,
 } from './layout.js'
 import type { PeddlerStock } from '../components/progress/PeddlerStock.js'
+import type { RescueSupply } from '../components/progress/RescueSupply.js'
+import { isRescueItem } from '../taxonomy/derive.js'
 
 const ROW_H = 84
 /** ⚠ **決め打ちしない。**領域の高さから出す（`layout.ts`） */
@@ -140,6 +142,14 @@ export class PurchaseMenu {
     private inventory: Inventory,
     private frame: PlaceFrame,
     private onClose: () => void,
+    /**
+     * 救済の品の、その日ぶん（買値0 の品の1日の上限）。
+     *
+     * ⚠ **島の商人でも行商人でも同じ関を通る。**この画面は両方を組み立てるので、
+     *   ここで見ておけば**どちらから買っても上限は1つ**になる。
+     *   **行商人でも値段は0**（`買値 × 1.5`）なので、通さないと上限なしで買えてしまう。
+     */
+    private rescue: RescueSupply,
   ) {
     this.search = new SearchBox(scene)
     this.scene.input.on('wheel', (
@@ -426,10 +436,13 @@ export class PurchaseMenu {
     // 行商人は**今日これだけしか積んでいない**（#9 の上限10個）。
     // ⚠ **品名の右**に出す。`51レン/個　在庫 100/999` の側に足すと
     //   `INFO_MAX_W`（240px）を超えて左隣に重なる（→ `layout.ts` の注記）
-    if (this.peddler) {
+    // ⚠ **救済の品も同じ場所に出す**（`RescueSupply`）。**買えない理由が「残り0個」になる品**は、
+    //   **残りを出しておかないと「なぜ買えないのか」が画面から読めない。**
+    const left = this.remainingToday(mat.id)
+    if (Number.isFinite(left)) {
       objs.push(
         this.scene.add.text(nameText.x + nameText.width + 12, y,
-          peddlerRemainText(this.peddler.remaining(mat.id)), {
+          peddlerRemainText(left), {
           fontSize: `${PEDDLER_REMAIN_FONT_PX}px`, color: '#ddbb88',
         }).setOrigin(0, 0.5),
       )
@@ -507,10 +520,27 @@ export class PurchaseMenu {
    * ⚠ **行商人はその日の積荷も上限になる**（#9。各10個まで）。
    */
   private maxBuyable(row: Row): number {
-    const byMoney = Math.floor(this.economy.getMoney() / Math.max(1, row.unitCost))
+    // ⚠ **ただの品は金で止まらない**（救済の品）。`Math.max(1, ...)` のままだと
+    //   **所持金0のときに `最大` が 1個**になり、**詰みから戻る手が1個ずつになる**
+    const byMoney = row.unitCost <= 0
+      ? Infinity
+      : Math.floor(this.economy.getMoney() / row.unitCost)
     const byRoom = this.inventory.spaceFor(row.item.id)
-    const byCart = this.peddler ? this.peddler.remaining(row.item.id) : Infinity
-    return Math.max(1, Math.min(byMoney, byRoom, byCart))
+    return Math.max(1, Math.min(byMoney, byRoom, this.remainingToday(row.item.id)))
+  }
+
+  /**
+   * **今日あと何個買えるか。**上限が無ければ `Infinity`。
+   *
+   * ⚠ **「その日ぶん」の上限はこの1本にまとめる。**いまは2つある ——
+   *   **行商人の積荷**（#9）と、**救済の品の1日の数**（`RescueSupply`）。
+   *   **同じ品に両方かかる場合もある**（行商人が救済の品を積んだ日）ので、**小さいほうを採る。**
+   */
+  private remainingToday(id: string): number {
+    return Math.min(
+      this.peddler ? this.peddler.remaining(id) : Infinity,
+      isRescueItem(id) ? this.rescue.remaining() : Infinity,
+    )
   }
 
   private setValue(row: Row, qty: number): void {
@@ -562,10 +592,10 @@ export class PurchaseMenu {
     }
     // **上限を超える買い物はさせない。**払ってから溢れて消える、を起こさないため（段4-7）
     if (this.inventory.spaceFor(row.item.id) < qty) return buyReasonCap(MAX_QUANTITY)
-    // ⚠ **行商人の積荷より多くは買えない**（#9）。在庫の上限と同じで、**払う前に止める**
-    if (this.peddler && this.peddler.remaining(row.item.id) < qty) {
-      return peddlerRemainText(this.peddler.remaining(row.item.id))
-    }
+    // ⚠ **その日ぶんの上限より多くは買えない**（行商人の積荷 #9 ／ 救済の品の1日の数）。
+    //   在庫の上限と同じで、**払う前に止める**
+    const left = this.remainingToday(row.item.id)
+    if (left < qty) return peddlerRemainText(left)
     if (!this.economy.canAfford(row.unitCost * qty)) return BUY_REASON_FUNDS
     return ''
   }
@@ -577,6 +607,9 @@ export class PurchaseMenu {
     // ⚠ **積荷を先に減らす。**減らさないと閉じて開き直すだけで何度でも買え、
     //   **10個の上限が意味を失う**（`PeddlerStock` の注記）
     this.peddler?.take(row.item.id, qty)
+    // ⚠ **救済の品も、買ったぶんをその場で減らす。**減らさないと、
+    //   **ただで買える品を何度でも買えて、1日の上限が意味を失う**（`RescueSupply` の注記）
+    if (isRescueItem(row.item.id)) this.rescue.take(qty)
     this.inventory.add(row.item.id, qty)
     this.rebuild()  // 買ったあとは所持金も在庫も変わるので、ここでは作り直してよい
   }

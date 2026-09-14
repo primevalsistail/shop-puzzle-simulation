@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { GameService, GOAL_AMOUNT } from './GameService.js'
 import { FloorGrid } from '../components/floor/FloorGrid.js'
@@ -12,6 +13,8 @@ import { WorldState } from '../components/progress/WorldState.js'
 import { Upgrades } from '../components/progress/Upgrades.js'
 import { ALL_ITEMS } from '../taxonomy/items.js'
 import { ALL_RECIPES } from '../taxonomy/recipes.js'
+/** ⚠ **消したものが戻っていないこと**を見るために、実装を字で読む（`UpgradeMenu.test.ts` と同じ手） */
+import gameServiceSource from './GameService.ts?raw'
 
 function setup() {
   const reg = new ItemRegistry(ALL_ITEMS, ALL_RECIPES)
@@ -27,15 +30,14 @@ function setup() {
 }
 
 /**
- * `GameScene.setupEvents()` の `TIME_MINUTE_PASSED` と同じ順序で1分進める（#93）。
+ * `GameScene.setupEvents()` の `TIME_MINUTE_PASSED` と同じ1分。
  *
- * ⚠ **売買が先、判定が後ろ。**この順序が要点で、**所持金を全部仕入れに突っ込んでも、
- *   その分で売れれば幕は出ない。**
- * ⚠ **判定は `onMinutePassed()` の外。**だから `isOpen` にも棚の空にも遮られない。
+ * ⚠ **判定は1つも付いていない**（2026-09-15）。**目標の幕は #97 で、GAME OVER は
+ *   計画 `rescue-and-no-gameover.md` で外れた** ——
+ *   **毎分見るのは売買だけ**で、`checkGoalAndGameOver()` は関数ごと消えている。
  */
 function tickMinute(gs: GameService, rng: () => number, isOpen: boolean): void {
   gs.onMinutePassed(rng, isOpen)
-  gs.checkGoalAndGameOver()
 }
 
 describe('GameService', () => {
@@ -146,13 +148,18 @@ describe('GameService', () => {
   })
 
   /**
-   * #93 —— **詰んだのに画面が何も言わない。**
+   * **GAME OVER を外した**（2026-09-15。計画 `rescue-and-no-gameover.md` の受入条件4）。
    *
-   * 判定は `onMinutePassed()` の `if (!isOpen) return` と `if (slots.length === 0) return` の
-   * **後ろ**にあった。**棚を空にして破産すると、GAME OVER が出ないまま止まる。**
+   * ⚠ **「出さない」のではなく「詰みが無い」。**ただで買える救済の品（`砂`）が
+   *   **どの島でも常に並ぶ**ので、**所持金が 0 でも買って・並べて・売れる。**
+   *   **立ち直る手段があるのに終わらせない**、というのが外した理由である。
+   *
+   * ⚠ **#93 の検査はここで役目を終えた**（「棚が空でも閉店中でも幕が出ること」）。
+   *   **幕そのものが無い**ので、代わりに**どの場面でも出ないこと**を見ている。
    */
-  describe('目標と GAME OVER の判定は、売買の外（#93）', () => {
-    it('棚に品が1つも無く、閉店中でも、分が刻まれれば GAME OVER が出る（受入条件1）', () => {
+  describe('所持金が尽きても GAME OVER は出ない（受入条件4）', () => {
+    /** #93 が「必ず出る」と決めた3つの場面。**そのどれでも出ない** */
+    it('棚が空・閉店中・残金0 でも、分を刻んで幕が出ない', () => {
       const { gs, eco, grid } = setup()
       const over = vi.fn()
       EventBus.on(GameEvents.PROGRESS_GAME_OVER, over)
@@ -160,70 +167,29 @@ describe('GameService', () => {
       expect(grid.getAllSlots()).toHaveLength(0)
       expect(eco.spend(50000)).toBe(true)
       expect(eco.getMoney()).toBe(0)
-      // ⚠ **払った瞬間には出ない**（下の「残金ちょうど」のテストがその理由を持つ）
-      expect(over).not.toHaveBeenCalled()
 
-      // 棚は空・店は閉まっている＝売買は1分も回らない。**それでも判定は走る**
-      tickMinute(gs, () => 0, false)
-      expect(over).toHaveBeenCalledOnce()
-    })
-
-    /**
-     * ⚠ **退行よけ**（2026-09-14 に一度入れて戻した）。
-     *
-     * `EconomyManager.canAfford()` は `this.money >= amount` なので、**残金ちょうどの仕入れが通る。**
-     * 判定を `ECONOMY_MONEY_CHANGED` で呼ぶと、**その `spend()` がそのまま GAME OVER になる。**
-     * **所持金を全部仕入れに突っ込むのは正当な戦略**で、即死にしてはいけない。
-     */
-    it('⚠ 棚に品があるとき、残金ちょうどの仕入れをしても、その場では GAME OVER にならない', () => {
-      const { gs, eco, pm, inv } = setup()
-      const over = vi.fn()
-      EventBus.on(GameEvents.PROGRESS_GAME_OVER, over)
-
-      inv.add('snap_pea', 10); pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
-      expect(eco.canAfford(50000)).toBe(true)   // ⚠ **ちょうどでも買える**
-      expect(eco.spend(50000)).toBe(true)
-      expect(eco.getMoney()).toBe(0)
-      expect(over).not.toHaveBeenCalled()
-
-      // 次の1分。**売買が先、判定が後ろ**なので、売れて戻れば幕は出ない
-      let n = 0
-      const rng = () => { n++; return n === 1 ? 0.1 : 0.01 }
-      tickMinute(gs, rng, true)
-      expect(eco.getMoney()).toBeGreaterThan(0)
+      for (let i = 0; i < 10; i++) tickMinute(gs, () => 0, false)
+      for (let i = 0; i < 10; i++) tickMinute(gs, () => 0.99, true)
       expect(over).not.toHaveBeenCalled()
     })
 
-    /**
-     * ⚠ **判定を売買の中（`isOpen` と棚の空判定の後ろ）へ戻さない。**戻すと #93 がそのまま再発する。
-     *
-     * **棚に品があり・営業中・客が来ない**は、**中にあれば必ず出る条件**である。
-     * ここで出ないことが「外に出ている」ことの証拠になる。
-     */
-    it('`onMinutePassed()` は幕を出さない（判定はその外）', () => {
-      const { gs, eco, pm, inv } = setup()
-      const over = vi.fn()
-      EventBus.on(GameEvents.PROGRESS_GAME_OVER, over)
-
-      inv.add('snap_pea', 10); pm.tryPlace('snap_pea', { x: 0, y: 0 }, 0)
-      eco.spend(50000)
-      gs.onMinutePassed(() => 0.99, true)       // 0.99 では客が来ない（到着率 0.15）
-      expect(eco.getMoney()).toBe(0)
-      expect(over).not.toHaveBeenCalled()
-
-      // **消したのではなく、外へ出しただけ。**呼べば出る
-      gs.checkGoalAndGameOver()
-      expect(over).toHaveBeenCalledOnce()
-    })
-
-    it('GAME OVER の幕も1回だけ（受入条件2）', () => {
+    it('所持金がマイナスでも出ない', () => {
       const { gs, eco } = setup()
       const over = vi.fn()
       EventBus.on(GameEvents.PROGRESS_GAME_OVER, over)
 
-      eco.spend(50000)
+      eco.restore(-500, 0)
       for (let i = 0; i < 10; i++) tickMinute(gs, () => 0.99, true)
-      expect(over).toHaveBeenCalledOnce()
+      expect(over).not.toHaveBeenCalled()
+    })
+
+    /**
+     * ⚠ **戻ってこないことの見張り。**`GameService` に毎分の判定を足し直すと、
+     *   **この行が落ちる**（名前で呼ばれている関数が無いことを見ている）。
+     */
+    it('⚠ 判定の関数そのものが無い（`checkGoalAndGameOver` を戻していない）', () => {
+      expect(gameServiceSource).not.toMatch(/checkGoalAndGameOver\(\)\s*[:{]/)
+      expect(gameServiceSource).not.toContain('PROGRESS_GAME_OVER,')
     })
   })
 
@@ -246,64 +212,18 @@ describe('GameService', () => {
     })
 
     /**
-     * **#97 受入条件5** —— **商船を買ったセーブを読み、そのあとクリア前のセーブを読むと、
-     * 状態が戻る。**
-     *
-     * ⚠ **印が降りることだけでなく、判定が戻ることまで見る。**
-     *   印を降ろしても `gameOverShown` が真のままなら、**もう一度詰んでも GAME OVER が出ない。**
+     * ⚠ **印は「商船を買ったか」だけを表す**ようになった（2026-09-15）。
+     *   **以前はここに GAME OVER を止める役目もあった** ——
+     *   **商船の値段は目標額と同じ**なので、ぴったりで買うと所持金が 0 になり、
+     *   印が無いと**エンディングの次の分でそのまま GAME OVER** だった。
+     *   **幕ごと無くなったので、印は幕を止めない。**
      */
-    it('印を降ろしたあと、また詰めば GAME OVER が出る（#97 受入条件5）', () => {
+    it('目標額ぴったりで商船を買っても、何の幕も出ない（#97 ／ 受入条件4）', () => {
       const { gs, eco } = setup()
       const over = vi.fn()
+      const goal = vi.fn()
       EventBus.on(GameEvents.PROGRESS_GAME_OVER, over)
-
-      eco.spend(50000)
-      tickMinute(gs, () => 0.99, true)
-      expect(over).toHaveBeenCalledTimes(1)
-
-      // ── 商船を買ったセーブを読む（印が立ち、所持金も戻る）
-      gs.setEndlessMode(true)
-      eco.restore(0, 0)
-      tickMinute(gs, () => 0.99, true)
-      expect(over).toHaveBeenCalledTimes(1)  // ⚠ **買ったあとは出ない**
-
-      // ── クリア前のセーブを読む（印も所持金も戻る）
-      gs.setEndlessMode(false)
-      eco.restore(5000, 0)
-      tickMinute(gs, () => 0.99, true)
-      expect(over).toHaveBeenCalledTimes(1)  // 5000 では出ない
-
-      eco.spend(5000)
-      tickMinute(gs, () => 0.99, true)
-      expect(over).toHaveBeenCalledTimes(2)  // ⚠ **印が降りている証拠**
-    })
-
-    /**
-     * **#97 受入条件6** —— **GAME OVER は今までどおり出る。**
-     *
-     * ⚠ **消したのは目標側の半分だけ**（計画「やること 2」）。
-     */
-    it('商船を買っていなければ、GAME OVER は今までどおり出る（#97 受入条件6）', () => {
-      const { gs, eco } = setup()
-      const over = vi.fn()
-      EventBus.on(GameEvents.PROGRESS_GAME_OVER, over)
-
-      expect(gs.isInEndlessMode()).toBe(false)
-      eco.spend(50000)
-      expect(eco.getMoney()).toBe(0)
-      tickMinute(gs, () => 0.99, true)
-      expect(over).toHaveBeenCalledOnce()
-    })
-
-    /**
-     * ⚠ **商船を買った直後に GAME OVER を出さない**（#97）。
-     *   **商船の値段は目標額と同じ**なので、**ぴったりで買うと所持金が 0 になる。**
-     *   印を先に立てないと、**エンディングの次の分でそのまま GAME OVER** になる。
-     */
-    it('⚠ 目標額ぴったりで商船を買っても、GAME OVER にならない（#97）', () => {
-      const { gs, eco } = setup()
-      const over = vi.fn()
-      EventBus.on(GameEvents.PROGRESS_GAME_OVER, over)
+      EventBus.on(GameEvents.PROGRESS_GOAL_COMPLETE, goal)
 
       eco.restore(gs.getGoalAmount(), 0)
       expect(eco.spend(gs.getGoalAmount())).toBe(true)   // 商船を買う
@@ -312,6 +232,7 @@ describe('GameService', () => {
 
       for (let i = 0; i < 10; i++) tickMinute(gs, () => 0.99, true)
       expect(over).not.toHaveBeenCalled()
+      expect(goal).not.toHaveBeenCalled()
     })
   })
 

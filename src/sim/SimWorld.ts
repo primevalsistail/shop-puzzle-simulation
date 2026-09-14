@@ -25,7 +25,7 @@ import { ALL_RECIPES } from '../taxonomy/recipes.js'
 import type { ItemDef, ItemId, RecipeDef } from '../taxonomy/axes.js'
 import { DAYS_PER_PORT, ROUTE } from '../taxonomy/islands.js'
 import type { IslandName } from '../taxonomy/islands.js'
-import { originReach, tier } from '../taxonomy/derive.js'
+import { isRescueItem, originReach, tier } from '../taxonomy/derive.js'
 import { finalModifiers, merchantListing } from '../taxonomy/evaluate.js'
 import type { GameState } from '../taxonomy/evaluate.js'
 import { ItemRegistry } from '../components/items/ItemRegistry.js'
@@ -43,6 +43,7 @@ import { Upgrades, UPGRADE_KINDS } from '../components/progress/Upgrades.js'
 import type { UpgradeKind } from '../components/progress/Upgrades.js'
 import { DeliveryOrders } from '../components/progress/DeliveryOrders.js'
 import { PeddlerStock } from '../components/progress/PeddlerStock.js'
+import { RescueSupply } from '../components/progress/RescueSupply.js'
 import { RecipeUnlocks } from '../components/progress/RecipeUnlocks.js'
 import type { UnlockStore } from '../components/progress/RecipeUnlocks.js'
 import { EventBus } from '../services/EventBus.js'
@@ -192,8 +193,13 @@ export interface SimResult {
   readonly islandsTotal: number
   /** 始めたときの所持金（`EconomyManager` の既定）。⚠ **写さずにここから読む** */
   readonly startMoney: number
-  /** 所持金が 0 以下になった日（本番なら GAME OVER）。無ければ null */
-  readonly gameOverDay: number | null
+  /**
+   * **所持金が 0 以下になった日。**無ければ null。
+   *
+   * ⚠ **もう GAME OVER ではない**（2026-09-15。`GameService` から判定ごと消えた）。
+   *   **ここで数え続けているのは、詰みかけたかどうかが方針の出来を測る材料だから。**
+   */
+  readonly zeroMoneyDay: number | null
   /**
    * **毎朝、組み終えた盤面を `evaluate()` にかけて測った倍率の平均。**
    *
@@ -301,6 +307,8 @@ export class SimWorld {
   private readonly gameService: GameService
   private readonly delivery: DeliveryOrders
   private readonly peddler = new PeddlerStock()
+  /** 救済の品の1日の上限。**本番と同じ関を通す**（通さないと ただの品を無限に買える） */
+  private readonly rescue = new RescueSupply()
   private readonly recipeUnlocks: RecipeUnlocks
   private readonly ledger = new CostLedger()
   private readonly rng: () => number
@@ -309,7 +317,7 @@ export class SimWorld {
   private readonly records: DayRecord[] = []
   private goalDay: number | null = null
   private goalIslands = 0
-  private gameOverDay: number | null = null
+  private zeroMoneyDay: number | null = null
   /** 始めたときの所持金。`EconomyManager` の既定なので、写さずに読み取る */
   private startMoney = 0
   /** 当たった規則の回数（`EvaluationResult.firedRules` を数えたもの） */
@@ -362,7 +370,7 @@ export class SimWorld {
       goalAmount: this.gameService.getGoalAmount(),
       islandsVisited: this.goalDay === null ? this.islandsSoFar() : this.goalIslands,
       islandsTotal: ROUTE.length,
-      gameOverDay: this.gameOverDay,
+      zeroMoneyDay: this.zeroMoneyDay,
       startMoney: this.startMoney,
       unlockedRecipes: unlocked.length,
       unlockedTopTier: unlocked.length === 0
@@ -388,7 +396,6 @@ export class SimWorld {
 
     EventBus.on(GameEvents.TIME_MINUTE_PASSED, () => {
       this.gameService.onMinutePassed(this.rng, this.time.isOpen())
-      this.gameService.checkGoalAndGameOver()
     })
 
     EventBus.on(GameEvents.TIME_DAY_CHANGED, (t: unknown) => {
@@ -420,10 +427,9 @@ export class SimWorld {
       this.dTopTier = Math.max(this.dTopTier, tier(recipe.outputItemId))
     })
 
-    EventBus.on(GameEvents.PROGRESS_GAME_OVER, () => {
-      // ⚠ **止めない。**測るのが目的なので、踏んだ日だけ覚えて回し続ける
-      if (this.gameOverDay === null) this.gameOverDay = this.time.getCurrentTime().day
-    })
+    // ⚠ **`PROGRESS_GAME_OVER` の購読は 2026-09-15 に消した。**
+    //   **誰も出さなくなった**（`GameService` から判定ごと消えた）ので、
+    //   **所持金0以下は日の終わりに自分で見る**（`closeDay`）。
   }
 
   /** `GameScene.create()` の初日ぶん */
@@ -435,6 +441,7 @@ export class SimWorld {
     this.world.setDay(t0.day)
     this.rollMission(t0.day)
     this.visitPeddler(t0.day)
+    this.rescue.refresh(t0.day)
     this.time.startAdvancing()
   }
 
@@ -442,6 +449,7 @@ export class SimWorld {
   private onDayChanged(day: number): void {
     this.world.setDay(day)
     this.visitPeddler(day)
+    this.rescue.refresh(day)
     this.rollMission(day)
     this.recipeUnlocks.unlockEligible()
   }
@@ -525,6 +533,8 @@ export class SimWorld {
       slots,
       topTier: this.dTopTier,
     })
+    // ⚠ **止めない。**測るのが目的なので、踏んだ日だけ覚えて回し続ける
+    if (this.zeroMoneyDay === null && money <= 0) this.zeroMoneyDay = day
     if (this.goalDay === null && money >= this.gameService.getGoalAmount()) {
       this.goalDay = day
       this.goalIslands = this.islandsSoFar()
@@ -591,16 +601,21 @@ export class SimWorld {
   private purchase(targets: readonly BuyOrder[]): void {
     let budget = Math.max(0, this.economy.getMoney() - this.opts.cashFloor) * this.opts.buyRatio
     for (const order of targets) {
-      if (budget <= 0) return
       const unit = this.registry.purchasePriceOf(order.id, this.world.getIsland())
-      if (unit <= 0) continue
+      // ⚠ **ただの品（救済の品）は元手が要らないので、予算が尽きていても買える。**
+      //   **`budget <= 0` で打ち切らない**のはこのため（打ち切ると詰みからの立ち直りが測れない）
+      if (unit > 0 && budget <= 0) continue
       const want = Math.min(
         order.qty - this.inventory.getQuantity(order.id),
         this.inventory.spaceFor(order.id),
-        Math.floor(budget / unit),
+        // ⚠ **ただの品を「予算 ÷ 0」で数えない。**上限は下の1日の数のほうが持つ
+        unit > 0 ? Math.floor(budget / unit) : Number.MAX_SAFE_INTEGER,
+        // ⚠ **救済の品は1日の上限まで**（`RescueSupply`）。**本番と同じ関を通す**
+        isRescueItem(order.id) ? this.rescue.remaining() : Number.MAX_SAFE_INTEGER,
       )
       if (want <= 0) continue
       if (!this.economy.spend(unit * want)) continue
+      if (isRescueItem(order.id)) this.rescue.take(want)
       this.inventory.add(order.id, want)
       this.ledger.add(order.id, want, unit * want)
       this.dPurchase += unit * want

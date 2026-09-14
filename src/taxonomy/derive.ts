@@ -217,6 +217,9 @@ export function finalPrice(
   const recipe = recipesByOutput.get(itemId)
   // tier1 も「倍率は粗利にだけ乗る」に揃える。
   // ⚠ 売値全体に乗せると、**値段の強化が生売りだけを不当に強くする**（倍率2倍で 2.0倍 vs 3.1倍）。
+  // ⚠ **救済の品（買値0）もここは `PURCHASE_RATE` のまま。**ここを実際の買値に替えると、
+  //   **救済の品だけ売値の全部が粗利になって倍率がまるごと乗る**（5レン → 倍率2倍で 10レン）。
+  //   **店に並べたくないものを、並べ方で伸ばせるようにしない。**
   if (!recipe) {
     const sale = salePrice(itemId, recipesByOutput, lookup)
     const cost = sale * PURCHASE_RATE
@@ -245,6 +248,9 @@ export function ingredientCost(
 
 /**
  * 仕入れ値。**その島の中で率は2つだけ**（素の `PURCHASE_RATE` と、産地割引を掛けたもの）。
+ * ⚠ **例外がひとつある** —— **救済の品（`isRescueItem`）だけは買値0。**
+ *   **率が3つ目に増えたのではない**（率ではなく、品を1つ名指しした例外である）。
+ *   **数えるなら「率2つ ＋ 名指しの例外1品」。**下の `isRescueItem` に理由を書いた。
  *
  * ## なぜ率を1本に保つのか
  *
@@ -276,8 +282,31 @@ export function ingredientCost(
  * ⚠ **品ごとに散らさない。**散らすと「何を買うか」と「どこで売るか」の2つの理由が混ざって
  *   読めなくなる。**差は需要表（islands.ts）と、下の産地割引に持たせる。**
  */
-/** 全品共通。**tier による場合分けは無い** */
+/** 全品共通。**tier による場合分けは無い**（例外は下の `isRescueItem` 1品だけ） */
 export const PURCHASE_RATE = 0.7
+
+/**
+ * **ただで買える救済の品**（PO 判断 2026-09-15「ただで買えてすごい安く売れるもの」）。
+ *
+ * ⚠ **ここが唯一の例外の置き場所。**「買値 = 売値 × `PURCHASE_RATE` × 産地割引」は
+ *   **全品一律**が売りで、その一律さが「作る > 転売」を式1行で保証している
+ *   （上の注記）。**詰みを無くすにはただで買える品が要る**ので、
+ *   **率を1つ増やすのではなく、品を1つ名指しして 0 にする。**
+ *
+ * ⚠ **品ごとに散らさないこと。**「この品は安い」「あの品は高い」を足し始めると、
+ *   **何を買うか**の理由が需要表（`islands.ts`）と産地割引の外にも散る。
+ *   **救済はゲームの仕掛けであって、値段の決まり方ではない。**
+ * ⚠ **`isRescueItem` が真の品を増やさない。**増やすなら
+ *   「救済の品は1つ」という前提（`RescueSupply` の1日の上限も1品ぶん）から見直すこと。
+ * ⚠ **符号は崩れない。**この品を材料とするレシピは1本も無いので、
+ *   **転売側の買値にも材料費にも現れない**（`ItemRegistry.test.ts` が4島 × 全レシピで見ている）。
+ */
+export const RESCUE_ITEM_ID: ItemId = 'sand'
+
+/** その品が救済の品か。**買値0 の例外はこの1本だけ**（`purchasePrice`） */
+export function isRescueItem(itemId: ItemId): boolean {
+  return itemId === RESCUE_ITEM_ID
+}
 
 /**
  * **産地の島にいるときだけ掛かる割引**（段4-6）。`買値 = 売値 × PURCHASE_RATE × これ`。
@@ -319,6 +348,9 @@ export function purchasePrice(
   recipesByOutput: ReadonlyMap<string, RecipeDef> = RECIPES_BY_OUTPUT,
   lookup: (id: ItemId) => ItemDef = getItem,
 ): number {
+  // ⚠ **例外はここ1行だけ**（`isRescueItem` の注記）。**産地割引より先に見る**ので、
+  //   島によって 0 が 0 でなくなることは無い
+  if (isRescueItem(itemId)) return 0
   const rate = PURCHASE_RATE * (isAtOrigin(itemId, at, lookup) ? ORIGIN_DISCOUNT : 1)
   return Math.round(salePrice(itemId, recipesByOutput, lookup) * rate)
 }
