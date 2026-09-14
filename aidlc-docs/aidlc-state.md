@@ -77,7 +77,7 @@
 [questions-upgrade-tab.md](sessions/questions-upgrade-tab.md)（改装タブ・別セッション）／
 [questions-craft-tab.md](sessions/questions-craft-tab.md)（**工房の表・3件**）／
 `construction/plans/peddler-tab-questions.md`（行商人・別セッション）。
-⚠ **`main` は origin より 11コミット先行している**（2026-09-15。**push していない**）。
+**`main` は origin と同じ**（2026-09-15 に push 済み。`6977185`）。
 
 ⚠ **ブラウザで動かす方法**（プロジェクトに起動用スキルは無い）:
 `chromium-cli`／`playwright` は入っていないが、**`~/.cache/ms-playwright/` に Chromium のバイナリがある。**
