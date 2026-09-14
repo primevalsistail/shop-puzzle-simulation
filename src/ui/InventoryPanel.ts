@@ -6,39 +6,30 @@ import { money } from './money.js'
 import {
   INV_RANGE_FONT_PX, INV_FILTER_FONT_PX, INV_PAGER_ARROW_FONT_PX, INV_PAGER_FONT_PX,
   INV_ITEM_NAME_FONT_PX, INV_ITEM_QTY_FONT_PX, INV_ITEM_PRICE_FONT_PX,
+  INV_PANEL_L, INV_PANEL_W, INV_ITEM_W, INV_ITEM_H, INV_ITEM_GAP,
+  INV_ITEM_TOP, INV_VISIBLE_COUNT, INV_ITEM_TEXT_L, INV_ITEM_PRICE_R,
+  INV_PREVIEW_CELL, INV_PREVIEW_CX, INV_PAGER_Y, INV_HEAD_Y,
+  INV_SEARCH_L, INV_SEARCH_W, INV_SEARCH_H,
+  INV_FILTER_BTN_W, INV_FILTER_BTN_H, INV_FILTER_GAP, INV_FILTER_TOP,
 } from './layout.js'
 
-const PANEL_X = 30
-const PANEL_WIDTH = 300
-const ITEM_RIGHT_MARGIN = 18             // アイテム右端の余白
-const ITEM_WIDTH = PANEL_WIDTH - PANEL_X - ITEM_RIGHT_MARGIN  // = 252
-const ITEM_HEIGHT = 105
-const ITEM_START_Y = 225  // ページ送り(162)の下端から余白をとる
-const LIST_BOTTOM = 1074   // 左パネルはy=1080まで
-const VISIBLE_COUNT = Math.floor((LIST_BOTTOM - ITEM_START_Y) / ITEM_HEIGHT)  // = 8
-const PREVIEW_CELL = 19.5
-const PREVIEW_CX = PANEL_X + 40.5
-
 /**
+ * ⚠ **区画の値をここに持たない**（#120。2026-09-15 に `layout.ts` の `INV_*` へ移した）。
+ *   **写しを持つと、片方を動かしてももう片方が気づかない**（`layout.ts` 冒頭の約束）。
+ *   **左パネルの右端は `LEFT_PANEL_R` が持っている**のに、ここが `PANEL_X`(30) と
+ *   `PANEL_WIDTH`(300) を別に持っていた —— **同じ 330 を2箇所で決めていた。**
+ *   移したことで **`layout.test.ts` が一覧の収まりを測れる**ようになっている。
+ *
  * 絞り込みは **`主種類`**（軸1）で行う。決まりは `ListPaging` を参照
  * （既定は絞り込みなし／1つ押すとそれだけ／全部選ぶか全部外すと絞り込みが外れる）。
  *
  * ⚠ **素材かどうかで絞らない。**素材かどうかは `tier` から出る**導出値**なので、
  *   軸（主種類）と混ぜて1列に並べない。
- */
-const PAGER_Y = 162
-
-/**
- * 検索の入力欄（#55）。**見出しの行に置く。**
  *
- * ⚠ **行を1本足さないこと。**品の行は `ITEM_START_Y`(225) から `ITEM_HEIGHT`(105) 刻みなので、
+ * ⚠ **検索の入力欄は見出しの行に置く**（#55）。**行を1本足さないこと。**
+ *   品の行は `INV_ITEM_TOP`(225) から `INV_ITEM_H`(105) 刻みなので、
  *   間に1行入れると **8行 → 7行に減る。**「アイテム」という見出しの語は無くても分かる。
  */
-const SEARCH_X = PANEL_X
-const SEARCH_W = 165
-const SEARCH_H = 30
-const HEAD_Y = 78
-
 export class InventoryPanel {
   private allObjects: Phaser.GameObjects.GameObject[] = []
   private filterObjects: Phaser.GameObjects.GameObject[] = []
@@ -46,7 +37,7 @@ export class InventoryPanel {
   private quantityTexts: Map<string, Phaser.GameObjects.Text> = new Map()
   private selectedItemId: string | null = null
   private onSelectCallback: ((itemId: string) => void) | null = null
-  private paging = new ListPaging(VISIBLE_COUNT)
+  private paging = new ListPaging(INV_VISIBLE_COUNT)
   private storedItems: ItemDef[] = []
   private storedInventory: Record<string, number> = {}
   /** いま売り場に出している品。数量は持ち物と同じなので、出しているかどうかだけを持つ */
@@ -133,7 +124,7 @@ export class InventoryPanel {
   }
 
   private isOverList(x: number, y: number): boolean {
-    return x >= PANEL_X && x <= PANEL_X + PANEL_WIDTH && y >= PAGER_Y - 18
+    return x >= INV_PANEL_L && x <= INV_PANEL_L + INV_PANEL_W && y >= INV_PAGER_Y - 18
   }
 
   private turnPage(delta: number): void {
@@ -153,27 +144,27 @@ export class InventoryPanel {
     for (const obj of this.filterObjects) obj.destroy()
     this.filterObjects = []
 
-    const cx = PANEL_X + PANEL_WIDTH / 2
+    const cx = INV_PANEL_L + INV_PANEL_W / 2
 
     // 見出しの行 — 検索の入力欄 ＋ 件数（161品あるので位置が要る）
     this.search.place(
-      SEARCH_X + SEARCH_W / 2, HEAD_Y, SEARCH_W, SEARCH_H, '名前で探す',
+      INV_SEARCH_L + INV_SEARCH_W / 2, INV_HEAD_Y, INV_SEARCH_W, INV_SEARCH_H, '名前で探す',
       q => { this.paging.setQuery(q); this.redraw() },
       20,
     )
     this.filterObjects.push(
-      this.scene.add.text(PANEL_X + ITEM_WIDTH, HEAD_Y, this.paging.rangeLabel(total), {
+      this.scene.add.text(INV_PANEL_L + INV_ITEM_W, INV_HEAD_Y, this.paging.rangeLabel(total), {
         fontSize: `${INV_RANGE_FONT_PX}px`, color: '#aabbcc',
       }).setOrigin(1, 0.5),
     )
 
     // 絞り込み（1行 × 4種類、横幅をアイテムに揃える）
-    // ITEM_WIDTH=252: (252 - 3*gap) / 4 = 58.5px @ gap=6 → total=4*58.5+3*6=252 ✓
-    const btnW = 58.5, btnH = 27, gap = 6
-    const rowY = 114
+    // ⚠ **4つと隙間3つで行の幅ちょうど**（`layout.ts` の `INV_FILTER_*`。`layout.test.ts` が見る）
+    const btnW = INV_FILTER_BTN_W, btnH = INV_FILTER_BTN_H, gap = INV_FILTER_GAP
+    const rowY = INV_FILTER_TOP
 
     KIND_BUTTONS.forEach((cat, i) => {
-      const bx = PANEL_X + i * (btnW + gap) + btnW / 2
+      const bx = INV_PANEL_L + i * (btnW + gap) + btnW / 2
       const by = rowY + btnH / 2
       const on = this.paging.isKindActive(cat.id)
 
@@ -198,7 +189,7 @@ export class InventoryPanel {
     const pages = this.paging.pageCount(total)
     const cur = this.paging.currentPage(total)
     const arrow = (x: number, text: string, delta: number, enabled: boolean) => {
-      const t = this.scene.add.text(x, PAGER_Y, text, {
+      const t = this.scene.add.text(x, INV_PAGER_Y, text, {
         fontSize: `${INV_PAGER_ARROW_FONT_PX}px`, color: enabled ? '#aaccee' : '#445566',
       }).setOrigin(0.5)
       if (enabled) {
@@ -209,13 +200,13 @@ export class InventoryPanel {
       }
       this.filterObjects.push(t)
     }
-    arrow(PANEL_X + 18, '◀', -1, cur > 0)
+    arrow(INV_PANEL_L + 18, '◀', -1, cur > 0)
     this.filterObjects.push(
-      this.scene.add.text(cx, PAGER_Y, this.paging.pageLabel(total), {
+      this.scene.add.text(cx, INV_PAGER_Y, this.paging.pageLabel(total), {
         fontSize: `${INV_PAGER_FONT_PX}px`, color: '#8899aa',
       }).setOrigin(0.5),
     )
-    arrow(PANEL_X + ITEM_WIDTH - 18, '▶', 1, cur < pages - 1)
+    arrow(INV_PANEL_L + INV_ITEM_W - 18, '▶', 1, cur < pages - 1)
   }
 
   private renderItems(items: ItemDef[]): void {
@@ -226,10 +217,10 @@ export class InventoryPanel {
     this.selectedItemId = null
 
     items.forEach((item, i) => {
-      const y = ITEM_START_Y + i * ITEM_HEIGHT
-      const itemCX = PANEL_X + ITEM_WIDTH / 2  // = 20 + 84 = 104
+      const y = INV_ITEM_TOP + i * INV_ITEM_H
+      const itemCX = INV_PANEL_L + INV_ITEM_W / 2
       const bg = this.scene.add.rectangle(
-        itemCX, y, ITEM_WIDTH, ITEM_HEIGHT - 9, 0x333333,
+        itemCX, y, INV_ITEM_W, INV_ITEM_H - INV_ITEM_GAP, 0x333333,
       ).setStrokeStyle(3, 0x555555).setInteractive({ useHandCursor: true })
       this.allObjects.push(bg)
       this.bgRects.set(item.id, bg)
@@ -238,12 +229,12 @@ export class InventoryPanel {
       this.drawShapePreview(shapeGfx, item, y)
       this.allObjects.push(shapeGfx)
 
-      const nameText = this.scene.add.text(PANEL_X + 81, y - 30, item.display.name, {
+      const nameText = this.scene.add.text(INV_ITEM_TEXT_L, y - 30, item.display.name, {
         fontSize: `${INV_ITEM_NAME_FONT_PX}px`, color: '#ffffff',
       })
       // ⚠ **個数と売値は同じ行**（PO 指示 2026-09-14）。行は**品名と、この1行の2行だけ。**
       //   個数は左、売値は右端にそろえる
-      const qtyText = this.scene.add.text(PANEL_X + 81, y + 3, this.countLabel(item.id), {
+      const qtyText = this.scene.add.text(INV_ITEM_TEXT_L, y + 3, this.countLabel(item.id), {
         fontSize: `${INV_ITEM_QTY_FONT_PX}px`, color: this.storedOnShelf.has(item.id) ? '#88bbaa' : '#aaaaaa',
       })
       // 値段は持ち物ではなく導出値。表示のたびに出す（ItemRegistry の注記を参照）
@@ -261,7 +252,7 @@ export class InventoryPanel {
       //   `finalPrice` はもとから倍率を受け取る形なので、掛ける関数は1本も増やしていない
       // ⚠ **`売` の字は付けない**（PO 指示 2026-09-14）。この一覧に出る額は売値しか無い
       const priceText = this.scene.add.text(
-        PANEL_X + 81 + ITEM_WIDTH - 99, y + 3,
+        INV_ITEM_PRICE_R, y + 3,
         money(this.registry.finalPriceOf(item.id, this.marginOf())), {
         fontSize: `${INV_ITEM_PRICE_FONT_PX}px`, color: '#778899',
       }).setOrigin(1, 0)
@@ -284,20 +275,20 @@ export class InventoryPanel {
     const cols = shape[0]?.length ?? 0
     if (rows === 0 || cols === 0) return
 
-    const shapeW = cols * PREVIEW_CELL
-    const shapeH = rows * PREVIEW_CELL
-    const startX = PREVIEW_CX - shapeW / 2
+    const shapeW = cols * INV_PREVIEW_CELL
+    const shapeH = rows * INV_PREVIEW_CELL
+    const startX = INV_PREVIEW_CX - shapeW / 2
     const startY = rowY - shapeH / 2
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < (shape[r]?.length ?? 0); c++) {
         if (shape[r][c]) {
-          const px = startX + c * PREVIEW_CELL
-          const py = startY + r * PREVIEW_CELL
+          const px = startX + c * INV_PREVIEW_CELL
+          const py = startY + r * INV_PREVIEW_CELL
           gfx.fillStyle(item.display.color, 1.0)
-          gfx.fillRect(px + 1.5, py + 1.5, PREVIEW_CELL - 3, PREVIEW_CELL - 3)
+          gfx.fillRect(px + 1.5, py + 1.5, INV_PREVIEW_CELL - 3, INV_PREVIEW_CELL - 3)
           gfx.lineStyle(1.5, 0xffffff, 0.45)
-          gfx.strokeRect(px + 1.5, py + 1.5, PREVIEW_CELL - 3, PREVIEW_CELL - 3)
+          gfx.strokeRect(px + 1.5, py + 1.5, INV_PREVIEW_CELL - 3, INV_PREVIEW_CELL - 3)
         }
       }
     }

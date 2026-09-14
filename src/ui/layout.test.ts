@@ -4,6 +4,7 @@ import purchaseSource from './PurchaseMenu.ts?raw'
 import messageWindowSource from './MessageWindow.ts?raw'
 import craftSource from './CraftMenu.ts?raw'
 import deliveryTabSource from './DeliveryTab.ts?raw'
+import inventorySource from './InventoryPanel.ts?raw'
 import {
   SCREEN_W, SCREEN_H,
   HUD_PANEL_W, HUD_MONEY_FONT_PX, estTextWidth,
@@ -25,7 +26,14 @@ import {
   CRAFT_REASON_INGREDIENTS, CRAFT_REASON_STOCK, CRAFT_REASON_TIME,
   CRAFT_REASON_EMPTY, CRAFT_REASON_NOT_INT,
   CRAFT_QTY_L, CRAFT_QTY_W, CRAFT_INPUT_W, CRAFT_STEP_XS, CRAFT_STEP_LABELS, CRAFT_STEP_FONT_PX,
+  CRAFT_STEP_BTN_FONT_PX, CRAFT_STEP_BIG_W, CRAFT_STEP_ONE_W, CRAFT_MAX_W,
   LEFT_PANEL_R, STRIP_L, STRIP_W, RIGHT_PANEL_L, LOG_T,
+  INV_PANEL_L, INV_PANEL_W, INV_ITEM_W, INV_ITEM_H, INV_ITEM_GAP,
+  INV_ITEM_TOP, INV_LIST_BOTTOM, INV_VISIBLE_COUNT, INV_ITEM_TEXT_L, INV_ITEM_PRICE_R,
+  INV_PAGER_Y, INV_HEAD_Y, INV_SEARCH_L, INV_SEARCH_W, INV_SEARCH_H,
+  INV_FILTER_BTN_W, INV_FILTER_BTN_H, INV_FILTER_GAP, INV_FILTER_TOP,
+  INV_FILTER_FONT_PX, INV_ITEM_NAME_FONT_PX, INV_RANGE_FONT_PX,
+  INV_ITEM_QTY_FONT_PX, INV_ITEM_PRICE_FONT_PX,
   PLACE_L, PLACE_R, PLACE_T, PLACE_B, PLACE_W, PLACE_H, PLACE_CX, PLACE_CY,
   CONTENT_L, CONTENT_R,
   TITLE_Y, SUBTITLE_Y, FILTER_Y, ROWS_TOP, PAGER_Y, ROWS_BOTTOM,
@@ -74,8 +82,16 @@ import {
   DELIVERY_COLS, DELIVERY_BTN_LABEL, DISCARD_BTN_LABEL, deliveryShortLabel,
   discardConfirmLines,
 } from './delivery.js'
-import { PRESET_COUNT, PRESET_NAME_MAX, describePreset } from '../components/floor/ShelfPresets.js'
+import {
+  PRESET_COUNT, PRESET_NAME_MAX, describePreset,
+  PRESET_SAVE_LABEL, PRESET_DELETE_LABEL,
+  presetOverwriteConfirmLines, presetDeleteConfirmLines,
+} from '../components/floor/ShelfPresets.js'
+import type { ShelfPreset } from '../components/floor/ShelfPresets.js'
+import presetMenuSource from './PresetMenu.ts?raw'
 import { ROUTE } from '../taxonomy/islands.js'
+import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
+import { ItemRegistry } from '../components/items/ItemRegistry.js'
 import { Upgrades, UPGRADE_KINDS, MAX_STAGE, effectValue } from '../components/progress/Upgrades.js'
 import { salePrice } from '../taxonomy/derive.js'
 
@@ -603,6 +619,15 @@ describe('工房の表', () => {
     }
   })
 
+  /**
+   * 段のラベルと、それを描くボタンの幅の対応（#119）。
+   * ⚠ **`CraftMenu` の `pushButton` に渡している幅と同じ並び。**写しではなく突き合わせ先
+   */
+  const STEP_BTN_W: Record<keyof typeof CRAFT_STEP_LABELS, number> = {
+    minusTen: CRAFT_STEP_BIG_W, minusOne: CRAFT_STEP_ONE_W,
+    plusOne: CRAFT_STEP_ONE_W, plusTen: CRAFT_STEP_BIG_W, max: CRAFT_MAX_W,
+  }
+
   it('数量の6つが、順番どおり重ならずに並ぶ', () => {
     const xs = CRAFT_STEP_XS
     expect(xs.minusTen).toBe(CRAFT_QTY_L)
@@ -612,9 +637,28 @@ describe('工房の表', () => {
     expect(xs.plusOne).toBeLessThan(xs.plusTen)
     expect(xs.plusTen).toBeLessThan(xs.max)
     expect(xs.max).toBeLessThan(CRAFT_BTN_L)
-    for (const label of Object.values(CRAFT_STEP_LABELS)) {
-      expect(estTextWidth(label, CRAFT_STEP_FONT_PX)).toBeLessThanOrEqual(CRAFT_INPUT_W)
+    // ⚠ **段のラベルを描いているのは `CRAFT_STEP_BTN_FONT_PX`**（`CraftMenu.pushButton`）。
+    //   **突き合わせ先も入力欄ではなく、ラベルごとのボタンの幅**である（#119）。
+    //   2026-09-15 まで `CRAFT_STEP_FONT_PX`(16.5) × `CRAFT_INPUT_W`(60) で測っていて、
+    //   **本番で使っていない大きさを、その字が入らない枠と比べていた。**
+    for (const [key, label] of Object.entries(CRAFT_STEP_LABELS)) {
+      expect(estTextWidth(label, CRAFT_STEP_BTN_FONT_PX), label)
+        .toBeLessThanOrEqual(STEP_BTN_W[key as keyof typeof CRAFT_STEP_LABELS])
     }
+  })
+
+  /**
+   * **`CRAFT_STEP_FONT_PX` が実際に使われるのはここだけ**（#119）。
+   *
+   * ⚠ **段のボタンの字ではない。**`<input>` が載せられなかったときに、
+   *   入力欄の代わりに出す**数そのもの**（`CraftMenu` の `row.valueText`）。
+   * ⚠ **右そろえで、枠の右端から 9px 内側に置く**ので、使える幅はそのぶん狭い。
+   * ⚠ **出る数の上限は `MAX_QUANTITY`。**`最大` は `maxCraftTimes` を入れ、
+   *   それは**在庫の空き**（＝ `MAX_QUANTITY` 以下）で頭打ちになる。
+   */
+  it('`<input>` が使えないときの数の字が、入力欄に収まる', () => {
+    expect(estTextWidth(String(MAX_QUANTITY), CRAFT_STEP_FONT_PX))
+      .toBeLessThanOrEqual(CRAFT_INPUT_W - 9)
   })
 
   /** ⚠ **`回` の字は図に無い**（数量の列に入った） */
@@ -1488,5 +1532,212 @@ describe('確認のダイアログ（廃棄。PO 指示 2026-09-14）', () => {
   /** ⚠ **タブを離れるときに暗幕が残らない** */
   it('タブを出るときに確認も片付ける', () => {
     expect(deliveryTabSource).toContain('this.confirm.close()')
+  })
+})
+
+/**
+ * **左パネル（持ち物の一覧）**（#120。2026-09-15 に `InventoryPanel` のローカル定数を
+ * `layout.ts` の `INV_*` へ移した）。
+ *
+ * ⚠ **移すこと自体が目的ではない。**ここが**一覧の収まりを測れるようになる**ことが目的で、
+ *   移す前は**左パネルの寸法を `layout.test.ts` から1つも見られなかった。**
+ * ⚠ **左パネルの右端は `LEFT_PANEL_R`。**`InventoryPanel` が `PANEL_X`(30) と
+ *   `PANEL_WIDTH`(300) を別に持っていたので、**同じ 330 を2箇所で決めていた。**
+ */
+/**
+ * **件数と検索欄が同じ行にある**（`InventoryPanel` の見出しの行）。
+ *
+ * ⚠ **`<input>` は HTML なので、必ず canvas より上に出る**（`domInput.ts` の注記）。
+ *   **重なると件数の頭が隠れる。**深さでは解けない。
+ * ⚠ **実際に隠れていた**（2026-09-15 にブラウザで確認）——
+ *   **161品・8行なので 21ページあり、13ページ目から始まりが3桁になる。**
+ *   **`113-120 / 161` の `113` が `名前で探す` の下に潜り、`-120 / 161` としか読めなかった。**
+ * ⚠ **字を小さくしても縮まらない**（12px でも左端 190.6 で重なる）。**欄を詰めるしかない。**
+ */
+describe('件数が検索欄に隠れない（2026-09-15）', () => {
+  /** ⚠ **いちばん長いのは「始まりも終わりも合計も3桁」。**161品・8行で必ず出る */
+  const LONGEST_RANGE = '113-120 / 161'
+
+  it('いちばん長い件数の左端が、検索欄の右端より右にある', () => {
+    const right = INV_PANEL_L + INV_ITEM_W
+    const left = right - estTextWidth(LONGEST_RANGE, INV_RANGE_FONT_PX)
+    expect(left).toBeGreaterThan(INV_SEARCH_L + INV_SEARCH_W)
+  })
+
+  /** ⚠ **詰めすぎの見張り。**プレースホルダが欄から出ないこと */
+  it('`名前で探す` が検索欄に収まる', () => {
+    expect(estTextWidth('名前で探す', 18)).toBeLessThanOrEqual(INV_SEARCH_W)
+  })
+})
+
+describe('左パネルの一覧（#120）', () => {
+  /** 行の枠の上端・下端（枠は中心ぞろえで、高さは `INV_ITEM_H - INV_ITEM_GAP`） */
+  const rowTop = (i: number) => INV_ITEM_TOP + i * INV_ITEM_H - (INV_ITEM_H - INV_ITEM_GAP) / 2
+  const rowBottom = (i: number) => INV_ITEM_TOP + i * INV_ITEM_H + (INV_ITEM_H - INV_ITEM_GAP) / 2
+
+  /** ⚠ **写しを作らないこと。**`InventoryPanel.ts` は `layout.ts` を読むだけで、自分の数を持たない */
+  it('`InventoryPanel.ts` が自分で区画の値を持っていない', () => {
+    expect(inventorySource).toContain('INV_ITEM_H')
+    expect(inventorySource).toContain('INV_PANEL_L')
+    for (const dead of [
+      'const PANEL_X', 'const PANEL_WIDTH', 'const ITEM_WIDTH', 'const ITEM_HEIGHT',
+      'const ITEM_START_Y', 'const LIST_BOTTOM', 'const VISIBLE_COUNT', 'const PREVIEW_CELL',
+      'const PREVIEW_CX', 'const PAGER_Y', 'const SEARCH_X', 'const SEARCH_W', 'const SEARCH_H',
+      'const HEAD_Y', 'const ITEM_RIGHT_MARGIN',
+    ]) expect(inventorySource, dead).not.toContain(dead)
+  })
+
+  /** ⚠ **右端は1箇所で決める**（#120 の本体） */
+  it('パネルの右端が `LEFT_PANEL_R` と一致する', () => {
+    expect(INV_PANEL_L + INV_PANEL_W).toBe(LEFT_PANEL_R)
+  })
+
+  it('一覧が左パネルの枠に収まる', () => {
+    expect(INV_PANEL_L).toBeGreaterThanOrEqual(0)
+    // 品の行の枠
+    expect(INV_PANEL_L + INV_ITEM_W).toBeLessThanOrEqual(LEFT_PANEL_R)
+    // 検索欄（見出しの行）
+    expect(INV_SEARCH_L).toBeGreaterThanOrEqual(INV_PANEL_L)
+    expect(INV_SEARCH_L + INV_SEARCH_W).toBeLessThanOrEqual(LEFT_PANEL_R)
+    // 売値は右そろえ。⚠ **行の枠より内側**
+    expect(INV_ITEM_PRICE_R).toBeLessThanOrEqual(INV_PANEL_L + INV_ITEM_W)
+    expect(INV_ITEM_TEXT_L).toBeGreaterThan(INV_PANEL_L)
+  })
+
+  /**
+   * ⚠ **品名は詰めていない**（`InventoryPanel` に `fit` が無い）ので、
+   *   **長い品名がそのまま右へ伸びる。**伸びた先が**盤面**だと、
+   *   売り場の1列目に字が重なる。**左パネルの中で止まっていること。**
+   */
+  it('いちばん長い品名でも、左パネルから出ない', () => {
+    const longest = ALL_ITEMS.reduce(
+      (a, i) => estTextWidth(i.display.name, INV_ITEM_NAME_FONT_PX)
+        > estTextWidth(a, INV_ITEM_NAME_FONT_PX) ? i.display.name : a, '')
+    expect(INV_ITEM_TEXT_L + estTextWidth(longest, INV_ITEM_NAME_FONT_PX), longest)
+      .toBeLessThanOrEqual(LEFT_PANEL_R)
+  })
+
+  /**
+   * ⚠ **個数と売値は同じ行**（PO 指示 2026-09-14）。個数は左そろえ、売値は右そろえなので、
+   *   **どちらかが長くなると中央でぶつかる。**
+   */
+  it('個数と売値が、同じ行でぶつからない', () => {
+    const qtyR = INV_ITEM_TEXT_L + estTextWidth(`${MAX_QUANTITY}個`, INV_ITEM_QTY_FONT_PX)
+    // 一覧に出る額は `finalPriceOf`（強化の利益率込み。#76）。**上限まで買った状態で測る**
+    const registry = new ItemRegistry(ALL_ITEMS, ALL_RECIPES)
+    const upgrades = new Upgrades()
+    for (let i = 0; i < MAX_STAGE; i++) upgrades.advance('利益率')
+    const margin = upgrades.marginMultiplier()
+    const widest = ALL_ITEMS.reduce((a, i) => {
+      const t = money(registry.finalPriceOf(i.id, margin))
+      return estTextWidth(t, INV_ITEM_PRICE_FONT_PX) > estTextWidth(a, INV_ITEM_PRICE_FONT_PX) ? t : a
+    }, '')
+    const priceL = INV_ITEM_PRICE_R - estTextWidth(widest, INV_ITEM_PRICE_FONT_PX)
+    expect(qtyR, `${MAX_QUANTITY}個 / ${widest}`).toBeLessThanOrEqual(priceL)
+  })
+
+  /** ⚠ **4つと隙間3つで、行の幅ちょうど。**1つでも動かすと行から出る */
+  it('絞り込みの4つが、行の幅にちょうど収まる', () => {
+    const n = KIND_BUTTONS.length
+    expect(n * INV_FILTER_BTN_W + (n - 1) * INV_FILTER_GAP).toBe(INV_ITEM_W)
+    for (const cat of KIND_BUTTONS) {
+      expect(estTextWidth(cat.label, INV_FILTER_FONT_PX), cat.label)
+        .toBeLessThanOrEqual(INV_FILTER_BTN_W)
+    }
+  })
+
+  /** 見出しの行 → 絞り込み → ページ送り → 一覧、の順に重ならず並ぶ */
+  it('見出し・絞り込み・ページ送り・一覧が、上から順に重ならない', () => {
+    expect(INV_HEAD_Y + INV_SEARCH_H / 2).toBeLessThanOrEqual(INV_FILTER_TOP)
+    expect(INV_FILTER_TOP + INV_FILTER_BTN_H).toBeLessThanOrEqual(INV_PAGER_Y)
+    expect(INV_PAGER_Y).toBeLessThanOrEqual(rowTop(0))
+  })
+
+  /**
+   * ⚠ **`INV_VISIBLE_COUNT` を決め打ちにしないこと**（下端と刻みから出す）。
+   *   **手で書くと、下端を動かしたとき最後の行がはみ出しても気づけない。**
+   */
+  it('映る行が `INV_LIST_BOTTOM` を越えない（もう1行増やすと越える）', () => {
+    expect(INV_VISIBLE_COUNT).toBeGreaterThan(0)
+    expect(rowBottom(INV_VISIBLE_COUNT - 1)).toBeLessThanOrEqual(INV_LIST_BOTTOM)
+    expect(INV_LIST_BOTTOM).toBeLessThanOrEqual(SCREEN_H)
+    // ⚠ **1行ぶんの余りが残っていない**（残っているなら行数の出し方が間違っている）
+    expect(rowBottom(INV_VISIBLE_COUNT)).toBeGreaterThan(INV_LIST_BOTTOM)
+  })
+
+  /** ⚠ **一覧の行数と、ページ送りの数え方が同じ**（違うと最後のページで行が消える） */
+  it('ページ送りが `INV_VISIBLE_COUNT` 件ずつ数える', () => {
+    const paging = new ListPaging(INV_VISIBLE_COUNT)
+    const total = ALL_ITEMS.length
+    expect(paging.pageCount(total)).toBe(Math.ceil(total / INV_VISIBLE_COUNT))
+    expect(inventorySource).toContain('new ListPaging(INV_VISIBLE_COUNT)')
+  })
+})
+
+/**
+ * **マイセットの `セーブ`（上書き）と `削除` の確認**（#99）。
+ *
+ * ⚠ **4つ目の形を作っていない。**`ConfirmDialog` をそのまま使うので、
+ *   **升にボタンは1つも増えない**（本文の「見た目の判断が要る」という前提は、
+ *   2026-09-14 に `ConfirmDialog` が入った時点で成り立たなくなった）。
+ * ⚠ **本文は `ShelfPresets.ts`（Phaser を読まない）が組む**ので、実物の文字をここで測れる。
+ */
+describe('確認のダイアログ（マイセット。#99）', () => {
+  /** 画面に出しうる型のうち、本文がいちばん長くなるもの */
+  function worstPresets(): ShelfPreset[] {
+    const out: ShelfPreset[] = [
+      // 名前を上限まで打った型（`describePreset` は名前を出す）
+      { savedAt: 0, name: 'あ'.repeat(PRESET_NAME_MAX), slots: [] },
+      // 名前を付けていない型 —— 島名、または区画数（島を持たない古いセーブ）
+      { savedAt: 0, slots: [] },
+    ]
+    for (const island of ROUTE) out.push({ savedAt: 0, island, slots: [] })
+    // ⚠ **区画数は盤面の升の数まで伸びる**（島を持たない古い型）
+    for (const n of [0, 9, 99, 130]) {
+      out.push({ savedAt: 0, slots: Array.from({ length: n }, () => ({
+        itemId: 'x', position: { x: 0, y: 0 }, rotation: 0 as const,
+      })) })
+    }
+    return out
+  }
+
+  it('本文がいちばん長い型でも、面からはみ出さない', () => {
+    for (const preset of worstPresets()) {
+      for (const lines of [
+        presetOverwriteConfirmLines(preset), presetDeleteConfirmLines(preset),
+      ]) {
+        for (const line of lines) {
+          expect(estTextWidth(line, MSG_TEXT_FONT_PX), line)
+            .toBeLessThanOrEqual(CONFIRM_TEXT_MAX_W)
+        }
+      }
+    }
+  })
+
+  /** ⚠ **1行にすると入らない**（名前だけで 20文字 ＝ 480px 使う）。だから2行に分けてある */
+  it('本文の行数が、ボタンに食い込まない範囲に収まる', () => {
+    for (const preset of worstPresets()) {
+      expect(presetOverwriteConfirmLines(preset).length).toBeLessThanOrEqual(CONFIRM_LINES_MAX)
+      expect(presetDeleteConfirmLines(preset).length).toBeLessThanOrEqual(CONFIRM_LINES_MAX)
+    }
+  })
+
+  /** ⚠ **1行目はどの型かを言う。**型は10本あり、縮小図と名前でしか見分けられない */
+  it('1行目が、升に出ているのと同じ字（どの型かが分かる）', () => {
+    for (const preset of worstPresets()) {
+      expect(presetOverwriteConfirmLines(preset)[0]).toBe(describePreset(preset))
+      expect(presetDeleteConfirmLines(preset)[0]).toBe(describePreset(preset))
+    }
+  })
+
+  /** ⚠ **押したボタンと同じ語を「する」側に出す**（`ConfirmDialog` の約束） */
+  it('`セーブ` と `削除` の字が、確認のボタンにも収まる', () => {
+    for (const label of [PRESET_SAVE_LABEL, PRESET_DELETE_LABEL, CONFIRM_CANCEL_LABEL]) {
+      expect(estTextWidth(label, CONFIRM_BTN_FONT_PX), label)
+        .toBeLessThanOrEqual(CONFIRM_BTN_W - 12)
+    }
+    // 升のボタンにも収まっていること（字は1箇所から）
+    expect(presetMenuSource).toContain('PRESET_SAVE_LABEL')
+    expect(presetMenuSource).toContain('PRESET_DELETE_LABEL')
   })
 })

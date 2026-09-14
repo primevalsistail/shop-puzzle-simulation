@@ -208,6 +208,40 @@ export function defaultPresetLabel(preset: ShelfPreset | null): string {
   return preset.island ? `${preset.island}島` : `${preset.slots.length}区画`
 }
 
+/**
+ * 升の3つのボタンの字。
+ *
+ * ⚠ **`PresetMenu` に直書きしないこと**（#99）。**確認の「する」側にも同じ語を渡す**ので、
+ *   2箇所に書くと**押したボタンと確認のボタンで字が食い違う。**
+ *   ⚠ **`ConfirmDialog` の約束**が「押したボタンと同じ語を渡すこと」である。
+ */
+export const PRESET_SAVE_LABEL = 'セーブ'
+export const PRESET_LOAD_LABEL = 'ロード'
+export const PRESET_DELETE_LABEL = '削除'
+
+/**
+ * **上書きの確認の本文**（#99）。
+ *
+ * ⚠ **中身のある升だけ。**空の升へのセーブに確認は出さない（**戻らない操作ではない**）。
+ * ⚠ **2行に分ける。**名前は最長 `PRESET_NAME_MAX`(20) 文字で、
+ *   **1行にまとめると面（`CONFIRM_TEXT_MAX_W`）を超える**（`ui/delivery.ts` と同じ理由）。
+ * ⚠ **どの型かは1行目で言う。**型は10本あり、**縮小図と名前でしか見分けられない。**
+ * ⚠ **`PresetMenu` で組み立てないこと。**あちらは Phaser を読むので
+ *   `layout.test.ts` が実物の幅を測れない（`describePreset` と同じ理由）。
+ */
+export function presetOverwriteConfirmLines(preset: ShelfPreset): readonly string[] {
+  return [describePreset(preset), '上書きしますか']
+}
+
+/**
+ * **削除の確認の本文**（#99）。
+ *
+ * ⚠ **覚え直すには、その並びをもう一度作るしかない。**押した瞬間に消えていた。
+ */
+export function presetDeleteConfirmLines(preset: ShelfPreset): readonly string[] {
+  return [describePreset(preset), '消しますか']
+}
+
 function isPresetSlot(s: unknown): s is PresetSlot {
   if (typeof s !== 'object' || s === null) return false
   const v = s as Partial<PresetSlot>

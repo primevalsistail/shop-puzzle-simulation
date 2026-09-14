@@ -22,9 +22,15 @@ const DEPTH = 130
  * ⚠ **行為を足すときはこの型に足す。**足さずに `ConfirmDialog` を直に開くと、
  *   **その行為だけ ON/OFF が効かない**ものができる。
  */
-export type ConfirmAction = '廃棄'
+export type ConfirmAction = '廃棄' | 'マイセットの上書き' | 'マイセットの削除'
 
-const CONFIRM_ON: Record<ConfirmAction, boolean> = { 廃棄: true }
+const CONFIRM_ON: Record<ConfirmAction, boolean> = {
+  廃棄: true,
+  // #99。⚠ **型は10本あり、縮小図と名前でしか見分けられない。**
+  //   押し間違えても**元の並びは戻らない**（覚え直すには、その並びをもう一度作るしかない）
+  'マイセットの上書き': true,
+  'マイセットの削除': true,
+}
 
 /** その行為に確認が要るか（#113）。**押す側は必ずここを通す** */
 export function confirmNeeded(action: ConfirmAction): boolean {
@@ -34,12 +40,15 @@ export function confirmNeeded(action: ConfirmAction): boolean {
 /**
  * **戻らない操作の前に出す確認**（納品の `廃棄`。PO 指示 2026-09-14「ダイアログ形式で」）。
  *
+ * ⚠ **マイセットの `セーブ`（上書き）と `削除` もここを通る**（#99）。
+ *   **升にボタンは1つも増えない** —— 面は全画面の暗幕の上に出るので、行の作りは変わらない。
+ *
  * ⚠ **4つ目の形を作らない。**この作りのダイアログは
  *   **`Tutorial` ／ `SaveLoadMenu` ／ できごとの窓**の3つで、どれも
  *   **全画面の暗幕 ＋ 画面中央の不透明な面**である（`MessageWindow` の注記）。
  *   **色も `SaveLoadMenu` と同じ**（同じ作りのダイアログを2つの色で出さない）。
  *
- * ⚠ **文字はここで作らない。**本文は `ui/delivery.ts`（Phaser を読まない）が持ち、
+ * ⚠ **文字はここで作らない。**本文は `ui/delivery.ts` ／ `ShelfPresets.ts`（Phaser を読まない）が持ち、
  *   寸法は `layout.ts` が持つ。**ここで組み立てると `layout.test.ts` が実物を測れない。**
  *
  * ⚠ **決めてから閉じるのではなく、閉じてから呼ぶ。**先に呼ぶと、結末が
@@ -59,8 +68,14 @@ export class ConfirmDialog {
    *
    * @param lines     本文。**1要素が1行**（折り返さない ＝ node のテストから測れる）
    * @param okLabel   実行する側の字。⚠ **押したボタンと同じ語を渡すこと**（`廃棄` → `廃棄`）
+   * @param onClose   **どちらを押しても**閉じたあとに呼ぶ。任意。
+   *   ⚠ **`<input>` を隠した画面が戻すために要る**（`PresetMenu`）。
+   *   **HTML は canvas より上に出るので、depth では暗幕の下へ回らない**（`domInput.ts` の注記）。
+   *   **「する」を押したときは `onConfirm` のあと。**
    */
-  open(lines: readonly string[], okLabel: string, onConfirm: () => void): void {
+  open(
+    lines: readonly string[], okLabel: string, onConfirm: () => void, onClose?: () => void,
+  ): void {
     if (this.isShown()) return
 
     // ⚠ **暗幕は全画面。**窓の下だけでは「前に出ている」に見えない（PO 2026-09-14）。
@@ -93,8 +108,12 @@ export class ConfirmDialog {
     this.button(confirmBtnCx(0, 2), okLabel, 0x6a3a3a, 0x8a4a4a, () => {
       this.close()
       onConfirm()
+      onClose?.()
     })
-    this.button(confirmBtnCx(1, 2), CONFIRM_CANCEL_LABEL, 0x3a3a4a, 0x555566, () => this.close())
+    this.button(confirmBtnCx(1, 2), CONFIRM_CANCEL_LABEL, 0x3a3a4a, 0x555566, () => {
+      this.close()
+      onClose?.()
+    })
   }
 
   /** 片付ける。**押されなくても、表を離れるときに呼ばれる** */

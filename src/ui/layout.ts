@@ -40,6 +40,76 @@ export const RIGHT_PANEL_L = 1635
 export const LOG_T = 915
 
 // ─── 左パネル（持ち物の一覧） ──────────────────────────────────
+/**
+ * **`InventoryPanel` の区画**（#120。2026-09-15 に同ファイルのローカル定数から移した）。
+ *
+ * ⚠ **移しただけで、値は1つも変えていない。**画面は1ドットも動いていない。
+ *   **`LEFT_PANEL_R` から導けるものは導いてある**（写しを持つと、片方を動かしても
+ *   もう片方が気づかない —— このファイル冒頭の約束）。
+ */
+/** 左パネルの左端。**右端は `LEFT_PANEL_R`** */
+export const INV_PANEL_L = 30
+/** 左パネルの幅。⚠ **`LEFT_PANEL_R` から導く**（30 + 300 = 330 を写しで持たない） */
+export const INV_PANEL_W = LEFT_PANEL_R - INV_PANEL_L
+/** 品の行の右に空ける余白 */
+export const INV_ITEM_RIGHT_MARGIN = 18
+/**
+ * 品の行の幅（**252**）。
+ *
+ * ⚠ **この式は左端を2回引いている**（`300 - 30 - 18`）。**直さないこと。**
+ *   直すと行が 18px 広がる ＝ **画面が動く。**#120 は「移すだけ」なので式ごと移してある。
+ *   ⚠ **実際に空くのは右 48px**（行の右端 282 ／ `LEFT_PANEL_R` 330）で、
+ *   `INV_ITEM_RIGHT_MARGIN` の 18 とは合っていない。**幅を決め直すのは別件。**
+ */
+export const INV_ITEM_W = INV_PANEL_W - INV_PANEL_L - INV_ITEM_RIGHT_MARGIN
+/** 品の行1本ぶんの刻み。⚠ **枠の高さはこれより `INV_ITEM_GAP` 低い**（行と行の隙間） */
+export const INV_ITEM_H = 105
+/** 行と行の隙間 */
+export const INV_ITEM_GAP = 9
+/** 1行目の**中心** y。⚠ **上端ではない**（枠も字も中心ぞろえ）。ページ送り(162)の下 */
+export const INV_ITEM_TOP = 225
+/** 一覧の下端。**左パネルは y=1080 まで** */
+export const INV_LIST_BOTTOM = 1074
+/** 1ページに映る行数（**8**）。⚠ **決め打ちにしない**（下端と刻みから出す） */
+export const INV_VISIBLE_COUNT = Math.floor((INV_LIST_BOTTOM - INV_ITEM_TOP) / INV_ITEM_H)
+/** 行の中の、字の左端（縮小図の右）。**品名・個数の左** */
+export const INV_ITEM_TEXT_L = INV_PANEL_L + 81
+/** 売値の右端。**右そろえ**（`INV_ITEM_PRICE_FONT_PX`） */
+export const INV_ITEM_PRICE_R = INV_ITEM_TEXT_L + INV_ITEM_W - 99
+/** かたちの縮小図の1マス */
+export const INV_PREVIEW_CELL = 19.5
+/** かたちの縮小図の中心 x */
+export const INV_PREVIEW_CX = INV_PANEL_L + 40.5
+/** ページ送りの行の中心 y */
+export const INV_PAGER_Y = 162
+/** 見出しの行（検索欄 ＋ 件数）の中心 y */
+export const INV_HEAD_Y = 78
+/**
+ * 検索欄（#55）。⚠ **見出しの行に置く。**行を1本足すと一覧が 8行 → 7行に減る。
+ *
+ * ⚠ **件数（`rangeLabel`）と同じ行なので、幅はそちらから決まる**（2026-09-15）。
+ *   **件数は右端 `INV_PANEL_L + INV_ITEM_W`（282）から右そろえ**で、
+ *   **3桁になると `113-120 / 161` ＝ 125.73px。左端は 156.27 まで伸びる。**
+ *   ⚠ **165 のままだと欄が 195 まであり、38.7px ぶん件数の頭が隠れた**
+ *   （**`<input>` は HTML なので必ず canvas より上に出る。161品・21ページのうち9ページで起きていた**）。
+ *   ⚠ **字を小さくしても縮まらない**（12px でも左端 190.6 で重なる）。**欄を詰めるしかない。**
+ *   ⚠ **`layout.test.ts` が「件数と検索欄が重ならない」を見ている。**広げるときは必ず通すこと。
+ *   **プレースホルダ `名前で探す`（18px）は 90px なので、117 でも 15px 余る。**
+ */
+export const INV_SEARCH_L = INV_PANEL_L
+export const INV_SEARCH_W = 117
+export const INV_SEARCH_H = 30
+/**
+ * 絞り込み（主種類4つ）のボタン。
+ *
+ * ⚠ **4つと隙間3つで、ちょうど行の幅になる**（58.5×4 + 6×3 = 252）。
+ */
+export const INV_FILTER_BTN_W = 58.5
+export const INV_FILTER_BTN_H = 27
+export const INV_FILTER_GAP = 6
+/** 絞り込みの行の**上端**。⚠ **中心ではない**（ここだけ上端から積む） */
+export const INV_FILTER_TOP = 114
+
 /** 見出しの行の右端に出す件数（`3 / 161`）の字 */
 export const INV_RANGE_FONT_PX = 16.5
 /** 絞り込み（主種類4つ）のボタンの字。⚠ **升が狭いので、ここだけ小さい** */

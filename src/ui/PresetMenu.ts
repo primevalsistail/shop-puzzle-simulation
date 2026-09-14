@@ -2,12 +2,15 @@ import Phaser from 'phaser'
 import type { ShelfPresets, PresetSlot } from '../components/floor/ShelfPresets.js'
 import {
   PRESET_COUNT, PRESET_NAME_MAX, describePreset, defaultPresetLabel,
+  PRESET_SAVE_LABEL, PRESET_LOAD_LABEL, PRESET_DELETE_LABEL,
+  presetOverwriteConfirmLines, presetDeleteConfirmLines,
 } from '../components/floor/ShelfPresets.js'
 import type { ItemRegistry } from '../components/items/ItemRegistry.js'
 import type { GridSize } from '../types/index.js'
 import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
 import { createInput, tryAddDom, setGameKeyboard } from './domInput.js'
+import { ConfirmDialog, confirmNeeded } from './ConfirmDialog.js'
 import {
   CONTENT_L, ROWS_TOP, ROWS_BOTTOM, PRESET_TEXT_FONT_PX, PRESET_SUB_FONT_PX,
   PRESET_COLS, PRESET_GAP_X, PRESET_CELL_W, PRESET_PREVIEW_W,
@@ -56,10 +59,18 @@ const BTN_GAP = 10.5
  *   合わせ直すだけ（`syncNameInputs`）。
  * ⚠ **空にしたら島名（既定値）へ戻る。**`placeholder` に既定値を出しているので、
  *   **名前を付けなければ従来どおりに見える**（ペルソナ2人が名前に反対している）。
+ *
+ * ⚠ **`セーブ`（上書き）と `削除` は押した場で実行しない**（#99）。**確認を通す。**
+ *   **升にボタンは増えない** —— `ConfirmDialog` は全画面の暗幕の上に出る面なので、
+ *   **4つ目の形も作らない。**
+ *   ⚠ **空の升への `セーブ` には出さない。**上書きするものが無く、**戻らない操作ではない。**
+ *   ⚠ **確認を出すかの判定は `confirmNeeded()` だけ**（#113 の受け口）。
  */
 export class PresetMenu {
   private container: Phaser.GameObjects.Container | null = null
   private isOpen = false
+  /** `セーブ`（上書き）と `削除` の確認（#99）。⚠ **閉じるときに必ず片付ける** */
+  private confirm: ConfirmDialog
   /**
    * 名前の入力欄。**型1本につき1つ。**⚠ **`container` とは別に持つ**（作り直さないため）。
    * DOM が使えないときは `null` のままで、そのときは升に文字を出す。
@@ -79,6 +90,7 @@ export class PresetMenu {
     private onDelete: (index: number) => void,
     private onClose: () => void,
   ) {
+    this.confirm = new ConfirmDialog(scene)
     // シーンが終わるとき DOM が残らないようにする（`SearchBox` と同じ）
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroyNameInputs())
     scene.events.once(Phaser.Scenes.Events.DESTROY, () => this.destroyNameInputs())
@@ -96,6 +108,8 @@ export class PresetMenu {
   close(): void {
     if (!this.isOpen) return
     this.isOpen = false
+    // ⚠ **確認も一緒に捨てる。**残すと、閉じたあとの画面に暗幕だけが残る（`DeliveryTab` と同じ）
+    this.confirm.close()
     this.container?.destroy()
     this.container = null
     this.destroyNameInputs()
@@ -252,12 +266,61 @@ export class PresetMenu {
 
     // ── セーブ ／ ロード ／ 削除 ──
     const by = cy + h / 2 - 27
-    this.button(objs, textL, by, BTN_W, BTN_H, 'セーブ', 0x3a5a8a, true,
-      () => this.onSave(index))
-    this.button(objs, textL + BTN_W + BTN_GAP, by, BTN_W, BTN_H, 'ロード', 0x3a6a3a, filled,
+    this.button(objs, textL, by, BTN_W, BTN_H, PRESET_SAVE_LABEL, 0x3a5a8a, true,
+      () => this.askSave(index))
+    this.button(objs, textL + BTN_W + BTN_GAP, by, BTN_W, BTN_H, PRESET_LOAD_LABEL, 0x3a6a3a, filled,
       () => this.onApply(index))
-    this.button(objs, textL + (BTN_W + BTN_GAP) * 2, by, BTN_W, BTN_H, '削除', 0x6a3a3a, filled,
-      () => this.onDelete(index))
+    this.button(objs, textL + (BTN_W + BTN_GAP) * 2, by, BTN_W, BTN_H, PRESET_DELETE_LABEL, 0x6a3a3a, filled,
+      () => this.askDelete(index))
+  }
+
+  /**
+   * `セーブ` を押した（#99）。**中身のある升なら、上書きの前に確認を通す。**
+   *
+   * ⚠ **空の升には出さない。**上書きするものが無いので**戻らない操作ではない**し、
+   *   **10本を埋めていく間ずっと確認が出る**ことになる。
+   */
+  private askSave(index: number): void {
+    const preset = this.presets.get(index)
+    if (!preset || !confirmNeeded('マイセットの上書き')) {
+      this.onSave(index)
+      return
+    }
+    this.openConfirm(
+      presetOverwriteConfirmLines(preset), PRESET_SAVE_LABEL, () => this.onSave(index))
+  }
+
+  /**
+   * `削除` を押した（#99）。**押した瞬間に消さない。**
+   *
+   * ⚠ **ボタンは中身のある升でしか押せない**が、判定はここにも置く
+   * （`enabled` は見た目で、**押せるかどうかの根拠にしない**）。
+   */
+  private askDelete(index: number): void {
+    const preset = this.presets.get(index)
+    if (!preset) return
+    if (!confirmNeeded('マイセットの削除')) {
+      this.onDelete(index)
+      return
+    }
+    this.openConfirm(
+      presetDeleteConfirmLines(preset), PRESET_DELETE_LABEL, () => this.onDelete(index))
+  }
+
+  /**
+   * 確認を出す。
+   *
+   * ⚠ **出している間は名前の欄を隠す。**`<input>` は HTML なので**必ず canvas より上に出る** ——
+   *   **depth をいくつにしても暗幕の下へ回らない**（`domInput.ts` の注記。
+   *   セーブの枠で同じことを踏んでいる）。**10本の欄が面の上に居座る。**
+   * ⚠ **戻すのは `syncNameInputs()`。**空の升では隠したままにするので、
+   *   `setVisible(true)` を自分で書かない（**2箇所で決めない**）。
+   */
+  private openConfirm(
+    lines: readonly string[], okLabel: string, run: () => void,
+  ): void {
+    for (const dom of this.nameDoms) dom?.setVisible(false)
+    this.confirm.open(lines, okLabel, run, () => this.syncNameInputs())
   }
 
   /**
