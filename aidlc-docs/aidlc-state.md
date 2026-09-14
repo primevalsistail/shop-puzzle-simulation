@@ -51,7 +51,7 @@
 
 ⚠ **`node_modules` はセッションを跨ぐと消える。**`npm install` から始める（`package.json` は触らない）。
 
-### そのほかに残っているもの（2026-09-15 時点・OPEN 24件）
+### そのほかに残っているもの（2026-09-15 時点・OPEN 23件）
 
 | | 中身 | 状態 |
 |---|---|---|
@@ -74,9 +74,9 @@
 
 ### リポジトリの状態
 
-**`main` = `ce9a72c`。origin と同じ。794テスト全件パス。**
+**`main` = `da329f8`。origin と同じ。794テスト全件パス。**
 ⚠ **ローカルの `feat/stage4-start` と `feat/rescue-nogameover` は入り済みで、消せる。**
-**OPEN 24件**（段取りは [issue-grouping.md](inception/plans/issue-grouping.md)。⚠ **その文書の件数 35 は古い**）。
+**OPEN 23件**（段取りは [issue-grouping.md](inception/plans/issue-grouping.md)。⚠ **その文書の件数 35 は古い**）。
 ⚠ **「機能作成」と「バグ」は空になった。**
 
 ⚠ **次に何をやるかは PO 待ち** → [questions-stage4-continue.md](sessions/questions-stage4-continue.md)。
@@ -93,6 +93,10 @@
 ⚠ **数を測る道具**: `npx vite-node src/sim/run.ts -- --days=400 --seed=1 --policy=shallow`。
 **方針は「全部転売」「浅い品だけ作る」「深い品を作る」「取り合わせを狙う」の4つ。**
 **400日で 50〜130秒／方針。`npx vitest run` からは走らない。**
+⚠ **測り手は朝6時と閉店後20時にしか加工しない**（`SimWorld.runDay` の `craftPass` 2回）。
+  **営業時間に食い込まないので、客ロス分はどの方針でも 0 になる。**
+  **「加工が営業を削る」を測るなら、まず測り手を昼間にも作らせること。**
+⚠ **深さごとの加工曲線は `npx vite-node src/sim/craft-curve.ts`**（分数・取り分・1升あたり）。
 
 ### まず読むもの（一次情報）
 
