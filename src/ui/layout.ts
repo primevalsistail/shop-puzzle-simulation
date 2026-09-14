@@ -1436,6 +1436,35 @@ export const TITLE_BTN_CONTINUE_Y = 948
 export const TITLE_BTN_NEW_LABEL = 'はじめる'
 export const TITLE_BTN_CONTINUE_LABEL = 'つづきから'
 
+// ─── はじまりの場面（`OpeningScene`） ──────────────────────────
+/**
+ * 遊び始める前の語り（#6）。**叔母から舟を受け取って、最初の島へ出るまで。**
+ *
+ * ⚠ **「つづきから」では出さない。**出るのは **「はじめる」を押したときだけ。**
+ * ⚠ **左に顔絵、右に文。**顔絵は 252×370 をそのまま出す（拡縮すると輪郭がぼやける）。
+ * ⚠ **文は自分で `\n` を入れている。**Phaser は勝手に折り返さないので、
+ *   **`OPENING_TEXT_W` に収まるか**を `layout.test.ts` が見ている。
+ */
+export const OPENING_FACE_CX = 620
+export const OPENING_FACE_CY = 480
+export const OPENING_TEXT_L = 840
+export const OPENING_TEXT_CY = 480
+export const OPENING_TEXT_FONT_PX = 30
+export const OPENING_TEXT_W = 900
+export const OPENING_STEP_FONT_PX = 19.5
+export const OPENING_STEP_Y = 810
+/** 押しどころ。⚠ **顔絵の下**（`OPENING_FACE_CY + 370/2 = 665`）に置くこと */
+export const OPENING_BTN_CX = 960
+export const OPENING_BTN_Y = 900
+export const OPENING_BTN_W = 300
+export const OPENING_BTN_H = 72
+export const OPENING_BTN_FONT_PX = 30
+/** ⚠ **飛ばせるようにする。**2周目に同じ語りを読ませない（右上・小さく） */
+export const OPENING_SKIP_CX = 1740
+export const OPENING_SKIP_Y = 66
+export const OPENING_SKIP_FONT_PX = 21
+
+
 // ─── セーブ／ロードの画面 ──────────────────────────────────────
 /**
  * ⚠ **確認の面のボタンの字は `CONFIRM_BTN_FONT_PX`**（`ConfirmDialog` と同じ面を使うため）。

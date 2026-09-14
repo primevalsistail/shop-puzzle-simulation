@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import indexHtmlSource from '../../index.html?raw'
 import { STEPS as TUTORIAL_STEPS } from './tutorialSteps.js'
+import { OPENING_STEPS, OPENING_LAST_LABEL, OPENING_NEXT_LABEL, OPENING_SKIP_LABEL } from './openingSteps.js'
 import { SCRIM_ALPHA } from './palette.js'
 import purchaseSource from './PurchaseMenu.ts?raw'
 import messageWindowSource from './MessageWindow.ts?raw'
@@ -11,6 +12,8 @@ import inventorySource from './InventoryPanel.ts?raw'
 import {
   SCREEN_W, SCREEN_H,
   HUD_PANEL_W, HUD_MONEY_FONT_PX, estTextWidth,
+  OPENING_FACE_CY, OPENING_TEXT_L, OPENING_TEXT_FONT_PX, OPENING_TEXT_W,
+  OPENING_STEP_Y, OPENING_BTN_Y, OPENING_BTN_H, OPENING_BTN_W, OPENING_BTN_FONT_PX,
   BUY_W, BUY_BTN_W, BUY_TOTAL_W, BUY_TOTAL_FONT_PX, BUY_FONT_PX, BUY_LABEL,
   BUY_REASON_FUNDS, buyReasonCap, QTY_REASON_EMPTY, QTY_REASON_NOT_INT,
   INFO_MAX_W, INFO_FONT_PX,
@@ -1810,6 +1813,58 @@ describe('遊び方の案内', () => {
   it('猫の行は、ノエラの行より短い', () => {
     for (const step of TUTORIAL_STEPS) {
       expect(step.nem.length, step.title).toBeLessThan(step.noela.length)
+    }
+  })
+})
+
+// ─── はじまりの場面（#6） ─────────────────────────────────────
+describe('はじまりの場面', () => {
+  /** ⚠ **Phaser は折り返さない。**はみ出した行はそのまま画面の外へ出る */
+  it('どの行も文の幅に収まる', () => {
+    for (const step of OPENING_STEPS) {
+      for (const line of step.text.split('\n')) {
+        expect(estTextWidth(line, OPENING_TEXT_FONT_PX), line).toBeLessThanOrEqual(OPENING_TEXT_W)
+      }
+    }
+    // 文の右端が画面の外に出ていないこと
+    expect(OPENING_TEXT_L + OPENING_TEXT_W).toBeLessThanOrEqual(SCREEN_W)
+  })
+
+  /** ⚠ **顔絵（252×370）の下に、段の数と押しどころが並ぶ。**重ならないこと */
+  it('顔絵・段の数・押しどころが重ならない', () => {
+    expect(OPENING_FACE_CY + 370 / 2).toBeLessThan(OPENING_STEP_Y)
+    expect(OPENING_STEP_Y).toBeLessThan(OPENING_BTN_Y - OPENING_BTN_H / 2)
+    expect(OPENING_BTN_Y + OPENING_BTN_H / 2).toBeLessThan(SCREEN_H)
+    for (const label of [OPENING_LAST_LABEL, OPENING_NEXT_LABEL]) {
+      expect(estTextWidth(label, OPENING_BTN_FONT_PX), label).toBeLessThanOrEqual(OPENING_BTN_W - 24)
+    }
+    expect(OPENING_SKIP_LABEL.length).toBeGreaterThan(0)
+  })
+
+  /**
+   * ⚠ **短くすること。**「読まされる量」がこの束のいちばんの懸念だった（PO 2026-09-14）。
+   *   **段を足したくなったら、まずどれかを削れないかを見ること。**
+   */
+  it('段は4つまで', () => {
+    expect(OPENING_STEPS.length).toBeLessThanOrEqual(4)
+  })
+
+  /**
+   * ⚠ **ここで伝えるのは2つだけ** —— **10日ごとに順が決まっている ／ 船倉が預かり荷で埋まっている。**
+   *   **どちらかが落ちると、遊び始めてから「なぜ動けない・なぜ狭い」が分からない。**
+   */
+  it('決められた順で10日ごとに動くことと、船倉が預かり荷で埋まっていることを言う', () => {
+    const all = OPENING_STEPS.map(s => s.text).join('')
+    expect(all).toContain('10日')
+    expect(all).toContain('決まっている')
+    expect(all).toContain('預かり荷')
+  })
+
+  /** ⚠ **遊び方はここで言わない**（案内と二重になる） */
+  it('操作の言葉を持ち込まない', () => {
+    const all = OPENING_STEPS.map(s => s.text).join('')
+    for (const word of ['グリッド', '¥', 'クリック', 'ドラッグ', 'ボタン']) {
+      expect(all, word).not.toContain(word)
     }
   })
 })

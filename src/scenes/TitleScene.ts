@@ -35,7 +35,9 @@ export class TitleScene extends Phaser.Scene {
     this.add.image(SCREEN_W / 2, TITLE_FACE_CY, 'noela').setOrigin(0.5)
 
     this.makeButton(TITLE_BTN_NEW_Y, TITLE_BTN_NEW_LABEL, BTN_ADVANCE, BTN_ADVANCE_HOVER,
-      () => this.scene.start('GameScene', { fresh: true }))
+      // ⚠ **「はじめる」は、はじまりの場面を通してから `GameScene` へ**（#6）。
+      //   **「つづきから」は通さない**（2周目に同じ語りを読ませない）
+      () => this.scene.start('OpeningScene'))
 
     const canContinue = hasAnySave()
     this.makeButton(TITLE_BTN_CONTINUE_Y, TITLE_BTN_CONTINUE_LABEL,

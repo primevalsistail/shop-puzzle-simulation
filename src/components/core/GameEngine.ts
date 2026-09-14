@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 import { BootScene } from '../../scenes/BootScene.js'
+import { OpeningScene } from '../../scenes/OpeningScene.js'
 import { TitleScene } from '../../scenes/TitleScene.js'
 import { GameScene } from '../../scenes/GameScene.js'
 import { SCREEN_W, SCREEN_H } from '../../ui/layout.js'
@@ -14,7 +15,7 @@ export class GameEngine {
     this.game = new Phaser.Game({
       type: Phaser.AUTO,
       backgroundColor: '#2d2d44',
-      scene: [BootScene, TitleScene, GameScene],
+      scene: [BootScene, TitleScene, OpeningScene, GameScene],
       physics: { default: 'arcade' },
       // ⚠ **`pixelArt: true` をここに戻さないこと**（#10。2026-09-14）。
       //   あれは antialias=false ＋ roundPixels=true ＋ canvas の `image-rendering: pixelated` で、
