@@ -51,7 +51,7 @@
 
 ⚠ **`node_modules` はセッションを跨ぐと消える。**`npm install` から始める（`package.json` は触らない）。
 
-### そのほかに残っているもの（2026-09-14 時点・OPEN 25件）
+### そのほかに残っているもの（2026-09-15 時点・OPEN 24件）
 
 | | 中身 | 状態 |
 |---|---|---|
@@ -74,9 +74,9 @@
 
 ### リポジトリの状態
 
-**`main` = `8819f86`。origin と同じ。762テスト全件パス。**
+**`main` = `ce9a72c`。origin と同じ。794テスト全件パス。**
 ⚠ **ローカルの `feat/stage4-start` と `feat/rescue-nogameover` は入り済みで、消せる。**
-**OPEN 25件**（段取りは [issue-grouping.md](inception/plans/issue-grouping.md)。⚠ **その文書の件数 35 は古い**）。
+**OPEN 24件**（段取りは [issue-grouping.md](inception/plans/issue-grouping.md)。⚠ **その文書の件数 35 は古い**）。
 ⚠ **「機能作成」と「バグ」は空になった。**
 
 ⚠ **次に何をやるかは PO 待ち** → [questions-stage4-continue.md](sessions/questions-stage4-continue.md)。
@@ -87,6 +87,8 @@
 ⚠ **`package.json` を触らないこと。**
 **画面は 1920×1080 固定**なので、viewport を同じにすれば**ゲーム座標＝ページ座標**になる。
 `npm run dev -- --port 5173 --strictPort` で起動する。
+⚠ **5173 が埋まっていることがある**（別セッションが立てている）。**別の番号にする。**
+⚠ **来店客を見るときは、先に品を売り場へ並べる。**売り場が空だと**1人も来ない。**
 
 ⚠ **数を測る道具**: `npx vite-node src/sim/run.ts -- --days=400 --seed=1 --policy=shallow`。
 **方針は「全部転売」「浅い品だけ作る」「深い品を作る」「取り合わせを狙う」の4つ。**
