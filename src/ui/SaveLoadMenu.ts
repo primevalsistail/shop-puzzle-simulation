@@ -5,6 +5,26 @@ import {
   CONFIRM_MW, CONFIRM_MH, CONFIRM_BTN_W, CONFIRM_BTN_H, CONFIRM_BTN_FONT_PX, confirmBtnCx,
   SAVELOAD_TITLE_FONT_PX, SAVELOAD_SLOT_FONT_PX, SAVELOAD_INFO_FONT_PX, SAVELOAD_CONFIRM_FONT_PX,
 } from './layout.js'
+import {
+  BG_WINDOW,
+  BTN_ADVANCE,
+  BTN_ADVANCE_HOVER,
+  BTN_BACK,
+  BTN_BACK_HOVER,
+  BTN_BACK_OFF,
+  BTN_TEXT,
+  BTN_TRADE_HOVER,
+  LINE_STRONG,
+  LINE_WEAK,
+  ROW_LOCAL,
+  SCRIM,
+  SCRIM_ALPHA,
+  ST_SELECTED,
+  TEXT_BODY,
+  TEXT_SUB,
+  TEXT_WEAK,
+  css,
+} from './palette.js'
 
 const SLOT_COUNT = 3
 /**
@@ -77,7 +97,7 @@ export class SaveLoadMenu {
     }
 
     // Full-screen overlay
-    const overlay = this.scene.add.rectangle(cx, cy, width, height, 0x000000, 0.65)
+    const overlay = this.scene.add.rectangle(cx, cy, width, height, SCRIM, SCRIM_ALPHA)
       .setInteractive().setDepth(DEPTH)
     push(overlay)
 
@@ -86,15 +106,15 @@ export class SaveLoadMenu {
     const mw = confirming ? CONFIRM_MW : MW
     const mh = confirming ? CONFIRM_MH : MH
     push(
-      this.scene.add.rectangle(cx, cy, mw, mh, 0x16213e)
-        .setStrokeStyle(3, 0x5566cc).setDepth(DEPTH),
+      this.scene.add.rectangle(cx, cy, mw, mh, BG_WINDOW)
+        .setStrokeStyle(3, LINE_STRONG).setDepth(DEPTH),
     )
 
     // Title
     const title = this.mode === 'save' ? 'セーブ' : 'ロード'
     push(
       this.scene.add.text(cx, cy - mh / 2 + 39, title, {
-        fontSize: `${SAVELOAD_TITLE_FONT_PX}px`, color: '#ffffff', fontStyle: 'bold',
+        fontSize: `${SAVELOAD_TITLE_FONT_PX}px`, color: css(TEXT_BODY), fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(DEPTH),
     )
 
@@ -115,9 +135,9 @@ export class SaveLoadMenu {
       const isEmpty = meta === null
       const disabled = this.mode === 'load' && isEmpty
 
-      const fillNormal = disabled ? 0x222233 : isEmpty ? 0x2a2a55 : 0x253a25
-      const fillHover  = disabled ? 0x222233 : isEmpty ? 0x4040aa : 0x3a5a3a
-      const strokeCol  = disabled ? 0x333344 : isEmpty ? 0x5566aa : 0x44aa44
+      const fillNormal = disabled ? BTN_BACK_OFF : isEmpty ? BTN_BACK : ROW_LOCAL
+      const fillHover  = disabled ? BTN_BACK_OFF : isEmpty ? BTN_BACK_HOVER : BTN_TRADE_HOVER
+      const strokeCol  = disabled ? LINE_WEAK : LINE_STRONG
 
       const bg = this.scene.add.rectangle(cx, sy, slotW, slotH, fillNormal)
         .setStrokeStyle(1.5, strokeCol).setDepth(DEPTH)
@@ -126,7 +146,7 @@ export class SaveLoadMenu {
       // Slot number (left)
       push(
         this.scene.add.text(cx - slotW / 2 + 21, sy - 15, `スロット ${i + 1}`, {
-          fontSize: `${SAVELOAD_SLOT_FONT_PX}px`, color: disabled ? '#555566' : '#7799ff', fontStyle: 'bold',
+          fontSize: `${SAVELOAD_SLOT_FONT_PX}px`, color: disabled ? css(TEXT_WEAK) : css(ST_SELECTED), fontStyle: 'bold',
         }).setOrigin(0, 0.5).setDepth(DEPTH),
       )
 
@@ -134,7 +154,7 @@ export class SaveLoadMenu {
       const info = meta ? this.formatMeta(meta) : '--- 空スロット ---'
       push(
         this.scene.add.text(cx - slotW / 2 + 21, sy + 15, info, {
-          fontSize: `${SAVELOAD_INFO_FONT_PX}px`, color: disabled ? '#444455' : meta ? '#cccccc' : '#777788',
+          fontSize: `${SAVELOAD_INFO_FONT_PX}px`, color: disabled ? css(TEXT_WEAK) : meta ? css(TEXT_SUB) : css(TEXT_WEAK),
         }).setOrigin(0, 0.5).setDepth(DEPTH),
       )
 
@@ -152,7 +172,7 @@ export class SaveLoadMenu {
       }
     }
 
-    this.button(push, cx, cy + MH / 2 - 30, 'キャンセル', 0x3a3a4a, 0x555566,
+    this.button(push, cx, cy + MH / 2 - 30, 'キャンセル', BTN_BACK, BTN_BACK_HOVER,
       () => this.close())
   }
 
@@ -174,7 +194,7 @@ export class SaveLoadMenu {
       : `スロット ${slot + 1} を読み込みます`
     push(
       this.scene.add.text(cx, cy - 12, head, {
-        fontSize: `${SAVELOAD_CONFIRM_FONT_PX}px`, color: '#ffffff',
+        fontSize: `${SAVELOAD_CONFIRM_FONT_PX}px`, color: css(TEXT_BODY),
       }).setOrigin(0.5).setDepth(DEPTH),
     )
 
@@ -182,17 +202,17 @@ export class SaveLoadMenu {
     //   確認の面がその上に残る（`MessageWindow.show()` と同じ順）。
     const by = cy + CONFIRM_MH / 2 - 45
     if (saving) {
-      this.button(push, confirmBtnCx(0, 2), by, '上書きする', 0x6a3a3a, 0x8a4a4a, () => {
+      this.button(push, confirmBtnCx(0, 2), by, '上書きする', BTN_ADVANCE, BTN_ADVANCE_HOVER, () => {
         this.close()
         this.onSave(slot)
       })
     } else {
-      this.button(push, confirmBtnCx(0, 2), by, '読み込む', 0x2f5a2f, 0x3f7a3f, () => {
+      this.button(push, confirmBtnCx(0, 2), by, '読み込む', BTN_ADVANCE, BTN_ADVANCE_HOVER, () => {
         this.close()
         this.onLoad(slot)
       })
     }
-    this.button(push, confirmBtnCx(1, 2), by, 'やめる', 0x3a3a4a, 0x555566, () => {
+    this.button(push, confirmBtnCx(1, 2), by, 'やめる', BTN_BACK, BTN_BACK_HOVER, () => {
       this.confirmSlot = null
       this.build()
     })
@@ -203,11 +223,11 @@ export class SaveLoadMenu {
     fill: number, hover: number, onClick: () => void,
   ): void {
     const bg = this.scene.add.rectangle(x, y, CONFIRM_BTN_W, CONFIRM_BTN_H, fill)
-      .setStrokeStyle(1.5, 0x666677).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
+      .setStrokeStyle(1.5, LINE_STRONG).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
     push(
       bg,
       this.scene.add.text(x, y, label, {
-        fontSize: `${CONFIRM_BTN_FONT_PX}px`, color: '#bbbbcc',
+        fontSize: `${CONFIRM_BTN_FONT_PX}px`, color: css(BTN_TEXT),
       }).setOrigin(0.5).setDepth(DEPTH),
     )
     bg.on('pointerover', () => bg.setFillStyle(hover))

@@ -1,11 +1,24 @@
 import type Phaser from 'phaser'
 import {
-  SCREEN_W, SCREEN_H, MSG_SCRIM_ALPHA, MSG_WIN_CX, MSG_WIN_CY,
+  SCREEN_W, SCREEN_H, MSG_WIN_CX, MSG_WIN_CY,
   MSG_LINE_H, MSG_TEXT_FONT_PX,
   CONFIRM_MW, CONFIRM_MH, CONFIRM_TEXT_TOP,
   CONFIRM_BTN_W, CONFIRM_BTN_H, CONFIRM_BTN_CY, CONFIRM_BTN_FONT_PX,
   CONFIRM_CANCEL_LABEL, confirmBtnCx,
 } from './layout.js'
+import {
+  BG_WINDOW,
+  BTN_ADVANCE,
+  BTN_ADVANCE_HOVER,
+  BTN_BACK,
+  BTN_BACK_HOVER,
+  BTN_TEXT,
+  LINE_STRONG,
+  SCRIM,
+  SCRIM_ALPHA,
+  TEXT_BODY,
+  css,
+} from './palette.js'
 
 /**
  * ⚠ **場所の中身（`PlaceFrame` の 90 ／ 中身 100）より上、
@@ -82,7 +95,7 @@ export class ConfirmDialog {
     //   ⚠ **`setInteractive()` を外さないこと。**下の表を押させないのはこの面。
     this.objects.push(
       this.scene.add
-        .rectangle(MSG_WIN_CX, MSG_WIN_CY, SCREEN_W, SCREEN_H, 0x000000, MSG_SCRIM_ALPHA)
+        .rectangle(MSG_WIN_CX, MSG_WIN_CY, SCREEN_W, SCREEN_H, SCRIM, SCRIM_ALPHA)
         .setInteractive()
         .setDepth(DEPTH),
     )
@@ -90,8 +103,8 @@ export class ConfirmDialog {
     // ⚠ **面は不透明。**透けると後ろの表と混ざって、暗幕を敷いても沈まない
     this.objects.push(
       this.scene.add
-        .rectangle(MSG_WIN_CX, MSG_WIN_CY, CONFIRM_MW, CONFIRM_MH, 0x16213e)
-        .setStrokeStyle(3, 0x5566cc)
+        .rectangle(MSG_WIN_CX, MSG_WIN_CY, CONFIRM_MW, CONFIRM_MH, BG_WINDOW)
+        .setStrokeStyle(3, LINE_STRONG)
         .setInteractive()
         .setDepth(DEPTH + 1),
     )
@@ -99,18 +112,18 @@ export class ConfirmDialog {
     lines.forEach((line, i) => {
       this.objects.push(
         this.scene.add.text(MSG_WIN_CX, CONFIRM_TEXT_TOP + i * MSG_LINE_H, line, {
-          fontSize: `${MSG_TEXT_FONT_PX}px`, color: '#ffffff',
+          fontSize: `${MSG_TEXT_FONT_PX}px`, color: css(TEXT_BODY),
         }).setOrigin(0.5, 0).setDepth(DEPTH + 2),
       )
     })
 
     // ⚠ **左が実行、右がやめる**（`SaveLoadMenu` の確認と同じ並び）
-    this.button(confirmBtnCx(0, 2), okLabel, 0x6a3a3a, 0x8a4a4a, () => {
+    this.button(confirmBtnCx(0, 2), okLabel, BTN_ADVANCE, BTN_ADVANCE_HOVER, () => {
       this.close()
       onConfirm()
       onClose?.()
     })
-    this.button(confirmBtnCx(1, 2), CONFIRM_CANCEL_LABEL, 0x3a3a4a, 0x555566, () => {
+    this.button(confirmBtnCx(1, 2), CONFIRM_CANCEL_LABEL, BTN_BACK, BTN_BACK_HOVER, () => {
       this.close()
       onClose?.()
     })
@@ -127,7 +140,7 @@ export class ConfirmDialog {
   ): void {
     const bg = this.scene.add
       .rectangle(x, CONFIRM_BTN_CY, CONFIRM_BTN_W, CONFIRM_BTN_H, fill)
-      .setStrokeStyle(1.5, 0x666677)
+      .setStrokeStyle(1.5, LINE_STRONG)
       .setInteractive({ useHandCursor: true })
       .setDepth(DEPTH + 2)
     bg.on('pointerover', () => bg.setFillStyle(hover))
@@ -136,7 +149,7 @@ export class ConfirmDialog {
     this.objects.push(
       bg,
       this.scene.add.text(x, CONFIRM_BTN_CY, label, {
-        fontSize: `${CONFIRM_BTN_FONT_PX}px`, color: '#bbbbcc',
+        fontSize: `${CONFIRM_BTN_FONT_PX}px`, color: css(BTN_TEXT),
       }).setOrigin(0.5).setDepth(DEPTH + 3),
     )
   }

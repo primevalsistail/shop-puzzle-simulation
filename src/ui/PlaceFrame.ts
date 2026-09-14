@@ -4,6 +4,19 @@ import {
   CONTENT_L, CONTENT_R, TITLE_Y, TITLE_RULE_Y,
   TITLE_FONT_PX, BACK_BTN_W, PLACE_BACK_FONT_PX, TAB_W, TAB_H, TAB_FONT_PX, tabCx,
 } from './layout.js'
+import {
+  BG_WINDOW,
+  BTN_BACK,
+  BTN_BACK_HOVER,
+  FILTER_OFF_BG,
+  FILTER_OFF_TEXT,
+  FILTER_ON_BG,
+  FILTER_ON_TEXT,
+  LINE_STRONG,
+  LINE_WEAK,
+  TEXT_BODY,
+  css,
+} from './palette.js'
 
 /** 枠の深さ。**中身は `CONTENT_DEPTH` に載せる** */
 const FRAME_DEPTH = 90
@@ -66,19 +79,19 @@ export class PlaceFrame {
     this.requestBack()
 
     const bg = this.scene.add
-      // ⚠ 全体背景（0x1a1a2e）と近い色にしないこと。**棚が消えただけに見える**
-      .rectangle(PLACE_CX, PLACE_CY, PLACE_W, PLACE_H, 0x232338)
-      .setStrokeStyle(3, 0x6a6aaa)
+      // ⚠ **画面の地（`BG_SCREEN`）と近い色にしないこと。**棚が消えただけに見える
+      .rectangle(PLACE_CX, PLACE_CY, PLACE_W, PLACE_H, BG_WINDOW)
+      .setStrokeStyle(3, LINE_STRONG)
       .setInteractive()
       .setDepth(FRAME_DEPTH)
 
     const heading = this.scene.add.text(CONTENT_L, TITLE_Y, title, {
-      fontSize: `${TITLE_FONT_PX}px`, color: '#ffffff', fontStyle: 'bold',
+      fontSize: `${TITLE_FONT_PX}px`, color: css(TEXT_BODY), fontStyle: 'bold',
     }).setOrigin(0, 0.5).setDepth(FRAME_DEPTH)
 
     const backBg = this.scene.add
-      .rectangle(CONTENT_R - BACK_BTN_W / 2, TITLE_Y, BACK_BTN_W, 45, 0x2a2a4a)
-      .setStrokeStyle(1.5, 0x6666aa)
+      .rectangle(CONTENT_R - BACK_BTN_W / 2, TITLE_Y, BACK_BTN_W, 45, BTN_BACK)
+      .setStrokeStyle(1.5, LINE_STRONG)
       .setInteractive({ useHandCursor: true })
       .setDepth(FRAME_DEPTH)
     // ⚠ **字は入れない**（PO 指示 2026-09-13）。**家の印だけ。**
@@ -87,12 +100,12 @@ export class PlaceFrame {
       fontSize: `${PLACE_BACK_FONT_PX}px`,
     }).setOrigin(0.5).setDepth(FRAME_DEPTH)
     backBg.on('pointerdown', () => this.requestBack())
-    backBg.on('pointerover', () => backBg.setFillStyle(0x4a4a7a))
-    backBg.on('pointerout', () => backBg.setFillStyle(0x2a2a4a))
+    backBg.on('pointerover', () => backBg.setFillStyle(BTN_BACK_HOVER))
+    backBg.on('pointerout', () => backBg.setFillStyle(BTN_BACK))
 
     // 見出しと中身の区切り
     const rule = this.scene.add.graphics().setDepth(FRAME_DEPTH)
-    rule.lineStyle(1.5, 0x3a3a5a, 0.9)
+    rule.lineStyle(1.5, LINE_WEAK, 0.9)
     rule.lineBetween(PLACE_L + 18, TITLE_RULE_Y, PLACE_L + PLACE_W - 18, TITLE_RULE_Y)
 
     this.objects = [bg, heading, backBg, backLabel, rule]
@@ -111,12 +124,12 @@ export class PlaceFrame {
     this.activeTab = tabs.active
     tabs.labels.forEach((label, i) => {
       const cx = tabCx(i, tabs.labels.length)
-      const bg = this.scene.add.rectangle(cx, TITLE_Y, TAB_W, TAB_H, 0x2a2a4a)
-        .setStrokeStyle(1.5, 0x6666aa)
+      const bg = this.scene.add.rectangle(cx, TITLE_Y, TAB_W, TAB_H, FILTER_OFF_BG)
+        .setStrokeStyle(1.5, LINE_STRONG)
         .setInteractive({ useHandCursor: true })
         .setDepth(FRAME_DEPTH)
       const text = this.scene.add.text(cx, TITLE_Y, label, {
-        fontSize: `${TAB_FONT_PX}px`, color: '#ccddff',
+        fontSize: `${TAB_FONT_PX}px`, color: css(FILTER_OFF_TEXT),
       }).setOrigin(0.5).setDepth(FRAME_DEPTH)
       bg.on('pointerdown', () => tabs.onSelect(i))
       this.tabBgs.push(bg)
@@ -135,9 +148,9 @@ export class PlaceFrame {
   private paintTabs(): void {
     this.tabBgs.forEach((bg, i) => {
       const on = i === this.activeTab
-      bg.setFillStyle(on ? 0x4a4a7a : 0x2a2a4a)
-      bg.setStrokeStyle(on ? 3 : 1.5, on ? 0xffdd88 : 0x6666aa)
-      this.tabLabels[i].setColor(on ? '#ffffff' : '#99aacc')
+      bg.setFillStyle(on ? FILTER_ON_BG : FILTER_OFF_BG)
+      bg.setStrokeStyle(on ? 3 : 1.5, on ? FILTER_ON_BG : LINE_STRONG)
+      this.tabLabels[i].setColor(on ? css(FILTER_ON_TEXT) : css(FILTER_OFF_TEXT))
     })
   }
 

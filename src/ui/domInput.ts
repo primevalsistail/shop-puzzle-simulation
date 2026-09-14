@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { INPUT_BG, INPUT_BORDER, INPUT_TEXT, css } from './palette.js'
 
 /**
  * 画面に載せる HTML の `<input>` まわり。**3箇所で使う**
@@ -103,9 +104,9 @@ export function createInput(scene: Phaser.Scene, opts: InputOptions): HTMLInputE
     'padding: 0 6px',
     'font-size: 18px',
     'font-family: sans-serif',
-    'color: #ffffff',
-    'background: #15152a',
-    'border: 1.5px solid #4a4a8a',
+    `color: ${css(INPUT_TEXT)}`,
+    `background: ${css(INPUT_BG)}`,
+    `border: 1.5px solid ${css(INPUT_BORDER)}`,
     opts.numeric ? 'text-align: right' : 'text-align: left',
     // DOM コンテナ自体は pointer-events: none（クリックをゲームへ通す）なので、
     // この入力だけ受け取れるようにする

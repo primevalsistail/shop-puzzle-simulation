@@ -12,6 +12,25 @@ import {
   INV_SEARCH_L, INV_SEARCH_W, INV_SEARCH_H,
   INV_FILTER_BTN_W, INV_FILTER_BTN_H, INV_FILTER_GAP, INV_FILTER_TOP,
 } from './layout.js'
+import {
+  BG_PANEL,
+  BG_WINDOW,
+  FILTER_OFF_BG,
+  FILTER_OFF_TEXT,
+  FILTER_ON_BG,
+  FILTER_ON_TEXT,
+  LINE_STRONG,
+  LINE_WEAK,
+  ROW_LOCAL,
+  ROW_UPCOMING,
+  ST_HOVER,
+  ST_OK,
+  TEXT_BODY,
+  TEXT_SUB,
+  TEXT_WEAK,
+  css,
+  kindColor,
+} from './palette.js'
 
 /**
  * ⚠ **区画の値をここに持たない**（#120。2026-09-15 に `layout.ts` の `INV_*` へ移した）。
@@ -118,7 +137,7 @@ export class InventoryPanel {
 
   clearSelection(): void {
     if (this.selectedItemId) {
-      this.bgRects.get(this.selectedItemId)?.setFillStyle(0x333333)
+      this.bgRects.get(this.selectedItemId)?.setFillStyle(BG_PANEL)
     }
     this.selectedItemId = null
   }
@@ -154,7 +173,7 @@ export class InventoryPanel {
     )
     this.filterObjects.push(
       this.scene.add.text(INV_PANEL_L + INV_ITEM_W, INV_HEAD_Y, this.paging.rangeLabel(total), {
-        fontSize: `${INV_RANGE_FONT_PX}px`, color: '#aabbcc',
+        fontSize: `${INV_RANGE_FONT_PX}px`, color: css(TEXT_SUB),
       }).setOrigin(1, 0.5),
     )
 
@@ -168,19 +187,19 @@ export class InventoryPanel {
       const by = rowY + btnH / 2
       const on = this.paging.isKindActive(cat.id)
 
-      const bg = this.scene.add.rectangle(bx, by, btnW, btnH, on ? 0x336699 : 0x222233)
-        .setStrokeStyle(1.5, on ? 0x5599cc : 0x444455)
+      const bg = this.scene.add.rectangle(bx, by, btnW, btnH, on ? FILTER_ON_BG : FILTER_OFF_BG)
+        .setStrokeStyle(1.5, LINE_STRONG)
         .setInteractive({ useHandCursor: true })
       const label = this.scene.add.text(bx, by, cat.label, {
-        fontSize: `${INV_FILTER_FONT_PX}px`, color: on ? '#aaddff' : '#667788',
+        fontSize: `${INV_FILTER_FONT_PX}px`, color: on ? css(FILTER_ON_TEXT) : css(FILTER_OFF_TEXT),
       }).setOrigin(0.5)
 
       bg.on('pointerdown', () => {
         this.paging.toggleKind(cat.id)
         this.redraw()
       })
-      bg.on('pointerover', () => bg.setStrokeStyle(3, 0x7fbfff))
-      bg.on('pointerout',  () => bg.setStrokeStyle(1.5, this.paging.isKindActive(cat.id) ? 0x5599cc : 0x444455))
+      bg.on('pointerover', () => bg.setStrokeStyle(3, ST_HOVER))
+      bg.on('pointerout',  () => bg.setStrokeStyle(1.5, LINE_STRONG))
 
       this.filterObjects.push(bg, label)
     })
@@ -190,20 +209,20 @@ export class InventoryPanel {
     const cur = this.paging.currentPage(total)
     const arrow = (x: number, text: string, delta: number, enabled: boolean) => {
       const t = this.scene.add.text(x, INV_PAGER_Y, text, {
-        fontSize: `${INV_PAGER_ARROW_FONT_PX}px`, color: enabled ? '#aaccee' : '#445566',
+        fontSize: `${INV_PAGER_ARROW_FONT_PX}px`, color: enabled ? css(TEXT_SUB) : css(TEXT_WEAK),
       }).setOrigin(0.5)
       if (enabled) {
         t.setInteractive({ useHandCursor: true })
         t.on('pointerdown', () => this.turnPage(delta))
-        t.on('pointerover', () => t.setColor('#ffffff'))
-        t.on('pointerout', () => t.setColor('#aaccee'))
+        t.on('pointerover', () => t.setColor(css(TEXT_BODY)))
+        t.on('pointerout', () => t.setColor(css(TEXT_SUB)))
       }
       this.filterObjects.push(t)
     }
     arrow(INV_PANEL_L + 18, '◀', -1, cur > 0)
     this.filterObjects.push(
       this.scene.add.text(cx, INV_PAGER_Y, this.paging.pageLabel(total), {
-        fontSize: `${INV_PAGER_FONT_PX}px`, color: '#8899aa',
+        fontSize: `${INV_PAGER_FONT_PX}px`, color: css(TEXT_SUB),
       }).setOrigin(0.5),
     )
     arrow(INV_PANEL_L + INV_ITEM_W - 18, '▶', 1, cur < pages - 1)
@@ -220,8 +239,8 @@ export class InventoryPanel {
       const y = INV_ITEM_TOP + i * INV_ITEM_H
       const itemCX = INV_PANEL_L + INV_ITEM_W / 2
       const bg = this.scene.add.rectangle(
-        itemCX, y, INV_ITEM_W, INV_ITEM_H - INV_ITEM_GAP, 0x333333,
-      ).setStrokeStyle(3, 0x555555).setInteractive({ useHandCursor: true })
+        itemCX, y, INV_ITEM_W, INV_ITEM_H - INV_ITEM_GAP, BG_PANEL,
+      ).setStrokeStyle(3, LINE_WEAK).setInteractive({ useHandCursor: true })
       this.allObjects.push(bg)
       this.bgRects.set(item.id, bg)
 
@@ -230,12 +249,12 @@ export class InventoryPanel {
       this.allObjects.push(shapeGfx)
 
       const nameText = this.scene.add.text(INV_ITEM_TEXT_L, y - 30, item.display.name, {
-        fontSize: `${INV_ITEM_NAME_FONT_PX}px`, color: '#ffffff',
+        fontSize: `${INV_ITEM_NAME_FONT_PX}px`, color: css(TEXT_BODY),
       })
       // ⚠ **個数と売値は同じ行**（PO 指示 2026-09-14）。行は**品名と、この1行の2行だけ。**
       //   個数は左、売値は右端にそろえる
       const qtyText = this.scene.add.text(INV_ITEM_TEXT_L, y + 3, this.countLabel(item.id), {
-        fontSize: `${INV_ITEM_QTY_FONT_PX}px`, color: this.storedOnShelf.has(item.id) ? '#88bbaa' : '#aaaaaa',
+        fontSize: `${INV_ITEM_QTY_FONT_PX}px`, color: this.storedOnShelf.has(item.id) ? css(ST_OK) : css(TEXT_SUB),
       })
       // 値段は持ち物ではなく導出値。表示のたびに出す（ItemRegistry の注記を参照）
       // ⚠ **売値だけ。**仕入れ値と産地は「買う判断」で、棚に出す判断には効かない（束M）。
@@ -254,17 +273,17 @@ export class InventoryPanel {
       const priceText = this.scene.add.text(
         INV_ITEM_PRICE_R, y + 3,
         money(this.registry.finalPriceOf(item.id, this.marginOf())), {
-        fontSize: `${INV_ITEM_PRICE_FONT_PX}px`, color: '#778899',
+        fontSize: `${INV_ITEM_PRICE_FONT_PX}px`, color: css(TEXT_SUB),
       }).setOrigin(1, 0)
       this.allObjects.push(nameText, qtyText, priceText)
       this.quantityTexts.set(item.id, qtyText)
 
       bg.on('pointerdown', () => this.selectItem(item.id))
       bg.on('pointerover', () => {
-        if (this.selectedItemId !== item.id) bg.setFillStyle(0x444444)
+        if (this.selectedItemId !== item.id) bg.setFillStyle(ROW_LOCAL)
       })
       bg.on('pointerout', () => {
-        bg.setFillStyle(this.selectedItemId === item.id ? 0x555566 : 0x333333)
+        bg.setFillStyle(this.selectedItemId === item.id ? ROW_UPCOMING : BG_PANEL)
       })
     })
   }
@@ -285,9 +304,9 @@ export class InventoryPanel {
         if (shape[r][c]) {
           const px = startX + c * INV_PREVIEW_CELL
           const py = startY + r * INV_PREVIEW_CELL
-          gfx.fillStyle(item.display.color, 1.0)
+          gfx.fillStyle(kindColor(item.mainKind), 1.0)
           gfx.fillRect(px + 1.5, py + 1.5, INV_PREVIEW_CELL - 3, INV_PREVIEW_CELL - 3)
-          gfx.lineStyle(1.5, 0xffffff, 0.45)
+          gfx.lineStyle(1.5, BG_WINDOW, 0.45)
           gfx.strokeRect(px + 1.5, py + 1.5, INV_PREVIEW_CELL - 3, INV_PREVIEW_CELL - 3)
         }
       }
@@ -296,10 +315,10 @@ export class InventoryPanel {
 
   private selectItem(itemId: string): void {
     if (this.selectedItemId && this.selectedItemId !== itemId) {
-      this.bgRects.get(this.selectedItemId)?.setFillStyle(0x333333)
+      this.bgRects.get(this.selectedItemId)?.setFillStyle(BG_PANEL)
     }
     this.selectedItemId = itemId
-    this.bgRects.get(itemId)?.setFillStyle(0x555566)
+    this.bgRects.get(itemId)?.setFillStyle(ROW_UPCOMING)
     this.onSelectCallback?.(itemId)
   }
 }

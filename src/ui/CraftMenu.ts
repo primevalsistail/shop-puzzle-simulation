@@ -27,6 +27,29 @@ import {
   CRAFT_FILTER_FONT_PX, CRAFT_EMPTY_FONT_PX,
   CRAFT_PAGER_ARROW_FONT_PX, CRAFT_PAGER_FONT_PX, CRAFT_RANGE_FONT_PX,
 } from './layout.js'
+import {
+  BTN_BACK,
+  BTN_BACK_HOVER,
+  BTN_CRAFT,
+  BTN_CRAFT_OFF,
+  BTN_TEXT,
+  BTN_TEXT_OFF,
+  FILTER_OFF_BG,
+  FILTER_OFF_TEXT,
+  FILTER_ON_BG,
+  FILTER_ON_TEXT,
+  INPUT_BG,
+  INPUT_BORDER,
+  LINE_STRONG,
+  LINE_WEAK,
+  ROW_LOCAL,
+  ROW_UPCOMING,
+  ST_SELECTED,
+  TEXT_BODY,
+  TEXT_SUB,
+  TEXT_WEAK,
+  css,
+} from './palette.js'
 
 /**
  * 一度に映る行数。**レシピは106本ある**（#30。ただし並ぶのは解禁済みのぶんだけ。#48）ので、
@@ -193,7 +216,7 @@ export class CraftMenu {
         ? '材料を手に入れると、作れるものが増えていく'
         : '当てはまるレシピがありません'
       objs.push(this.scene.add.text(PLACE_CX, CRAFT_ROWS_TOP + 60, message, {
-        fontSize: `${CRAFT_EMPTY_FONT_PX}px`, color: '#889999',
+        fontSize: `${CRAFT_EMPTY_FONT_PX}px`, color: css(TEXT_SUB),
       }).setOrigin(0.5))
     }
     this.buildPager(shown.length, objs)
@@ -213,7 +236,7 @@ export class CraftMenu {
     const [name, made, stock, time, demand, ing, qty, craft] = CRAFT_COLS
     const head = (x: number, text: string, originX: number) =>
       objs.push(this.scene.add.text(x, CRAFT_HEAD_Y, text, {
-        fontSize: `${CRAFT_HEAD_FONT_PX}px`, color: '#8899aa',
+        fontSize: `${CRAFT_HEAD_FONT_PX}px`, color: css(TEXT_SUB),
       }).setOrigin(originX, 0.5))
 
     head(CRAFT_NAME_L, name, 0)
@@ -248,11 +271,11 @@ export class CraftMenu {
     const groupW = buttons.length * btnW + (buttons.length - 1) * gap
     buttons.forEach((b, i) => {
       const bx = PLACE_CX - groupW / 2 + btnW / 2 + i * (btnW + gap)
-      const bg = this.scene.add.rectangle(bx, FILTER_Y, btnW, btnH, b.on ? 0x4a6a3a : 0x232338)
-        .setStrokeStyle(1.5, b.on ? 0x7abb5a : 0x444455)
+      const bg = this.scene.add.rectangle(bx, FILTER_Y, btnW, btnH, b.on ? FILTER_ON_BG : FILTER_OFF_BG)
+        .setStrokeStyle(1.5, LINE_STRONG)
         .setInteractive({ useHandCursor: true })
       const label = this.scene.add.text(bx, FILTER_Y, b.label, {
-        fontSize: `${CRAFT_FILTER_FONT_PX}px`, color: b.on ? '#ccffaa' : '#778899',
+        fontSize: `${CRAFT_FILTER_FONT_PX}px`, color: b.on ? css(FILTER_ON_TEXT) : css(FILTER_OFF_TEXT),
       }).setOrigin(0.5)
       bg.on('pointerdown', b.press)
       objs.push(bg, label)
@@ -264,7 +287,7 @@ export class CraftMenu {
     const cur = this.paging.currentPage(total)
     const arrow = (x: number, text: string, delta: number, enabled: boolean) => {
       const t = this.scene.add.text(x, PAGER_Y, text, {
-        fontSize: `${CRAFT_PAGER_ARROW_FONT_PX}px`, color: enabled ? '#aaccee' : '#445566',
+        fontSize: `${CRAFT_PAGER_ARROW_FONT_PX}px`, color: enabled ? css(TEXT_SUB) : css(TEXT_WEAK),
       }).setOrigin(0.5)
       if (enabled) {
         t.setInteractive({ useHandCursor: true })
@@ -274,12 +297,12 @@ export class CraftMenu {
     }
     arrow(PLACE_CX - 90, '◀', -1, cur > 0)
     objs.push(this.scene.add.text(PLACE_CX, PAGER_Y, this.paging.pageLabel(total), {
-      fontSize: `${CRAFT_PAGER_FONT_PX}px`, color: '#8899aa',
+      fontSize: `${CRAFT_PAGER_FONT_PX}px`, color: css(TEXT_SUB),
     }).setOrigin(0.5))
     arrow(PLACE_CX + 90, '▶', 1, cur < pages - 1)
     // 件数はページ送りと同じ行。仕入れの画面と揃える
     objs.push(this.scene.add.text(CONTENT_R, PAGER_Y, this.paging.rangeLabel(total), {
-      fontSize: `${CRAFT_RANGE_FONT_PX}px`, color: '#8899aa',
+      fontSize: `${CRAFT_RANGE_FONT_PX}px`, color: css(TEXT_SUB),
     }).setOrigin(1, 0.5))
   }
 
@@ -296,35 +319,35 @@ export class CraftMenu {
     const focused = recipe.id === this.focusId
     objs.push(
       this.scene.add
-        .rectangle(PLACE_CX, cy, CONTENT_R - CONTENT_L, CRAFT_ROW_H - 9, max > 0 ? 0x2a3a2a : 0x3a2a2a)
-        .setStrokeStyle(focused ? 3 : 1.5, focused ? 0xffdd88 : 0x555555),
+        .rectangle(PLACE_CX, cy, CONTENT_R - CONTENT_L, CRAFT_ROW_H - 9, max > 0 ? ROW_LOCAL : ROW_UPCOMING)
+        .setStrokeStyle(focused ? 3 : 1.5, focused ? ST_SELECTED : LINE_WEAK),
     )
 
     // ── 商品 ／ 在庫 ／ 需要 —— **回数で変わらない列。**ここで1度だけ書く ──
     objs.push(
-      this.cell(CRAFT_NAME_L, cy, out.display.name, CRAFT_NAME_FONT_PX, '#ffffff', CRAFT_NAME_W),
+      this.cell(CRAFT_NAME_L, cy, out.display.name, CRAFT_NAME_FONT_PX, css(TEXT_BODY), CRAFT_NAME_W),
       this.scene.add.text(CRAFT_STOCK_R, cy, String(this.inventory.getQuantity(out.id)), {
-        fontSize: `${CRAFT_CELL_FONT_PX}px`, color: '#ffffff',
+        fontSize: `${CRAFT_CELL_FONT_PX}px`, color: css(TEXT_BODY),
       }).setOrigin(1, 0.5),
-      this.cell(CRAFT_DEMAND_L, cy, this.demandLabel(recipe), CRAFT_CELL_FONT_PX, '#ddbb88',
+      this.cell(CRAFT_DEMAND_L, cy, this.demandLabel(recipe), CRAFT_CELL_FONT_PX, css(TEXT_SUB),
         CRAFT_DEMAND_W),
     )
 
     // ── 作成数 ／ 時間 —— **回数で変わる列**（`refreshRow` が書き換える） ──
     const madeText = this.scene.add.text(CRAFT_MADE_R, cy, '', {
-      fontSize: `${CRAFT_CELL_FONT_PX}px`, color: '#ffffff',
+      fontSize: `${CRAFT_CELL_FONT_PX}px`, color: css(TEXT_BODY),
     }).setOrigin(1, 0.5)
-    const timeText = this.cell(CRAFT_TIME_L, cy, '', CRAFT_CELL_FONT_PX, '#aaddaa', CRAFT_TIME_W)
-    const ingText = this.cell(CRAFT_ING_L, cy, '', CRAFT_CELL_FONT_PX, '#aabbcc', CRAFT_ING_W)
+    const timeText = this.cell(CRAFT_TIME_L, cy, '', CRAFT_CELL_FONT_PX, css(TEXT_SUB), CRAFT_TIME_W)
+    const ingText = this.cell(CRAFT_ING_L, cy, '', CRAFT_CELL_FONT_PX, css(TEXT_SUB), CRAFT_ING_W)
     objs.push(madeText, timeText, ingText)
 
     // ── 作る ── ⚠ **作れないときは字が理由に変わる**（商人タブと同じ作り）
     const craftBg = this.scene.add
-      .rectangle(CRAFT_BTN_L + CRAFT_BTN_W / 2, cy, CRAFT_BTN_W, CRAFT_BTN_H, 0x4a4a8a)
-      .setStrokeStyle(1.5, 0x6a6ab0)
+      .rectangle(CRAFT_BTN_L + CRAFT_BTN_W / 2, cy, CRAFT_BTN_W, CRAFT_BTN_H, BTN_CRAFT)
+      .setStrokeStyle(1.5, LINE_STRONG)
       .setInteractive({ useHandCursor: true })
     const craftLabel = this.scene.add.text(CRAFT_BTN_L + CRAFT_BTN_W / 2, cy, CRAFT_BTN_LABEL, {
-      fontSize: `${CRAFT_BTN_FONT_PX}px`, color: '#ffffff',
+      fontSize: `${CRAFT_BTN_FONT_PX}px`, color: css(TEXT_BODY),
     }).setOrigin(0.5)
     objs.push(craftBg, craftLabel)
 
@@ -344,12 +367,12 @@ export class CraftMenu {
       objs.push(
         this.scene.add
           .rectangle(CRAFT_STEP_XS.input + CRAFT_INPUT_W / 2, cy, CRAFT_INPUT_W, CRAFT_INPUT_H,
-            0x15152a)
-          .setStrokeStyle(1.5, 0x4a4a8a),
+            INPUT_BG)
+          .setStrokeStyle(1.5, INPUT_BORDER),
       )
       row.valueText = this.scene.add.text(
         CRAFT_STEP_XS.input + CRAFT_INPUT_W - 9, cy, input.value, {
-          fontSize: `${CRAFT_STEP_FONT_PX}px`, color: '#ffffff',
+          fontSize: `${CRAFT_STEP_FONT_PX}px`, color: css(TEXT_BODY),
         }).setOrigin(1, 0.5)
       objs.push(row.valueText)
     }
@@ -451,8 +474,8 @@ export class CraftMenu {
     const reason = this.reasonFor(row, times)
     const enabled = reason === ''
     row.craftLabel.setText(enabled ? CRAFT_BTN_LABEL : reason)
-    row.craftBg.setFillStyle(enabled ? 0x4a4a8a : 0x3a3a4a)
-    row.craftLabel.setColor(enabled ? '#ffffff' : '#cc9999')
+    row.craftBg.setFillStyle(enabled ? BTN_CRAFT : BTN_CRAFT_OFF)
+    row.craftLabel.setColor(enabled ? css(BTN_TEXT) : css(BTN_TEXT_OFF))
     if (enabled) {
       row.craftBg.setInteractive({ useHandCursor: true })
     } else {
@@ -512,18 +535,18 @@ export class CraftMenu {
   private pushButton(
     objs: Phaser.GameObjects.GameObject[],
     left: number, cy: number, w: number, h: number,
-    label: string, onClick: () => void, fill = 0x33335a,
+    label: string, onClick: () => void, fill = BTN_BACK,
   ): void {
     const cx = left + w / 2
     const bg = this.scene.add.rectangle(cx, cy, w, h, fill)
-      .setStrokeStyle(1.5, 0x6a6ab0)
+      .setStrokeStyle(1.5, LINE_STRONG)
       .setInteractive({ useHandCursor: true })
     bg.on('pointerdown', onClick)
-    bg.on('pointerover', () => bg.setFillStyle(0x5a5ab0))
+    bg.on('pointerover', () => bg.setFillStyle(BTN_BACK_HOVER))
     bg.on('pointerout', () => bg.setFillStyle(fill))
     objs.push(
       bg,
-      this.scene.add.text(cx, cy, label, { fontSize: `${CRAFT_STEP_BTN_FONT_PX}px`, color: '#ffffff' }).setOrigin(0.5),
+      this.scene.add.text(cx, cy, label, { fontSize: `${CRAFT_STEP_BTN_FONT_PX}px`, color: css(BTN_TEXT) }).setOrigin(0.5),
     )
   }
 }

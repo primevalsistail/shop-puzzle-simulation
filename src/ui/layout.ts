@@ -1285,13 +1285,6 @@ export const ORDER_BAR_FONT_PX = 18
  *   `PlaceFrame` は棚を `destroy()` してから中央を入れ替えるが、**こちらは後ろが見えている。**
  */
 /**
- * 暗幕の濃さ。**下を押させないための面でもある**（`setInteractive()`）。
- *
- * ⚠ **`Tutorial`（0.75）と `SaveLoadMenu`（0.65）は自前で持っている。**
- *   3箇所を1つにまとめるのは別の話（issue）。**ここはセーブ枠に合わせた。**
- */
-export const MSG_SCRIM_ALPHA = 0.65
-/**
  * 窓の幅。
  *
  * ⚠ **広げるなら、何が入らなかったのかを書くこと。**ここは
@@ -1363,7 +1356,7 @@ export function msgChoiceCx(index: number, count: number): number {
  *
  * ⚠ **4つ目の形を作らないこと。**この作りのダイアログは
  *   **`Tutorial` ／ `SaveLoadMenu` ／ できごとの窓**の3つで、どれも
- *   **全画面の暗幕（`MSG_SCRIM_ALPHA`）＋ 画面中央の不透明な面**である。
+ *   **全画面の暗幕（`palette.ts` の `SCRIM_ALPHA`）＋ 画面中央の不透明な面**である。
  *   **`ConfirmDialog` はその形をそのまま使う**（色も `SaveLoadMenu` と同じ）。
  *
  * ⚠ **大きさは `SaveLoadMenu` の確認から移したもの**（PO 指示 2026-09-13「大きすぎる」で
