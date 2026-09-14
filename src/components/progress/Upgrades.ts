@@ -1,5 +1,5 @@
 import type { GridSize } from '../../types/index.js'
-import { SKILL_INITIAL, HALVING_STEP } from '../../taxonomy/craft.js'
+import { SKILL_INITIAL, skillSpeedup } from '../../taxonomy/craft.js'
 
 /**
  * 金で買う長期の強化。**4系統 × 5段。**
@@ -41,30 +41,27 @@ const CUSTOMER_MULTIPLIERS: readonly number[] = [1.0, 1.3, 1.6, 2.0, 2.5, 3.0]
 const MARGIN_MULTIPLIERS: readonly number[] = [1.0, 1.3, 1.6, 2.0, 2.5, 3.0]
 
 /**
- * 手際。`craft.ts` の `speedMultiplier` が読む。
+ * 手際。`craft.ts` の `skillSpeedup` が読む。
  *
- * ⚠ **上限まで刻むこと。**低い段で止めると、難度の高い品（tier が深い品）だけが
- *   倍率の床に届かず、**深い品が不利なまま**になる。
+ * ⚠ **等間隔で上限まで刻むこと。**`skillSpeedup` は初期と上限の間を
+ *   **等比で割る**ので、刻みが偏ると1段あたりの効き目も偏る。
  */
 const SKILL_VALUES: readonly number[] = [SKILL_INITIAL, 14, 18, 22, 26, 30]
 
 /**
- * 手際の段を、**作業精度の累計倍率**に直したもの ——
- * **`×1.0 → ×1.7 → ×3.0 → ×5.3 → ×9.2 → ×16.0`**（PO 指示 2026-09-14
- * 「累計の倍率を `前 → 後` で出す」）。1段は `2^(4/5) = 1.741倍`。
+ * 手際の段を、**速さの累計倍率**に直したもの ——
+ * **`×1.0 → ×1.4 → ×1.9 → ×2.6 → ×3.6 → ×5.0`**（PO 指示 2026-09-14
+ * 「累計の倍率を `前 → 後` で出す」）。1段は `5^(1/5) = 1.38倍`。
  *
- * ⚠ **これは「作業精度」そのもので、全品がこの倍率で速くなるわけではない。**
- *   所要時間の倍率には**床（`SPEED_FLOOR` = 0.25）と天井（4.0）**があり
- *   （`craft.ts` の `speedMultiplier`）、**簡単な品は先に床に張り付いて、そこから縮まない。**
- *   tier2 は手際20、tier3 は25、tier4 は30 で床に着く。
- *   **実際に何分かかるかは工房の `時間` の列が正**であって、この倍率ではない。
+ * ⚠ **段階4 作業2 で 1.741倍 から下げた**（PO の「1段1.7倍はおかしい」に応えた）。
+ * ⚠ **いまはこの倍率どおりに全品が速くなる**（品ごとの床・天井を撤去した）。
+ *   **実際に何分かかるかは `craft.ts` の `craftMinutes`** で、
+ *   `durationMinutes ÷ この倍率` にちょうど等しい。
  *
- * ⚠ **数を書き写さないこと。**`SKILL_VALUES` と `craft.ts` の `HALVING_STEP` から出す。
+ * ⚠ **数を書き写さないこと。**`SKILL_VALUES` を `craft.ts` の `skillSpeedup` に通して出す。
  *   写しを置くと、段の値を動かしたときに画面だけ古い倍率を出す。
  */
-const SKILL_SPEEDUPS: readonly number[] = SKILL_VALUES.map(
-  s => Math.pow(2, (s - SKILL_VALUES[0]) / HALVING_STEP),
-)
+const SKILL_SPEEDUPS: readonly number[] = SKILL_VALUES.map(skillSpeedup)
 
 /**
  * 各段の費用。**段が進むほど高い。**
@@ -89,9 +86,8 @@ const COSTS: Record<UpgradeKind, readonly number[]> = {
  *   数は上の `GRID_SIZES` / `CUSTOMER_MULTIPLIERS` / `MARGIN_MULTIPLIERS` / `SKILL_SPEEDUPS`
  *   から引くだけで、**画面のために別の数を持たない。**持つと、直したときに片方だけ動く。
  *
- * ⚠ **`手際` は作業精度の累計倍率**（`SKILL_SPEEDUPS`。PO 指示 2026-09-14）。
+ * ⚠ **`手際` は速さの累計倍率**（`SKILL_SPEEDUPS`。PO 指示 2026-09-14）。
  *   **素の段の値（`10 → 14`）は画面に出さない** —— あれは画面のほかの場所に一度も出てこない。
- *   ⚠ **倍率どおりに全品が速くなるわけではない**点は `SKILL_SPEEDUPS` の注記のとおり。
  *
  * ⚠ **Phaser を読まない。**読むと `layout.test.ts` が実物の文字列を測れなくなる
  *   （`layout.ts` 冒頭と同じ理由）。

@@ -13,7 +13,7 @@ import type { ItemDef, ItemId, Origin, RecipeDef } from '../taxonomy/axes.js'
 import { luxuryRank } from '../taxonomy/axes.js'
 import { cellCount, ingredientCost, originReach, salePrice, tier } from '../taxonomy/derive.js'
 import { craftMinutes } from '../taxonomy/craft.js'
-import { evalCondition } from '../taxonomy/evaluate.js'
+import { axisValue, evalCondition } from '../taxonomy/evaluate.js'
 import type { GameState } from '../taxonomy/evaluate.js'
 import { SET_RULES } from '../taxonomy/rules.js'
 import type { SetRule } from '../taxonomy/rules.js'
@@ -236,24 +236,13 @@ const MATCH_MEMO = new Map<string, boolean>()
 /**
  * `揃える` の軸の値が一致しているか。
  *
- * ⚠ **`evaluate.ts` の `axisValue` の写し**（あちらは export されていない）。
- *   **式ではなく軸の引き当て**だが、写しであることに変わりはない。
- *   ⚠ **`産地` は「材料を遡った産地」**（`originReach`。#37）。ここを `item.origin` にすると
+ * ⚠ **軸の引き当ては本番の `axisValue`**（`evaluate.ts`。2026-09-15 に写しをやめて export した）。
+ *   **`産地` は「材料を遡った産地」**（`originReach`。#37）で、ここを `item.origin` にすると
  *   **加工品が全部 `なし` になって R5 が素材にしか当たらなくなる。**
  */
 function agrees(rule: SetRule, a: ItemDef, b: ItemDef): boolean {
   if (!rule.揃える) return true
   return axisValue(rule.揃える, a) === axisValue(rule.揃える, b)
-}
-
-function axisValue(axis: NonNullable<SetRule['揃える']>, item: ItemDef): string | number {
-  switch (axis) {
-    case '主種類':   return item.mainKind
-    case '産地':     return originOf(item)
-    case '向く土地': return item.suitedLand
-    case '贅沢さ':   return item.luxury
-    case 'tier':     return tier(item.id)
-  }
 }
 
 /** `originReach` は毎回レシピを遡るので、品ごとに1度だけ引く */

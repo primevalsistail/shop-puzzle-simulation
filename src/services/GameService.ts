@@ -7,7 +7,7 @@ import type { Upgrades } from '../components/progress/Upgrades.js'
 import { EventBus } from './EventBus.js'
 import { GameEvents } from '../types/index.js'
 import type { DisplaySlot } from '../types/index.js'
-import type { Placement } from '../taxonomy/evaluate.js'
+import type { EvaluationResult, GameState, Placement } from '../taxonomy/evaluate.js'
 import { evaluate } from '../taxonomy/evaluate.js'
 
 /**
@@ -125,35 +125,9 @@ export class GameService {
     }
   }
 
-  /**
-   * 盤面を規則にかける。
-   *
-   * ⚠ **隣接はこちらで出して渡す。**`evaluate()` 既定の `adjacentPairs` は
-   *   品の回転前のかたちで見るので、回転した品があると食い違う（#30）。
-   */
+  /** 盤面を規則にかける。**中身は下の `evaluateFloor()`**（写しを作らせないため外に出してある） */
   private evaluateFloor(slots: DisplaySlot[]) {
-    const placements: Placement[] = slots.map(s => ({
-      slotId: s.id,
-      itemId: s.itemId,
-      x: s.position.x,
-      y: s.position.y,
-    }))
-    const byId = new Map(placements.map(p => [p.slotId, p]))
-
-    const pairs: [Placement, Placement][] = []
-    const seen = new Set<string>()
-    for (const slot of slots) {
-      for (const otherId of this.floorGrid.getAdjacentSlotIds(slot)) {
-        const key = slot.id < otherId ? `${slot.id}|${otherId}` : `${otherId}|${slot.id}`
-        if (seen.has(key)) continue
-        seen.add(key)
-        const a = byId.get(slot.id)
-        const b = byId.get(otherId)
-        if (a && b) pairs.push([a, b])
-      }
-    }
-
-    return evaluate(placements, this.world.getState(), undefined, pairs)
+    return evaluateFloor(this.floorGrid, slots, this.world.getState())
   }
 
   /**
@@ -183,4 +157,42 @@ export class GameService {
   getGoalAmount(): number {
     return GOAL_AMOUNT
   }
+}
+
+/**
+ * 盤面を規則にかける。**売買が毎分呼ぶのはこれ。**
+ *
+ * ⚠ **隣接はこちらで出して渡す。**`evaluate()` 既定の `adjacentPairs` は
+ *   品の回転前のかたちで見るので、回転した品があると食い違う（#30）。
+ *   **盤面を持っているのは `FloorGrid`** なので、実際の占有升目で出した組を渡す。
+ *
+ * ⚠ **`GameService` の外に出してあるのは、写しを作らせないため。**
+ *   `src/sim/`（測る道具）が「いまの盤面で効き目が何倍か」を読むのにこれが要る。
+ *   **中で組み立て直すと、#30 の直しが片側だけ古くなる。**
+ */
+export function evaluateFloor(
+  floorGrid: FloorGrid, slots: readonly DisplaySlot[], state: GameState,
+): EvaluationResult {
+  const placements: Placement[] = slots.map(s => ({
+    slotId: s.id,
+    itemId: s.itemId,
+    x: s.position.x,
+    y: s.position.y,
+  }))
+  const byId = new Map(placements.map(p => [p.slotId, p]))
+
+  const pairs: [Placement, Placement][] = []
+  const seen = new Set<string>()
+  for (const slot of slots) {
+    for (const otherId of floorGrid.getAdjacentSlotIds(slot)) {
+      const key = slot.id < otherId ? `${slot.id}|${otherId}` : `${otherId}|${slot.id}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      const a = byId.get(slot.id)
+      const b = byId.get(otherId)
+      if (a && b) pairs.push([a, b])
+    }
+  }
+
+  return evaluate(placements, state, undefined, pairs)
 }

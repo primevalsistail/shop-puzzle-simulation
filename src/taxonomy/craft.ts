@@ -1,96 +1,99 @@
 /**
- * Cycle 4 — 加工の難易度と所要時間（S − D 方式）
+ * Cycle 4 → **段階4 作業2 で作り替えた（2026-09-15）** —— 加工の所要時間
  *
  * ## 何を解いているか
  *
- * 主人公の **手際 S** と、品の **難易度 D** の差で**加工の所要時間**が決まる。
- *
  * ```
- * 所要時間 : 基準時間 × clamp(2^((D − S) / 5), 0.25, 4.0)
+ * 所要時間 = recipe.durationMinutes ÷ 手際の倍率（1.0 〜 5.0）
  * ```
  *
- * ⚠ **「難しすぎて着手できない」という決まりは無い**（#111 の PO 判断 2026-09-14 で外した）。
- *   **手際の意味は「加工が速くなる」1つだけ。**
- *   難しい品は **「その日のうちに終わらない加工は着手できない」**（#25 Q3 = B。
- *   `CraftingSystem.fitsInToday`）という**既にある決まり**で止まる。
- *   ⚠ **外しても止まるものはほとんど変わらない**（実測 2026-09-14: 手際10 で
- *   1日に収まらないレシピが 9本 ＝ 以前 `canAttempt` が止めていた tier4 の10本とほぼ同じ）。
+ * ⚠ **tier は `durationMinutes` にだけ入る。**品ごとの速さの倍率は無い。
  *
- * ## ⚠ 効いているのは指数式ではなく clamp のほう
+ * ## ⚠ なぜ S − D 方式（`2^((tier×5 − 手際)/5)`）をやめたか
  *
- * ```
- * 2^((D−S)/5) = 2^(D/5) × 2^(−S/5)
- * ```
+ * **1つの数が2つのものを決めていて、片方にだけ tier が二重に掛かっていた。**
  *
- * **S の部分は全品共通の倍率として括り出せる**ので、指数式だけなら
- * 「所要時間 ÷ 手際」と代数的に同じで、品どうしの時間比に S は効かない。
+ * | | 何で決まるか | tier の入り方 |
+ * |---|---|---|
+ * | **売値**（`derive.ts` の `craftProfit`） | `durationMinutes`（**素の値**） | 1回 |
+ * | **実際の所要時間**（旧） | `durationMinutes` × `clamp(2^((tier×5 − 手際)/5), 0.25, 4)` | ⚠ **2回** |
  *
- * **差を作っているのは clamp。**低い D の品は先に 0.25 の床に着いて成長が止まり、
- * 高い D の品はまだ伸びる。**成長するほど格上品が格下品に追いつく。**
+ * ⚠ **実測（2026-09-15）: tier4 の初期が 840分。**営業は600分、無料枠は240分、
+ *   `CraftingSystem.fitsInToday` が 24:00 跨ぎを禁じるので、**1日に収まらず着手すらできない。**
+ *   測る道具（`src/sim/`）を 520日回しても **tier4 を一度も作れなかった**のがこれである。
  *
- * ## ⚠ D は手書きしない（INV-3）
+ * **いまは tier が `durationMinutes` にだけ入るので、売値と時間が同じ1本から出る。**
+ * 基準（PO 決定。計画 `stage4-start.md`）:
  *
- * tier・売値と同じく**導出値**。品ごとに難易度を書くと 161品ぶんの手書きデータが増える。
+ * | tier | T2 | T3 | T4 | T5 | T6 | T7 |
+ * |---|---|---|---|---|---|---|
+ * | **初期 1回** | **10分** | 14 | 19 | 27 | 36 | **50分** |
+ * | **MAX 1回** | **2分** | 2.8 | 3.8 | 5.4 | 7.2 | **10分** |
+ *
+ * ⚠ **加工利益の比（T7 ÷ T2）は `5^0.6 = 2.63倍`**（旧 2.06倍）。
+ *   **「深く作るほど取り分が増える」は保たれる ——むしろ強まる。**
+ *
+ * ## ⚠ 捨てたもの
+ *
+ * **clamp が作っていた「格上が格下に追いつく」。**
+ * **基準が 10〜50分なら最初から全部その日に収まる**ので、追いつかせる必要が無い。
+ * ⚠ **同時に「初期の手際では1日に収まらない品がある」という関門も消えた**
+ *   （`craft.test.ts` がその向きを固定している）。
  */
 
 import type { ItemId } from './axes.js'
-import { tier } from './derive.js'
 import { RECIPES_BY_OUTPUT } from './recipes.js'
 
-/** 難易度は tier から出す。tier1（素材）は加工しないので 5 に落ちるが、参照されない */
-const DIFFICULTY_PER_TIER = 5
-
-/** 倍率の下限・上限。これが「格上が格下に追いつく」を作っている本体 */
-export const SPEED_FLOOR = 0.25
-export const SPEED_CEILING = 4.0
-
 /**
- * 難易度が 5 変わるごとに所要時間が2倍／半分になる。
+ * 手際の初期値と上限。**段は `Upgrades` が持つ**（`SKILL_VALUES`）。
  *
- * ⚠ **手際の段も同じ物差しで読む。**`Upgrades` はここを使って
- *   段を「作業精度の累計倍率」に直している（`SKILL_SPEEDUPS`）。**別の数を書かない。**
- */
-export const HALVING_STEP = 5
-
-/**
- * 手際の初期値と上限。
- *
- * ⚠ **上限は 30 でなければ clamp が仕事をしない。**
- *   床（0.25）に着くのは `S >= D + 10` のとき。D は tier×5 なので
- *   tier2 は S=20、tier3 は S=25、tier4 は S=30 で床に着く。
- *
- *   | 手際 | tier4 ÷ tier2 の所要比 |
- *   |---|---|
- *   | 10 / 15 / 20 | **4.00倍（変わらない）** |
- *   | 25 | 2.00倍 |
- *   | **30** | **1.00倍（追いついた）** |
- *
- *   **上限を 20 にすると比が 4.00 のまま動かず、ただの一律高速化になる**
- *   ＝ 指数式だけを入れたのと同じで、この設計の狙い（格上が格下に追いつく）が出ない。
+ * ⚠ **数そのものに意味は無い。**効くのは `SKILL_MAX − SKILL_INITIAL` を
+ *   何段で割るかだけで、それを決めるのは `Upgrades` 側である。
  */
 export const SKILL_INITIAL = 10
 export const SKILL_MAX = 30
 
-/** 品の難易度（導出。手書きしない） */
-export function difficulty(itemId: ItemId): number {
-  return tier(itemId) * DIFFICULTY_PER_TIER
+/**
+ * 手際を上げ切ったときの速さ。**MAX 5倍**（PO 決定 2026-09-15）。
+ *
+ * ⚠ **`Upgrades` は 6段（初期＋5段）なので、1段は `5^(1/5) = 1.38倍`。**
+ *   **旧実装の 1.741倍（`2^(4/5)`）に対する PO の異議に応えた値である。**
+ * ⚠ **段の数をここに書かない。**段は `Upgrades.SKILL_VALUES` が持ち、
+ *   1段あたりの倍率は**そこから `skillSpeedup()` で出る。**
+ */
+export const SKILL_MAX_SPEEDUP = 5
+
+/**
+ * 手際の**累計倍率**（初期 1.0 → 上限 5.0）。**全品に同じだけ効く。**
+ *
+ * ⚠ **品を見ない。**ここに tier を戻すと、上の「二重に掛かる」が再発する。
+ * ⚠ **改装の画面もここを読む**（`Upgrades` の `SKILL_SPEEDUPS`）。**数を書き写さない。**
+ */
+export function skillSpeedup(skill: number): number {
+  const s = Math.min(SKILL_MAX, Math.max(SKILL_INITIAL, skill))
+  return Math.pow(SKILL_MAX_SPEEDUP, (s - SKILL_INITIAL) / (SKILL_MAX - SKILL_INITIAL))
 }
 
-/** 所要時間の倍率。clamp が「格上が格下に追いつく」を作る */
-export function speedMultiplier(itemId: ItemId, skill: number): number {
-  const raw = Math.pow(2, (difficulty(itemId) - skill) / HALVING_STEP)
-  return Math.min(SPEED_CEILING, Math.max(SPEED_FLOOR, raw))
+/**
+ * 所要時間の倍率（1.0 → 0.2）。**`skillSpeedup` の逆数。**
+ *
+ * ⚠ **引数に品を取らない**（旧 `speedMultiplier(itemId, skill)` から変わった）。
+ *   **品ごとの差は `durationMinutes` が全部持っている。**
+ */
+export function speedMultiplier(skill: number): number {
+  return 1 / skillSpeedup(skill)
 }
 
 /**
  * 実際の所要時間（分）。レシピを持たない品は 0。
  *
- * ⚠ これが「その日のうちに終わるか」の判定に使われる。
- *   起きている時間は 1080分/日 しかない（TimeManager）。
- *   **いま着手を止めているのはこれだけ**である（上の注記）。
+ * ⚠ **1分を下回らせない。**`Math.round` に任せると 0分の加工ができ、
+ *   **時間を払わずに作れる**（いちばん速い T2 は上限で `5 ÷ 5 = 1分`）。
+ *
+ * ⚠ これが「その日のうちに終わるか」の判定に使われる（`CraftingSystem.fitsInToday`）。
  */
 export function craftMinutes(itemId: ItemId, skill: number): number {
   const recipe = RECIPES_BY_OUTPUT.get(itemId)
   if (!recipe) return 0
-  return Math.round(recipe.durationMinutes * speedMultiplier(itemId, skill))
+  return Math.max(1, Math.round(recipe.durationMinutes * speedMultiplier(skill)))
 }

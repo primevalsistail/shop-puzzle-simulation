@@ -185,10 +185,14 @@ function memberMatches(
 /**
  * `揃える` が指す軸の値。**突き合わせるのは「値が同じかどうか」だけ。**
  *
+ * ⚠ **export しているのは、写しを作らせないため。**`src/sim/` の方針が
+ *   「どの品を隣に置くと当たるか」を先読みするのにこれを要る。**写すと #37 の
+ *   『産地は材料を遡ったほう』がいつか片側だけ古くなる。**
+ *
  * ⚠ **産地は「材料を遡った産地」**（#37。条件式の `産地` 述語と同じ値を見ること。
  *   ここだけ品に書いてある産地を読むと、R5 が条件と突き合わせで違う産地を見ることになる）。
  */
-function axisValue(axis: NonNullable<SetRule['揃える']>, item: ItemDef): string | number {
+export function axisValue(axis: NonNullable<SetRule['揃える']>, item: ItemDef): string | number {
   switch (axis) {
     case '主種類':   return item.mainKind
     case '産地':     return originReach(item)

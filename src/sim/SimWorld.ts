@@ -26,8 +26,8 @@ import type { ItemDef, ItemId, RecipeDef } from '../taxonomy/axes.js'
 import { DAYS_PER_PORT, ROUTE } from '../taxonomy/islands.js'
 import type { IslandName } from '../taxonomy/islands.js'
 import { originReach, tier } from '../taxonomy/derive.js'
-import { evaluate, finalModifiers, merchantListing } from '../taxonomy/evaluate.js'
-import type { GameState, Placement } from '../taxonomy/evaluate.js'
+import { finalModifiers, merchantListing } from '../taxonomy/evaluate.js'
+import type { GameState } from '../taxonomy/evaluate.js'
 import { ItemRegistry } from '../components/items/ItemRegistry.js'
 import { FloorGrid } from '../components/floor/FloorGrid.js'
 import { PlacementManager } from '../components/floor/PlacementManager.js'
@@ -37,7 +37,7 @@ import { TimeManager, CLOSE_HOUR } from '../components/core/TimeManager.js'
 import { CraftingSystem } from '../components/items/CraftingSystem.js'
 import type { CraftResult } from '../components/items/CraftingSystem.js'
 import { CustomerSimulator } from '../components/simulation/CustomerSimulator.js'
-import { GameService } from '../services/GameService.js'
+import { GameService, evaluateFloor } from '../services/GameService.js'
 import { WorldState } from '../components/progress/WorldState.js'
 import { Upgrades, UPGRADE_KINDS } from '../components/progress/Upgrades.js'
 import type { UpgradeKind } from '../components/progress/Upgrades.js'
@@ -47,7 +47,7 @@ import { RecipeUnlocks } from '../components/progress/RecipeUnlocks.js'
 import type { UnlockStore } from '../components/progress/RecipeUnlocks.js'
 import { EventBus } from '../services/EventBus.js'
 import { GameEvents } from '../types/index.js'
-import type { DisplaySlot, GameTime, GridCell, GridSize, SaleResult } from '../types/index.js'
+import type { GameTime, GridCell, GridSize, SaleResult } from '../types/index.js'
 import { makeRng } from './rng.js'
 
 /**
@@ -709,21 +709,15 @@ export class SimWorld {
   }
 
   /**
-   * 組み終えた盤面を **本番と同じ `evaluate()`** にかけ、倍率と当たった規則を数える。
+   * 組み終えた盤面を **本番の `evaluateFloor()` そのもの**にかけ、倍率と当たった規則を数える。
    *
-   * ⚠ **隣接の組はここで出して渡す**（`GameService.evaluateFloor` と同じ作り）。
-   *   `evaluate()` 既定の `adjacentPairs` は品の**回転前**のかたちで見るので、
-   *   本番は盤面側（`FloorGrid`）が出した組を渡している（#30）。
-   *   ⚠ **`GameService` の private を写している唯一の場所。**
-   *   読むためだけに本番へ口を開けたくないので、ここに置いた。
-   *   **`GameService.evaluateFloor` を変えたら、ここも変える。**
+   * ⚠ **隣接の組を自分で組み立てない**（2026-09-15 に写しをやめた）。
+   *   毎分の売買が通るのと**同じ関数**を呼ぶので、#30 の直しから外れようがない。
    */
   private measureBoard(): void {
     const slots = this.floorGrid.getAllSlots()
     if (slots.length === 0) return
-    const result = evaluate(
-      slots.map(toPlacement), this.world.getState(), undefined, this.adjacentPairs(slots),
-    )
+    const result = evaluateFloor(this.floorGrid, slots, this.world.getState())
     let 売れやすさ = 0
     let 値段 = 0
     let 集客 = 0
@@ -753,30 +747,7 @@ export class SimWorld {
     }
   }
 
-  /** ⚠ `GameService.evaluateFloor` と同じ組み立て（上の注記） */
-  private adjacentPairs(slots: readonly DisplaySlot[]): [Placement, Placement][] {
-    const byId = new Map(slots.map(s => [s.id, toPlacement(s)]))
-    const pairs: [Placement, Placement][] = []
-    const seen = new Set<string>()
-    for (const slot of slots) {
-      for (const otherId of this.floorGrid.getAdjacentSlotIds(slot)) {
-        const key = slot.id < otherId ? `${slot.id}|${otherId}` : `${otherId}|${slot.id}`
-        if (seen.has(key)) continue
-        seen.add(key)
-        const a = byId.get(slot.id)
-        const b = byId.get(otherId)
-        if (a && b) pairs.push([a, b])
-      }
-    }
-    return pairs
-  }
-
   private modAvg(key: keyof typeof this.modSum): number {
     return this.modDays === 0 ? 1 : this.modSum[key] / this.modDays
   }
-}
-
-/** `DisplaySlot` を規則評価の `Placement` にする（`GameService` と同じ形） */
-function toPlacement(slot: DisplaySlot): Placement {
-  return { slotId: slot.id, itemId: slot.itemId, x: slot.position.x, y: slot.position.y }
 }

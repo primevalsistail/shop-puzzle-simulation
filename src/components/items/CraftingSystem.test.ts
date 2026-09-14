@@ -8,6 +8,7 @@ import { ALL_ITEMS } from '../../taxonomy/items.js'
 import { ALL_RECIPES } from '../../taxonomy/recipes.js'
 import { Upgrades } from '../progress/Upgrades.js'
 import { TimeManager } from '../core/TimeManager.js'
+import { SKILL_MAX_SPEEDUP } from '../../taxonomy/craft.js'
 
 function makeTimeManagerMock(): TimeManager {
   return {
@@ -57,14 +58,16 @@ describe('CraftingSystem', () => {
 
   it('startCraftはゲーム内時間を所要分だけ飛ばす（＝その間は客が来ない）', () => {
     inventory.add('buckwheat', 3)
-    cs.startCraft('recipe_buckwheat_flour') // 蕎麦粉: 90分
-    expect(timeManager.skipMinutes).toHaveBeenCalledWith(90)
+    cs.startCraft('recipe_buckwheat_flour')
+    // ⚠ **分数を書き写さない。**`recipes.ts` の値が動いてもここは動かない
+    expect(timeManager.skipMinutes).toHaveBeenCalledWith(cs.minutesFor('recipe_buckwheat_flour'))
   })
 
   it('その日のうちに終わらない加工は着手できない（#25 Q3 = B）', () => {
-    vi.mocked(timeManager.minutesUntilEndOfDay).mockReturnValue(60)
+    const minutes = cs.minutesFor('recipe_buckwheat_flour')
+    vi.mocked(timeManager.minutesUntilEndOfDay).mockReturnValue(minutes - 1)
     inventory.add('buckwheat', 3)
-    expect(cs.canCraft('recipe_buckwheat_flour')).toBe(false) // 90分 > 残り60分
+    expect(cs.canCraft('recipe_buckwheat_flour')).toBe(false) // 1分足りない
     expect(cs.startCraft('recipe_buckwheat_flour')).toBe(false)
     expect(inventory.getQuantity('buckwheat')).toBe(3) // 素材は減らない
   })
@@ -73,10 +76,11 @@ describe('CraftingSystem', () => {
     const listener = vi.fn()
     EventBus.on(GameEvents.CRAFTING_STARTED, listener)
     inventory.add('buckwheat', 3)
+    const minutes = cs.minutesFor('recipe_buckwheat_flour')
     cs.startCraft('recipe_buckwheat_flour')
     // ⚠ 実際の分数と、削った営業分も載る（#53）。モックの時計は作業帯なので営業は0分
     expect(listener).toHaveBeenCalledWith(
-      { recipeId: 'recipe_buckwheat_flour', times: 1, quantity: 3, minutes: 90, businessMinutes: 0 })
+      { recipeId: 'recipe_buckwheat_flour', times: 1, quantity: 3, minutes, businessMinutes: 0 })
   })
 
   it('素材不足のときstartCraftはfalseを返す', () => {
@@ -95,10 +99,11 @@ describe('CraftingSystem', () => {
     const listener = vi.fn()
     EventBus.on(GameEvents.CRAFTING_COMPLETED, listener)
     inventory.add('buckwheat', 3)
+    const minutes = cs.minutesFor('recipe_buckwheat_flour')
     cs.startCraft('recipe_buckwheat_flour')
     // ⚠ 実際の分数と、削った営業分も載る（#53）。モックの時計は作業帯なので営業は0分
     expect(listener).toHaveBeenCalledWith(
-      { recipeId: 'recipe_buckwheat_flour', times: 1, quantity: 3, minutes: 90, businessMinutes: 0 })
+      { recipeId: 'recipe_buckwheat_flour', times: 1, quantity: 3, minutes, businessMinutes: 0 })
   })
 
   it('加工は途中の状態を持たない（着手＝完了）', () => {
@@ -115,16 +120,18 @@ describe('CraftingSystem', () => {
       expect(cs.startCraft('recipe_buckwheat_flour', 3)).toBe(true)
       expect(inventory.getQuantity('buckwheat')).toBe(1) // 10 − 3×3
       expect(inventory.getQuantity('buckwheat_flour')).toBe(9) // 3個 × 3回
-      expect(timeManager.skipMinutes).toHaveBeenCalledWith(270) // 90分 × 3回
+      expect(timeManager.skipMinutes)
+        .toHaveBeenCalledWith(cs.minutesFor('recipe_buckwheat_flour') * 3)
     })
 
     it('CRAFTING_COMPLETED は回数と総個数を伝える', () => {
       const listener = vi.fn()
       EventBus.on(GameEvents.CRAFTING_COMPLETED, listener)
       inventory.add('buckwheat', 6)
+      const minutes = cs.minutesFor('recipe_buckwheat_flour') * 2
       cs.startCraft('recipe_buckwheat_flour', 2)
       expect(listener).toHaveBeenCalledWith(
-        { recipeId: 'recipe_buckwheat_flour', times: 2, quantity: 6, minutes: 180, businessMinutes: 0 })
+        { recipeId: 'recipe_buckwheat_flour', times: 2, quantity: 6, minutes, businessMinutes: 0 })
     })
 
     it('材料が1回分足りないときは何も起きない（材料も時間も減らない）', () => {
@@ -136,7 +143,9 @@ describe('CraftingSystem', () => {
     })
 
     it('当日に収まらない回数は着手できない（材料も時間も減らない）', () => {
-      vi.mocked(timeManager.minutesUntilEndOfDay).mockReturnValue(200) // 90分なら2回まで
+      // ちょうど2回ぶんしか残っていない日
+      const minutes = cs.minutesFor('recipe_buckwheat_flour')
+      vi.mocked(timeManager.minutesUntilEndOfDay).mockReturnValue(minutes * 2)
       inventory.add('buckwheat', 20)
       expect(cs.startCraft('recipe_buckwheat_flour', 3)).toBe(false)
       expect(inventory.getQuantity('buckwheat')).toBe(20)
@@ -145,13 +154,15 @@ describe('CraftingSystem', () => {
     })
 
     it('maxCraftTimes は材料と当日の残り時間の小さいほうを返す', () => {
-      inventory.add('buckwheat', 7) // 材料では2回、時間では10回 → 材料が効く
+      const minutes = cs.minutesFor('recipe_buckwheat_flour')
+      inventory.add('buckwheat', 7) // 材料では2回 → 材料が効く
       expect(cs.maxCraftTimes('recipe_buckwheat_flour')).toBe(2)
 
-      inventory.add('buckwheat', 100) // 材料では35回だが、960分では10回 → 時間が効く
-      expect(cs.maxCraftTimes('recipe_buckwheat_flour')).toBe(10)
+      inventory.add('buckwheat', 999) // 材料は潤沢 → 時間が効く
+      vi.mocked(timeManager.minutesUntilEndOfDay).mockReturnValue(minutes * 4)
+      expect(cs.maxCraftTimes('recipe_buckwheat_flour')).toBe(4)
 
-      vi.mocked(timeManager.minutesUntilEndOfDay).mockReturnValue(200) // 時間では2回
+      vi.mocked(timeManager.minutesUntilEndOfDay).mockReturnValue(minutes * 2)
       expect(cs.maxCraftTimes('recipe_buckwheat_flour')).toBe(2)
     })
 
@@ -247,8 +258,9 @@ describe('CraftingSystem', () => {
       // 時間だけがだめ
       const inv2 = new Inventory()
       const tm2 = makeTimeManagerMock()
-      vi.mocked(tm2.minutesUntilEndOfDay).mockReturnValue(60)
-      const cs2 = new CraftingSystem(registry, inv2, tm2)
+      const cs2raw = new CraftingSystem(registry, inv2, tm2)
+      vi.mocked(tm2.minutesUntilEndOfDay).mockReturnValue(cs2raw.minutesFor(RECIPE) - 1)
+      const cs2 = cs2raw
       inv2.add('buckwheat', 100)
       expect(cs2.fitsInStock(RECIPE, 1)).toBe(true)
       expect(cs2.fitsInToday(RECIPE, 1)).toBe(false)
@@ -289,9 +301,9 @@ describe('営業時間を何分削るか（#53）', () => {
   let cs: CraftingSystem
 
   /** 本物の TimeManager を使う（openMinutesWithin と skipMinutes の食い違いを見たいため） */
-  function withRealClock(hour: number) {
+  function withRealClock(hour: number, minute = 0) {
     const tm = new TimeManager()
-    tm.setTime({ day: 1, hour, minute: 0 })
+    tm.setTime({ day: 1, hour, minute })
     return { tm, cs: new CraftingSystem(registry, inventory, tm) }
   }
 
@@ -301,7 +313,7 @@ describe('営業時間を何分削るか（#53）', () => {
     inventory = new Inventory()
   })
 
-  it('夜20:00 に始めれば削らない（蕎麦粉90分）', () => {
+  it('夜20:00 に始めれば削らない（閉店後の枠で作る）', () => {
     ;({ cs } = withRealClock(20))
     expect(cs.businessMinutesFor('recipe_buckwheat_flour')).toBe(0)
     expect(cs.fitsBeforeOpen('recipe_buckwheat_flour')).toBe(true)
@@ -309,17 +321,19 @@ describe('営業時間を何分削るか（#53）', () => {
 
   it('営業中に始めれば所要ぶんそのまま削る', () => {
     ;({ cs } = withRealClock(12))
-    expect(cs.businessMinutesFor('recipe_buckwheat_flour')).toBe(90)
+    expect(cs.businessMinutesFor('recipe_buckwheat_flour'))
+      .toBe(cs.minutesFor('recipe_buckwheat_flour'))
     expect(cs.fitsBeforeOpen('recipe_buckwheat_flour')).toBe(false)
   })
 
   it('回数を増やすと削る分も増える', () => {
     ;({ cs } = withRealClock(20))
-    // 20:00 から240分が無料枠。90分×3回=270分は 30分だけ翌朝の営業に食い込む…
-    // …のではなく 24:00→6:00 へ飛ぶので、270分では 6:00+30分＝まだ作業
-    expect(cs.businessMinutesFor('recipe_buckwheat_flour', 3)).toBe(0)
-    // 6回 540分なら 6:00 から300分＝10:00 を越えて営業へ入る
-    expect(cs.businessMinutesFor('recipe_buckwheat_flour', 6)).toBeGreaterThan(0)
+    // 20:00 からの無料枠は479分（20:00→24:00 の240分＋翌 6:00→10:00 の239分）。
+    // ⚠ 24:00 は 6:00 へ飛ぶので、間の睡眠は枠を食わない。
+    // ⚠ **240分目は 10:00 ちょうどに着き、もう営業**（`TimeManager.openMinutesWithin` の注記）
+    const free = Math.floor(479 / cs.minutesFor('recipe_buckwheat_flour'))
+    expect(cs.businessMinutesFor('recipe_buckwheat_flour', free)).toBe(0)
+    expect(cs.businessMinutesFor('recipe_buckwheat_flour', free + 1)).toBeGreaterThan(0)
   })
 
   /**
@@ -331,11 +345,12 @@ describe('営業時間を何分削るか（#53）', () => {
     ;({ tm, cs } = withRealClock(6))
     inventory.add('buckwheat', 999)
     expect(tm.minutesUntilEndOfDay()).toBe(1080)
-    // 12回 = 1080分。今日のうちには終わるので着手できる
-    expect(cs.fitsInToday('recipe_buckwheat_flour', 12)).toBe(true)
+    // 起きている 1080分をちょうど埋める回数。今日のうちには終わるので着手できる
+    const times = Math.floor(1080 / cs.minutesFor('recipe_buckwheat_flour'))
+    expect(cs.fitsInToday('recipe_buckwheat_flour', times)).toBe(true)
     // しかし営業600分は丸ごと消える
-    expect(cs.businessMinutesFor('recipe_buckwheat_flour', 12)).toBe(600)
-    expect(cs.fitsBeforeOpen('recipe_buckwheat_flour', 12)).toBe(false)
+    expect(cs.businessMinutesFor('recipe_buckwheat_flour', times)).toBe(600)
+    expect(cs.fitsBeforeOpen('recipe_buckwheat_flour', times)).toBe(false)
   })
 
   it('⚠ 削っても着手は禁じない（深さを取る選択はプレイヤーのもの）', () => {
@@ -351,21 +366,26 @@ describe('営業時間を何分削るか（#53）', () => {
     inventory.add('buckwheat', 3)
     const payloads: CraftResult[] = []
     EventBus.on(GameEvents.CRAFTING_COMPLETED, p => payloads.push(p as CraftResult))
+    const minutes = cs.minutesFor('recipe_buckwheat_flour')
     cs.startCraft('recipe_buckwheat_flour')
     expect(payloads).toEqual([
-      { recipeId: 'recipe_buckwheat_flour', times: 1, quantity: 3, minutes: 90, businessMinutes: 90 },
+      { recipeId: 'recipe_buckwheat_flour', times: 1, quantity: 3, minutes, businessMinutes: minutes },
     ])
   })
 
   it('⚠ 飛ばす前に数えている（飛ばした後の時刻で数えると0になってしまう）', () => {
-    ;({ cs } = withRealClock(19))          // 19:00 — 残りの営業は60分
+    ;({ cs } = withRealClock(19, 55))      // 19:55 — 閉店まであと5分
     inventory.add('buckwheat', 3)
+    const minutes = cs.minutesFor('recipe_buckwheat_flour')
+    // ⚠ **閉店をまたぐ長さでないと、この検査は何も見ていない**
+    expect(minutes).toBeGreaterThan(5)
     const payloads: CraftResult[] = []
     EventBus.on(GameEvents.CRAFTING_COMPLETED, p => payloads.push(p as CraftResult))
-    cs.startCraft('recipe_buckwheat_flour') // 90分 → 20:30 に終わる
-    // 終わった時刻（20:30）は作業帯。後から数えたら0分になる。実際に削ったのは
-    // 19:01〜19:59 の59分（20:00 ちょうどはもう閉店側 —— tick と同じ数え方）
-    expect(payloads[0].businessMinutes).toBe(59)
+    cs.startCraft('recipe_buckwheat_flour')
+    // 終わった時刻は作業帯。**後から数えたら0分**になる。**丸ごと数えたら所要分**になる。
+    // 実際に削ったのは 19:56〜19:59 の4分（20:00 ちょうどはもう閉店側 —— tick と同じ数え方）
+    expect(payloads[0].businessMinutes).toBe(4)
+    expect(payloads[0].minutes).toBe(minutes)
   })
 })
 
@@ -373,36 +393,47 @@ describe('営業時間を何分削るか（#53）', () => {
  * ⚠ **画面に出す分数の出どころ**（#53）。
  *
  * 工房の行と完了の知らせは、以前 `recipe.durationMinutes × times` を出していた。
- * あれは**手際を掛ける前の素の値**で、`minutesFor` とは初期手際の時点ですでに食い違う。
+ * あれは**手際を掛ける前の素の値**で、`minutesFor` とは食い違う。
  * **時間が加工の値段である以上、ここがずれると払う額を間違えて見せていることになる。**
+ *
+ * ⚠⚠ **ずれる向きが 2026-09-15（段階4 作業2）に変わった。**
+ *   **前**は品ごとの倍率があり、**初期手際の時点で tier3 以上が素の値の2倍**だった。
+ *   **後**は手際が全品に同じだけ効くので、**初期は一致し、上げるほど素の値より短くなる。**
+ *   ⚠ **守るべき決まりは変わっていない** —— **画面は `minutesFor` を通すこと。**
  */
 describe('画面に出す分数は minutesFor から取る（#53）', () => {
-  it('⚠ 初期手際でも durationMinutes と実際の分数は一致しない', () => {
+  /** 手際を上限まで買った `Upgrades` */
+  function maxedSkill(): Upgrades {
+    const upgrades = new Upgrades()
+    while (upgrades.advance('手際')) { /* 上限まで */ }
+    return upgrades
+  }
+
+  it('⚠ 手際を上げると durationMinutes と実際の分数が食い違う', () => {
     const registry = new ItemRegistry(ALL_ITEMS, ALL_RECIPES)
-    const tm = new TimeManager()
-    const cs = new CraftingSystem(registry, new Inventory(), tm, new Upgrades())
+    const bread = registry.getRecipe('recipe_buckwheat_bread')
 
-    // 難易度 D = tier×5 なので、初期手際 S=10 と釣り合うのは tier2 だけ。
-    // tier3 以上は 2^((D−S)/5) 倍に伸びる
-    const flour = registry.getRecipe('recipe_buckwheat_flour')   // tier2 — 一致する
-    expect(cs.minutesFor('recipe_buckwheat_flour')).toBe(flour.durationMinutes)
+    const fresh = new CraftingSystem(registry, new Inventory(), new TimeManager(), new Upgrades())
+    expect(fresh.minutesFor('recipe_buckwheat_bread')).toBe(bread.durationMinutes) // 初期は一致
 
-    const bread = registry.getRecipe('recipe_buckwheat_bread')   // tier3 — 2倍になる
-    expect(cs.minutesFor('recipe_buckwheat_bread')).toBe(bread.durationMinutes * 2)
+    const skilled = new CraftingSystem(registry, new Inventory(), new TimeManager(), maxedSkill())
+    expect(skilled.minutesFor('recipe_buckwheat_bread'))
+      .toBe(Math.max(1, Math.round(bread.durationMinutes / SKILL_MAX_SPEEDUP)))
+    expect(skilled.minutesFor('recipe_buckwheat_bread')).toBeLessThan(bread.durationMinutes)
   })
 
-  it('⚠ 素の値で判定すると、営業を削る量を半分に見誤る', () => {
+  it('⚠ 素の値で判定すると、削る営業分を 5倍に見積もる', () => {
     const registry = new ItemRegistry(ALL_ITEMS, ALL_RECIPES)
     const tm = new TimeManager()
     tm.setTime({ day: 1, hour: 10, minute: 0 })   // 開店ちょうど
-    const cs = new CraftingSystem(registry, new Inventory(), tm, new Upgrades())
+    const cs = new CraftingSystem(registry, new Inventory(), tm, maxedSkill())
 
     const bread = registry.getRecipe('recipe_buckwheat_bread')
-    // 素は300分だが、初期手際での実際は600分 ＝ 開店から閉店まで丸ごと
-    expect(bread.durationMinutes).toBe(300)
-    expect(cs.minutesFor('recipe_buckwheat_bread')).toBe(600)
-    // 削る営業分は599（600分目は 20:00 ちょうどで、もう閉店側）。
-    // 素の値（300分）を信じると、失う売上を半分だと思い込む
-    expect(cs.businessMinutesFor('recipe_buckwheat_bread')).toBe(599)
+    const actual = cs.minutesFor('recipe_buckwheat_bread')
+    expect(actual).toBe(Math.max(1, Math.round(bread.durationMinutes / SKILL_MAX_SPEEDUP)))
+    // 開店ちょうどなので、削る営業分は所要分そのもの。
+    // 素の値（`durationMinutes`）を信じると、失う売上を 5倍に見積もる
+    expect(cs.businessMinutesFor('recipe_buckwheat_bread')).toBe(actual)
+    expect(bread.durationMinutes).toBeGreaterThan(actual)
   })
 })

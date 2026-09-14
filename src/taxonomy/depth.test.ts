@@ -13,7 +13,7 @@ import { ALL_ITEMS } from './items.js'
 import { ALL_RECIPES, RECIPES_BY_OUTPUT } from './recipes.js'
 import { cellCount, tier } from './derive.js'
 import { MAX_TIER } from './rules.js'
-import { SKILL_MAX, speedMultiplier } from './craft.js'
+import { SKILL_MAX, craftMinutes } from './craft.js'
 
 const itemsAt = (t: number): readonly ItemDef[] => ALL_ITEMS.filter(i => tier(i.id) === t)
 const avgCells = (t: number): number => {
@@ -89,7 +89,7 @@ describe('深い品も、手際を上げ切れば作り切れる', () => {
     //   ここが、そのレシピが存在しないことの唯一の保証。
     const AWAKE_MINUTES_PER_DAY = 1080
     for (const recipe of ALL_RECIPES) {
-      const minutes = recipe.durationMinutes * speedMultiplier(recipe.outputItemId, SKILL_MAX)
+      const minutes = craftMinutes(recipe.outputItemId, SKILL_MAX)
       expect(minutes, recipe.id).toBeLessThanOrEqual(AWAKE_MINUTES_PER_DAY)
     }
   })

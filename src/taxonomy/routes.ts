@@ -65,9 +65,8 @@ export function routeValues(
    */
   skill?: number,
 ): RouteValues {
-  const speedOf = skill === undefined
-    ? () => 1
-    : (id: ItemId) => speedMultiplier(id, skill)
+  // ⚠ **品ごとの速さの倍率は無くなった**（段階4 作業2）。手際は全品に同じだけ効く
+  const speedOf = skill === undefined ? () => 1 : () => speedMultiplier(skill)
   const revenue = finalPrice(recipe.outputItemId, margin) * recipe.outputQuantity
 
   let directCost = 0
@@ -98,7 +97,7 @@ export function routeValues(
     resell: Math.round(resell),
     craft: Math.round(revenue - directCost),
     deepCraft: Math.round(revenue - deepCost),
-    minutes: Math.round(recipe.durationMinutes * speedOf(recipe.outputItemId)),
+    minutes: Math.round(recipe.durationMinutes * speedOf()),
     deepMinutes: Math.round(recipe.durationMinutes + deeperMinutes),
     hasDeeper,
   }
