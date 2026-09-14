@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { describe, it, expect } from 'vitest'
+import indexHtmlSource from '../../index.html?raw'
 import { SCRIM_ALPHA } from './palette.js'
 import purchaseSource from './PurchaseMenu.ts?raw'
 import messageWindowSource from './MessageWindow.ts?raw'
@@ -44,6 +45,9 @@ import {
   HUD_PANEL_B, HUD_ROW_MONEY_Y, HUD_ROW_TIME_Y, HUD_ROW_PLACE_Y,
   BTN_PANEL_L, BTN_PANEL_W, BTN_ICON_W, BTN_Y_TRADE,
   TITLE_FONT_PX, BACK_BTN_W, TAB_W, TAB_H, TAB_GAP, TAB_FONT_PX, tabCx,
+  GAME_TITLE, TITLE_NAME_FONT_PX, TITLE_NAME_Y, TITLE_FACE_CY,
+  TITLE_BTN_W, TITLE_BTN_H, TITLE_BTN_FONT_PX,
+  TITLE_BTN_NEW_Y, TITLE_BTN_CONTINUE_Y, TITLE_BTN_NEW_LABEL, TITLE_BTN_CONTINUE_LABEL,
   TRADE_TITLE, TRADE_TABS, TAB_ROW_SUB_FONT_PX,
   UPGRADE_ROW_H, UPGRADE_NAME_X, UPGRADE_SUB_MAX_W,
   UPGRADE_COLS, UPGRADE_HEAD_Y, UPGRADE_HEAD_FONT_PX, UPGRADE_ROWS_TOP,
@@ -1743,5 +1747,34 @@ describe('確認のダイアログ（マイセット。#99）', () => {
     // 升のボタンにも収まっていること（字は1箇所から）
     expect(presetMenuSource).toContain('PRESET_SAVE_LABEL')
     expect(presetMenuSource).toContain('PRESET_DELETE_LABEL')
+  })
+})
+
+// ─── タイトル画面（#114） ──────────────────────────────────────
+describe('タイトル画面', () => {
+  const faceT = TITLE_FACE_CY - 370 / 2
+  const faceB = TITLE_FACE_CY + 370 / 2
+
+  /** ⚠ **顔絵は 252×370 をそのまま出す。**題名にもボタンにも掛からないこと */
+  it('題名・顔絵・ボタン2つが、上から順に重ならない', () => {
+    expect(TITLE_NAME_Y + TITLE_NAME_FONT_PX / 2).toBeLessThan(faceT)
+    expect(faceB).toBeLessThan(TITLE_BTN_NEW_Y - TITLE_BTN_H / 2)
+    expect(TITLE_BTN_NEW_Y + TITLE_BTN_H / 2).toBeLessThan(TITLE_BTN_CONTINUE_Y - TITLE_BTN_H / 2)
+    expect(TITLE_BTN_CONTINUE_Y + TITLE_BTN_H / 2).toBeLessThan(SCREEN_H)
+  })
+
+  it('題名とボタンの字が、それぞれの幅に収まる', () => {
+    expect(estTextWidth(GAME_TITLE, TITLE_NAME_FONT_PX)).toBeLessThan(SCREEN_W - 120)
+    for (const label of [TITLE_BTN_NEW_LABEL, TITLE_BTN_CONTINUE_LABEL]) {
+      expect(estTextWidth(label, TITLE_BTN_FONT_PX), label).toBeLessThanOrEqual(TITLE_BTN_W - 24)
+    }
+  })
+
+  /**
+   * ⚠ **ブラウザのタブ名は HTML 側にあるので、どうしても写しになる。**
+   *   **片方だけ変わると、タブと画面で題名が食い違う。**
+   */
+  it('ブラウザのタブ名が、画面に出す題名と同じ', () => {
+    expect(indexHtmlSource).toContain(`<title>${GAME_TITLE}</title>`)
   })
 })

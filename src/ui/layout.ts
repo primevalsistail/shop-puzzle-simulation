@@ -1407,6 +1407,27 @@ export const TUTORIAL_BODY_FONT_PX = 24
 export const TUTORIAL_STEP_FONT_PX = 19.5
 export const TUTORIAL_BTN_FONT_PX = 30
 
+// ─── タイトル画面（`TitleScene`） ──────────────────────────────
+/**
+ * 遊び始める前の1枚（#114）。**題名・はじめる・つづきから の3つだけ。**
+ *
+ * ⚠ **題名の正はここ1つ。**`index.html` の `<title>` も同じ文字にすること
+ *   （あちらは HTML なので写しになる。**変えるときは両方**）。
+ */
+export const GAME_TITLE = 'ペルラ号の店開き'
+export const TITLE_NAME_FONT_PX = 90
+export const TITLE_NAME_Y = 246
+/** 題名の下に置く主人公の顔絵。**252×370 をそのまま出す**ので、拡縮はしない */
+export const TITLE_FACE_CY = 585
+/** ボタン2つ。⚠ **顔絵の下端（585 + 185 = 770）より下に置くこと** */
+export const TITLE_BTN_W = 372
+export const TITLE_BTN_H = 72
+export const TITLE_BTN_FONT_PX = 33
+export const TITLE_BTN_NEW_Y = 846
+export const TITLE_BTN_CONTINUE_Y = 948
+export const TITLE_BTN_NEW_LABEL = 'はじめる'
+export const TITLE_BTN_CONTINUE_LABEL = 'つづきから'
+
 // ─── セーブ／ロードの画面 ──────────────────────────────────────
 /**
  * ⚠ **確認の面のボタンの字は `CONFIRM_BTN_FONT_PX`**（`ConfirmDialog` と同じ面を使うため）。

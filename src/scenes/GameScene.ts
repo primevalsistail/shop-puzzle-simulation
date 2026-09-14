@@ -189,8 +189,18 @@ export class GameScene extends Phaser.Scene {
    *   **エンディングの幕にも控えは要らない。**
    */
 
+  /**
+   * タイトル画面から渡ってくるもの（#114）。
+   * **`fresh`** ＝ はじめる ／ **`openLoad`** ＝ つづきから。
+   */
+  private startMode: { fresh?: boolean; openLoad?: boolean } = {}
+
   constructor() {
     super({ key: 'GameScene' })
+  }
+
+  init(data: { fresh?: boolean; openLoad?: boolean } = {}): void {
+    this.startMode = data
   }
 
   create(): void {
@@ -483,7 +493,12 @@ export class GameScene extends Phaser.Scene {
       raiseStoryEvent: (id: string) => this.raiseStoryEvent(id),
     })
 
-    if (this.tutorial.shouldShow()) {
+    // ⚠ **「つづきから」は、いつものロードの画面をそのまま開く**（#114）。
+    //   **枠は3つある**ので、どれを読むかはここで選ばせる。
+    //   ⚠ **案内より先に出す。**読み込む人は遊び方を知っている
+    if (this.startMode.openLoad) {
+      this.doLoad()
+    } else if (this.tutorial.shouldShow()) {
       this.tutorial.show(() => this.updateStatus())
     }
   }

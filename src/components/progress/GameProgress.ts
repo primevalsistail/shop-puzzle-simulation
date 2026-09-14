@@ -11,6 +11,27 @@ import type { PeddlerStock } from './PeddlerStock.js'
 
 const SAVE_KEY = 'shop_puzzle_save'
 const slotKey = (slot: number) => `${SAVE_KEY}_${slot}`
+/** 枠の数。⚠ **セーブ画面（`SaveLoadMenu`）の `SLOT_COUNT` と同じ数** */
+const SLOT_COUNT = 3
+
+/**
+ * **どれか1つでも記録があるか**（#114）。
+ *
+ * ⚠ **タイトル画面が「つづきから」を押せるかどうかに使う。**
+ *   あそこには `GameProgress` の一式（所持金・持ち物・盤面…）がまだ無いので、
+ *   **作らずに読めるものが要る。**
+ * ⚠ **鍵の作り方をここ以外に書かない。**写しを作ると、鍵を変えたときに片方だけ残る。
+ */
+export function hasAnySave(): boolean {
+  try {
+    for (let slot = 0; slot < SLOT_COUNT; slot++) {
+      if (localStorage.getItem(slotKey(slot)) !== null) return true
+    }
+    return false
+  } catch {
+    return false
+  }
+}
 
 export class GameProgress {
   /**
