@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 import { describe, it, expect } from 'vitest'
 import indexHtmlSource from '../../index.html?raw'
+import { STEPS as TUTORIAL_STEPS } from './tutorialSteps.js'
 import { SCRIM_ALPHA } from './palette.js'
 import purchaseSource from './PurchaseMenu.ts?raw'
 import messageWindowSource from './MessageWindow.ts?raw'
@@ -45,6 +46,7 @@ import {
   HUD_PANEL_B, HUD_ROW_MONEY_Y, HUD_ROW_TIME_Y, HUD_ROW_PLACE_Y,
   BTN_PANEL_L, BTN_PANEL_W, BTN_ICON_W, BTN_Y_TRADE,
   TITLE_FONT_PX, BACK_BTN_W, TAB_W, TAB_H, TAB_GAP, TAB_FONT_PX, tabCx,
+  TUTORIAL_NEM_FONT_PX, TUTORIAL_BODY_FONT_PX, TUTORIAL_PANEL_W,
   GAME_TITLE, TITLE_NAME_FONT_PX, TITLE_NAME_Y, TITLE_FACE_CY,
   TITLE_BTN_W, TITLE_BTN_H, TITLE_BTN_FONT_PX,
   TITLE_BTN_NEW_Y, TITLE_BTN_CONTINUE_Y, TITLE_BTN_NEW_LABEL, TITLE_BTN_CONTINUE_LABEL,
@@ -1776,5 +1778,38 @@ describe('タイトル画面', () => {
    */
   it('ブラウザのタブ名が、画面に出す題名と同じ', () => {
     expect(indexHtmlSource).toContain(`<title>${GAME_TITLE}</title>`)
+  })
+})
+
+// ─── 遊び方の案内（#20） ──────────────────────────────────────
+describe('遊び方の案内', () => {
+  /** ⚠ **面の幅は 720px。**はみ出しても Phaser は折り返さない（自分で `\n` を入れている） */
+  it('どの行も面の幅に収まる', () => {
+    for (const step of TUTORIAL_STEPS) {
+      for (const line of step.nem.split('\n')) {
+        expect(estTextWidth(line, TUTORIAL_NEM_FONT_PX), line)
+          .toBeLessThanOrEqual(TUTORIAL_PANEL_W - 60)
+      }
+      for (const line of step.noela.split('\n')) {
+        expect(estTextWidth(line, TUTORIAL_BODY_FONT_PX), line)
+          .toBeLessThanOrEqual(TUTORIAL_PANEL_W - 60)
+      }
+    }
+  })
+
+  /** ⚠ **作る側だけの語を画面に出さない**（PO 指示） */
+  it('`グリッド` と `¥` が出てこない', () => {
+    for (const step of TUTORIAL_STEPS) {
+      const all = `${step.title}${step.nem}${step.noela}`
+      expect(all).not.toContain('グリッド')
+      expect(all).not.toContain('¥')
+    }
+  })
+
+  /** ⚠ **説明するのはノエラ。**猫は指すだけ */
+  it('猫の行は、ノエラの行より短い', () => {
+    for (const step of TUTORIAL_STEPS) {
+      expect(step.nem.length, step.title).toBeLessThan(step.noela.length)
+    }
   })
 })

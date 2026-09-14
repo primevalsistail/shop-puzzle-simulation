@@ -1,8 +1,8 @@
 import Phaser from 'phaser'
-import { GOAL_TUTORIAL_LINE } from './goal.js'
+import { STEPS } from './tutorialSteps.js'
 import {
-  TRADE_TITLE,
   TUTORIAL_TITLE_FONT_PX, TUTORIAL_BODY_FONT_PX, TUTORIAL_STEP_FONT_PX, TUTORIAL_BTN_FONT_PX,
+  TUTORIAL_NEM_FONT_PX, TUTORIAL_PANEL_W, TUTORIAL_PANEL_H,
 } from './layout.js'
 import {
   BG_WINDOW,
@@ -19,29 +19,6 @@ import {
 
 const TUTORIAL_KEY = 'shop_puzzle_tutorial_done'
 
-const STEPS = [
-  {
-    title: 'ようこそ！',
-    // ⚠ **「運ぶ操作だ」と書く**（#70）。押して離すだけでは置けない。
-    body: '左の持ち物から品を選んで\n売り場に置きましょう。\n品は押したまま運んで離します。\n\n右クリックで回転できます。',
-  },
-  {
-    title: '時間を進める',
-    body: '右下の「▶ 進める」を押すと\n時間が高速で進みます。\n\nお客さんが来るのは 10:00〜20:00 の\n「営業」の間だけです。',
-  },
-  {
-    title: '工房',
-    body: '「工房」ボタンから材料を使って\n品を作ることができます。\n\n作っている間は店が閉まり、\nその分だけ時間が進みます。\n\n日をまたぐ加工は始められません。',
-  },
-  {
-    // ⚠ **ボタンの名と同じにすること**（#96 で `商人のところ` は `取引` の中のタブになった）。
-    //   ここだけ古い名が残ると、**押すボタンが画面に無い**と読まれる
-    title: TRADE_TITLE,
-    // ⚠ **目標額をここに書かない**（#73）。`goal.ts` が `GameService.GOAL_AMOUNT` から出す。
-    //   **初日に必ず見る画面**なので、ここが実際の条件と違うと遊び始めから嘘になる
-    body: `「${TRADE_TITLE}」ボタンから材料を買えます。\n\n${GOAL_TUTORIAL_LINE}`,
-  },
-]
 
 export class Tutorial {
   private container: Phaser.GameObjects.Container | null = null
@@ -81,7 +58,7 @@ export class Tutorial {
     objs.push(backdrop)
 
     objs.push(
-      this.scene.add.rectangle(width / 2, height / 2, 720, 420, BG_WINDOW)
+      this.scene.add.rectangle(width / 2, height / 2, TUTORIAL_PANEL_W, TUTORIAL_PANEL_H, BG_WINDOW)
         .setStrokeStyle(3, LINE_STRONG),
     )
 
@@ -93,8 +70,17 @@ export class Tutorial {
       }).setOrigin(0.5),
     )
 
+    // 猫が指す1行。⚠ **ノエラより上・小さく・弱い色**（指すだけで、説明はしない）
     objs.push(
-      this.scene.add.text(width / 2, height / 2 - 30, step.body, {
+      this.scene.add.text(width / 2, height / 2 - 96, step.nem, {
+        fontSize: `${TUTORIAL_NEM_FONT_PX}px`,
+        color: css(TEXT_WEAK),
+        align: 'center',
+      }).setOrigin(0.5),
+    )
+
+    objs.push(
+      this.scene.add.text(width / 2, height / 2 - 6, step.noela, {
         fontSize: `${TUTORIAL_BODY_FONT_PX}px`,
         color: css(TEXT_SUB),
         align: 'center',
@@ -110,7 +96,7 @@ export class Tutorial {
     )
 
     const isLast = this.stepIndex === STEPS.length - 1
-    const btnText = isLast ? '始める！' : '次へ'
+    const btnText = isLast ? '店を開ける' : '次へ'
     const nextBtn = this.scene.add.text(width / 2, height / 2 + 165, btnText, {
       fontSize: `${TUTORIAL_BTN_FONT_PX}px`,
       color: css(BTN_TEXT),

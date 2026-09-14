@@ -8,6 +8,7 @@ import type { Upgrades } from '../components/progress/Upgrades.js'
 import { UPGRADE_KINDS } from '../components/progress/Upgrades.js'
 import { stockedByIslandMerchant } from '../taxonomy/evaluate.js'
 import { DEBUG_KEYS_FONT_PX } from '../ui/layout.js'
+import { money } from '../ui/money.js'
 
 /**
  * 確認用の道具一式。**出荷前に丸ごと外す**（issue #51）。
@@ -50,7 +51,7 @@ export function installDebugTools(scene: Phaser.Scene, deps: DebugDeps): void {
       key: 'M', label: '金+100万',
       run: () => {
         deps.economy.addRevenue(MONEY_STEP)
-        return `所持金 +¥${MONEY_STEP.toLocaleString()}`
+        return `所持金 +${money(MONEY_STEP)}`
       },
     },
     {

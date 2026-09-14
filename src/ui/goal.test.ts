@@ -128,7 +128,9 @@ describe('目標額の出どころは1つ（#73）', () => {
     // ⚠ **`HUD.ts` は外した**（2026-09-14）。**進捗バーを消したので、HUD は目標を出さない**
     //   （PO 指示「進捗要らない」）。⚠ **また出すようになったら、ここへ戻すこと。**
     const screens = {
-      'ui/Tutorial.ts': "./goal.js",
+      // ⚠ **案内の文は `tutorialSteps.ts` に移した**（2026-09-14）。
+      //   **`Tutorial.ts` は Phaser を読む**ので、文だけを別に置いて検査できるようにした
+      'ui/tutorialSteps.ts': "./goal.js",
       'scenes/GameScene.ts': "../ui/goal.js",
       // ⚠ **改装タブの5行目（商船）も目標額を出す**（#97）。**値段は目標額と同じ**なので、
       //   ここも `goal.js` の `SHIP_COST` を引く（`layout.ts` に額を書かない）

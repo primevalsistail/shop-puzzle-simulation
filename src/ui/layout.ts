@@ -1406,6 +1406,14 @@ export const TUTORIAL_TITLE_FONT_PX = 36
 export const TUTORIAL_BODY_FONT_PX = 24
 export const TUTORIAL_STEP_FONT_PX = 19.5
 export const TUTORIAL_BTN_FONT_PX = 30
+/**
+ * 猫（ネム）が指す1行（#20）。⚠ **ノエラの行より小さく、弱い色で出す。**
+ *   **説明をするのはノエラのほう**で、猫は「そこ」と指すだけ。
+ */
+export const TUTORIAL_NEM_FONT_PX = 21
+/** 面の大きさ。⚠ **字がここに収まるかを `layout.test.ts` が見ている** */
+export const TUTORIAL_PANEL_W = 720
+export const TUTORIAL_PANEL_H = 420
 
 // ─── タイトル画面（`TitleScene`） ──────────────────────────────
 /**
