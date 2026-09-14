@@ -13,7 +13,7 @@
    ⚠ **いま走っているのは「世界観の色付け」の束**
    → [worldbuilding-art-bundle.md](construction/plans/worldbuilding-art-bundle.md)。
    **作業1（顔絵と店番）と作業4（画面の言葉）が入った**（`6cefa24`）。
-   ⚠ **作業2（来店客12体）と作業3（ボタンの絵8個）は絵の生成待ち。**
+   ⚠ **作業2（来店客24体）と作業3（ボタンの絵8個）は絵の生成待ち。**
    **依頼書は `inception/worldbuilding/prompts/handoff-customers.md` と `handoff-button-icons.md`。**
    **次は作業5（タイトル画面）→ 6（チュートリアル）→ 7（はじまりの場面）。**
    ⚠ **数値調整（段階4）はこの束の後に戻る**
@@ -35,7 +35,7 @@
 **タイトル画面ができた**（題名・はじめる・つづきから）／
 **遊び方の案内をネムとノエラの会話にした**／
 **はじまりの場面を置いた**（叔母から舟を受け取るまで・4段。⚠ **「つづきから」では出ない**）／
-⚠ **世界観の束で残っているのは絵待ちの2件だけ**（来店客12体 ／ ボタン8個。
+⚠ **世界観の束で残っているのは絵待ちの2件だけ**（来店客24体 ／ ボタン8個。
 **依頼書は両方 `inception/worldbuilding/prompts/` にある**。→ [worldbuilding-art-bundle.md](construction/plans/worldbuilding-art-bundle.md)）／
 **数値調整（段階4）に入った** —— **測る道具 `src/sim/` ができた**（本番を import して N 日回す）／
 **加工時間から tier の二重掛けを外した**（tier4 の初期 14時間 → 10〜29分）／
