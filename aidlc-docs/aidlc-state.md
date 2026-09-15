@@ -17,9 +17,10 @@
    **依頼書は `inception/worldbuilding/prompts/handoff-customers.md` と `handoff-button-icons.md`。**
    ⚠ **来店客24枚は 2026-09-15 に入った**（`f48c1f8`。`CUSTOMER_ART_READY = true`）が、
    **向きが揃わず描き直しになった**（PO 判断 2026-09-15）。
-   ⚠ **消したのは原本（`aidlc-docs/.../art/sd/customer/`）だけで、`public/art/sd/customer/` の24枚は残っている。**
-   **ゲームは今も古い絵を出す。**新しい24枚が来たら**原本へ入れてから `public/` へ写す**（逆をしない）。
+   **描き直した24枚が入った**（原本・`public/` とも。**162 × 138**、`CUSTOMER_ART_READY = true`）。
+   ⚠ **向きが揃って見えるかは、まだ PO が画面で見ていない。**
    **取り下げるなら `CUSTOMER_ART_READY = false` の1行。**
+   ⚠ **絵を差し替えるときは原本へ入れてから `public/` へ写す**（逆をしない）。
    **次は作業5（タイトル画面）→ 6（チュートリアル）→ 7（はじまりの場面）。**
    ⚠ **数値調整（段階4）はこの束の後に戻る**
 3. ⚠ **着手前に、対象 issue の本文と現状の差を洗う。**
