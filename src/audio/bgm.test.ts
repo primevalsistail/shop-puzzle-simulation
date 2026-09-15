@@ -7,7 +7,10 @@ import gameSceneSource from '../scenes/GameScene.ts?raw'
 import optionsSource from '../ui/options.ts?raw'
 import { BGM_KEYS, bandOf, bgmFor, bgmPaths, AUDIO_CREDITS } from './bgm.js'
 import { ROUTE } from '../taxonomy/islands.js'
-import { isMusicOn, setMusicOn, watchMusicOn, _resetMusicOnForTest } from './musicOn.js'
+import {
+  MUSIC_VOLUME_DEFAULT, MUSIC_VOLUME_MAX,
+  getMusicVolume, isMusicOn, musicGain, setMusicOn, setMusicVolume, watchMusic, _resetMusicForTest,
+} from './musicSettings.js'
 import { optionSections as optionSectionsForCredits } from '../ui/options.js'
 import { CLOSE_HOUR, OPEN_HOUR, WAKE_HOUR } from '../components/core/TimeManager.js'
 
@@ -117,7 +120,7 @@ describe('鳴らす側（受入条件3・4・5）', () => {
   })
 })
 
-describe('音楽を鳴らす／鳴らさない（受入条件6）', () => {
+describe('音楽を鳴らす／鳴らさない・音量（受入条件6）', () => {
   // ⚠ **node には `localStorage` が無い**（`ConfirmDialog.test.ts` と同じ形）
   const store = new Map<string, string>()
 
@@ -128,7 +131,7 @@ describe('音楽を鳴らす／鳴らさない（受入条件6）', () => {
       setItem: (k: string, v: string) => { store.set(k, v) },
       removeItem: (k: string) => { store.delete(k) },
     })
-    _resetMusicOnForTest()
+    _resetMusicForTest()
   })
 
   it('はじめは入', () => {
@@ -138,31 +141,71 @@ describe('音楽を鳴らす／鳴らさない（受入条件6）', () => {
   it('切ると覚えている', () => {
     setMusicOn(false)
     expect(isMusicOn()).toBe(false)
-    _resetMusicOnForTest()          // 開き直したつもり
+    _resetMusicForTest()          // 開き直したつもり
     expect(isMusicOn()).toBe(false)
   })
 
   it('入に戻すと覚えている', () => {
     setMusicOn(false)
     setMusicOn(true)
-    _resetMusicOnForTest()
+    _resetMusicForTest()
     expect(isMusicOn()).toBe(true)
   })
 
   /** ⚠ **設定の面を開いたまま切られる。**閉じるのを待たずにその場で止めること */
-  it('切られたことがその場で伝わる', () => {
-    const seen: boolean[] = []
-    const off = watchMusicOn(on => seen.push(on))
+  it('触られたことがその場で伝わる', () => {
+    let count = 0
+    const off = watchMusic(() => { count++ })
     setMusicOn(false)
-    setMusicOn(true)
+    setMusicVolume(30)
     off()
-    setMusicOn(false)
-    expect(seen).toEqual([false, true])
+    setMusicOn(true)
+    expect(count).toBe(2)
   })
 
   it('切られていたら鳴らさない', () => {
     expect(player).toContain('if (!isMusicOn()) return')
-    expect(player).toContain('watchMusicOn(on => { if (!on) this.stopAll() })')
+    expect(player).toContain('watchMusic(() => this.applyVolume())')
+  })
+
+  /** 音量（PO 指示 2026-09-15「**0〜100 で音量調節したい**」） */
+  it('既定は 50（いきなり大きく鳴らさない）', () => {
+    expect(getMusicVolume()).toBe(MUSIC_VOLUME_DEFAULT)
+    expect(MUSIC_VOLUME_DEFAULT).toBeLessThan(MUSIC_VOLUME_MAX)
+  })
+
+  it('0〜100 で覚えている', () => {
+    setMusicVolume(0)
+    expect(getMusicVolume()).toBe(0)
+    setMusicVolume(73)
+    _resetMusicForTest()            // 開き直したつもり
+    expect(getMusicVolume()).toBe(73)
+  })
+
+  /** ⚠ **覚えた値が壊れていても鳴らなくならないこと** */
+  it('範囲の外と、数でないものは丸める', () => {
+    setMusicVolume(-20); expect(getMusicVolume()).toBe(0)
+    setMusicVolume(300); expect(getMusicVolume()).toBe(100)
+    setMusicVolume(41.6); expect(getMusicVolume()).toBe(42)
+    setMusicVolume(Number.NaN); expect(getMusicVolume()).toBe(MUSIC_VOLUME_DEFAULT)
+  })
+
+  /**
+   * ⚠ **入／切と音量は別。**0 まで下げるのと切るのは違い、
+   *   **切って入れ直したら前の音量に戻る**こと。
+   */
+  it('切っても音量は覚えている', () => {
+    setMusicVolume(80)
+    setMusicOn(false)
+    expect(musicGain()).toBe(0)
+    setMusicOn(true)
+    expect(getMusicVolume()).toBe(80)
+    expect(musicGain()).toBeCloseTo(0.8)
+  })
+
+  it('鳴らす側へ渡すのは 0〜1', () => {
+    setMusicVolume(100); expect(musicGain()).toBe(1)
+    setMusicVolume(0); expect(musicGain()).toBe(0)
   })
 })
 
@@ -215,10 +258,21 @@ describe('場面との配線（受入条件8）', () => {
 })
 
 describe('設定への出しかた（受入条件6・7）', () => {
-  /** ⚠ **音量つまみは作らない**（PO 判断 2026-09-15。入／切の1行だけ） */
-  it('音楽は入／切の1行だけ', () => {
+  /** ⚠ **入／切と音量の両方**（PO 指示 2026-09-15「0〜100 で音量調節したい」） */
+  it('音楽は入／切と、0〜100 の音量', () => {
     expect(registry).toContain("label: '音楽を鳴らす', isOn: isMusicOn, set: setMusicOn")
-    expect(registry).not.toMatch(/volume|音量/)
+    const sound = optionSectionsForCredits().find(sec => sec.sliders?.length)
+    expect(sound?.sliders?.map(s => s.label)).toEqual(['音量'])
+    const volume = sound!.sliders![0]
+    volume.set(64)
+    expect(volume.value()).toBe(64)
+  })
+
+  /** ⚠ **鳴っているものへその場で効くこと**（面を閉じるまで変わらない、にしない） */
+  it('つまみを動かすと、鳴っている曲の音量がその場で変わる', () => {
+    expect(player).toContain('private applyVolume()')
+    expect(player).toContain('this.current.volume = gain')
+    expect(player).toContain('f.to = gain')
   })
 
   /** ⚠ **配布元は設定の面のいちばん下**（`bgm.md` §4。タイトル画面には出さない） */

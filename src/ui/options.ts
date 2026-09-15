@@ -1,5 +1,5 @@
 import { AUDIO_CREDITS } from '../audio/bgm.js'
-import { isMusicOn, setMusicOn } from '../audio/musicOn.js'
+import { getMusicVolume, isMusicOn, setMusicOn, setMusicVolume } from '../audio/musicSettings.js'
 import { CONFIRM_ACTIONS, confirmNeeded, setConfirmNeeded } from './ConfirmDialog.js'
 
 /**
@@ -15,10 +15,25 @@ export type OptionSwitch = {
   readonly set: (on: boolean) => void
 }
 
+/**
+ * **幅のある値を持つ1項目**（#14 の音量。PO 指示 2026-09-15「**0〜100 で音量調節したい**」）。
+ *
+ * ⚠ **`OptionSwitch` に旗を足して兼用しない**（`options.ts` の元からの決まり）。
+ *   **入／切とは部品が違う** —— 溝の上をつまみが動き、**数字が右に出る。**
+ */
+export type OptionSlider = {
+  readonly label: string
+  /** **0〜100。**⚠ **値は持たない**（`OptionSwitch` と同じ理由で、毎回読む） */
+  readonly value: () => number
+  readonly set: (v: number) => void
+}
+
 /** 見出しでくくった一かたまり。**区分ごとに見出しが1行出る** */
 export type OptionSection = {
   readonly title: string
   readonly rows: readonly OptionSwitch[]
+  /** **幅のある値の行**（音量）。⚠ **入／切の行の下に並ぶ** */
+  readonly sliders?: readonly OptionSlider[]
   /**
    * **切り替えるものではない、ただの字**（#14 の配布元）。**行の下に並ぶ。**
    *
@@ -52,6 +67,11 @@ export function optionSections(): readonly OptionSection[] {
       title: '音',
       rows: [
         { label: '音楽を鳴らす', isOn: isMusicOn, set: setMusicOn },
+      ],
+      // ⚠ **入／切と両方置く**（PO 指示 2026-09-15）。**0 まで下げるのと、切るのは別** ——
+      //   **切って入れ直したときに前の音量へ戻る**のは、行が別にあるからできている
+      sliders: [
+        { label: '音量', value: getMusicVolume, set: setMusicVolume },
       ],
     },
     {

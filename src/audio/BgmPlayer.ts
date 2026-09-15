@@ -1,12 +1,9 @@
 import type Phaser from 'phaser'
 import { bgmPaths, type BgmKey } from './bgm.js'
-import { isMusicOn, watchMusicOn } from './musicOn.js'
+import { isMusicOn, musicGain, watchMusic } from './musicSettings.js'
 
 /** 替わり目にかける時間（bgm.md §3「1秒ほどかけて前の曲から次へ」） */
 const FADE_MS = 1000
-
-/** ⚠ **控えめに。**うしろで鳴るものなので、既定で大きいと毎回切られる */
-const VOLUME = 0.5
 
 /**
  * ⚠ **`BaseSound` には `volume` が無い。**音量を持つのは実装側の2つだけなので、
@@ -35,8 +32,8 @@ export class BgmPlayer {
 
   constructor(private game: Phaser.Game) {
     this.game.events.on('step', this.step, this)
-    // ⚠ **設定で切られたら、その場で止める**（面は開いたままなので、閉じるのを待たない）
-    watchMusicOn(on => { if (!on) this.stopAll() })
+    // ⚠ **設定は面が開いたまま触られる。**閉じるのを待たず、その場で効かせる
+    watchMusic(() => this.applyVolume())
   }
 
   /**
@@ -90,9 +87,29 @@ export class BgmPlayer {
     }
     const next = this.game.sound.add(key, { loop: true, volume: 0 }) as Bgm
     next.play()
-    this.fades.push({ sound: next, from: 0, to: VOLUME, elapsed: 0, stopAtEnd: false })
+    this.fades.push({ sound: next, from: 0, to: musicGain(), elapsed: 0, stopAtEnd: false })
     this.current = next
     this.currentKey = key
+  }
+
+  /**
+   * **いまの音量を、鳴っているものへ反映する。**
+   *
+   * ⚠ **切られたら止める**（`musicGain()` が 0 を返す）。**小さくして鳴らし続けない** ——
+   *   **「音楽を鳴らす」を切ったのに鳴り続けている**ことになる。
+   * ⚠ **淡くしている途中なら、行き先だけ差し替える。**
+   *   **その場で音量を書くと、替わり目につまみを動かしたとき音が飛ぶ。**
+   */
+  private applyVolume(): void {
+    const gain = musicGain()
+    if (!isMusicOn()) { this.stopAll(); return }
+    for (const f of this.fades) {
+      if (f.stopAtEnd) continue   // 消えていく側はそのまま 0 まで
+      f.to = gain
+    }
+    if (!this.current) return
+    if (this.fades.some(f => f.sound === this.current)) return
+    this.current.volume = gain
   }
 
   private step(_time: number, delta: number): void {

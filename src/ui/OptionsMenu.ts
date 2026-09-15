@@ -1,11 +1,14 @@
 import type Phaser from 'phaser'
 import { optionSections } from './options.js'
-import type { OptionSwitch } from './options.js'
+import type { OptionSlider, OptionSwitch } from './options.js'
 import {
   CONFIRM_BTN_W, CONFIRM_BTN_H, CONFIRM_BTN_FONT_PX,
   OPTIONS_MW, OPTIONS_ROW_W, OPTIONS_ROW_H, OPTIONS_SECTION_H,
   OPTIONS_TITLE_FONT_PX, OPTIONS_SECTION_FONT_PX, OPTIONS_ROW_FONT_PX, OPTIONS_NOTE_FONT_PX,
   OPTIONS_TOGGLE_W, OPTIONS_TOGGLE_H, OPTIONS_KNOB_R,
+  OPTIONS_SLIDER_W, OPTIONS_SLIDER_TRACK_H, OPTIONS_SLIDER_KNOB_R,
+  OPTIONS_VALUE_FONT_PX,
+  optionsSliderCx, optionsSliderDx, optionsSliderValue, optionsValueCx,
   OPTIONS_TITLE, OPTIONS_CLOSE_LABEL,
   optionsLayout, optionsCloseCy, optionsLabelL, optionsSectionL, optionsToggleCx, optionsKnobDx,
 } from './layout.js'
@@ -49,6 +52,12 @@ const DEPTH = 150
  */
 export class OptionsMenu {
   private objects: Phaser.GameObjects.GameObject[] = []
+  /**
+   * **場面そのものに付けた見張りを外すための控え。**
+   * ⚠ **`destroy()` では外れない**（付けた先が場面の入力で、消したものではない）。
+   *   **外さないと、開くたびに増えて残る。**
+   */
+  private unhooks: (() => void)[] = []
 
   constructor(private scene: Phaser.Scene) {}
 
@@ -59,6 +68,8 @@ export class OptionsMenu {
   close(): void {
     for (const obj of this.objects) obj.destroy()
     this.objects = []
+    for (const off of this.unhooks) off()
+    this.unhooks = []
   }
 
   private push(...objs: Phaser.GameObjects.GameObject[]): void {
@@ -78,6 +89,7 @@ export class OptionsMenu {
     const kinds: OptionsItemKind[] = []
     const draw: ({ kind: 'section'; title: string }
       | { kind: 'row'; row: OptionSwitch }
+      | { kind: 'slider'; slider: OptionSlider }
       | { kind: 'note'; text: string })[] = []
     for (const section of sections) {
       kinds.push('section')
@@ -85,6 +97,10 @@ export class OptionsMenu {
       for (const row of section.rows) {
         kinds.push('row')
         draw.push({ kind: 'row', row })
+      }
+      for (const slider of section.sliders ?? []) {
+        kinds.push('slider')
+        draw.push({ kind: 'slider', slider })
       }
       for (const note of section.notes ?? []) {
         kinds.push('note')
@@ -126,6 +142,11 @@ export class OptionsMenu {
         return
       }
 
+      if (item.kind === 'slider') {
+        this.slider(cx, y, item.slider)
+        return
+      }
+
       if (item.kind === 'note') {
         // ⚠ **枠もつまみも付けない。**押せるように見えると押される
         this.push(
@@ -155,6 +176,74 @@ export class OptionsMenu {
 
     this.button(cx, optionsCloseCy(cy, panelH), OPTIONS_CLOSE_LABEL, BTN_BACK, BTN_BACK_HOVER,
       () => this.close())
+  }
+
+  /**
+   * **0〜100 のつまみ**（#14 の音量。PO 指示 2026-09-15）。
+   *
+   * ⚠ **面ごと作り直さない**（入／切とはここが違う）。**掴んで動かしている間ずっと変わる**ので、
+   *   **作り直すと掴んでいたものが消える。**丸と数字だけを動かす。
+   * ⚠ **掴む面は溝より広い**（`OPTIONS_ROW_H`）。**細い溝は掴みづらい。**
+   * ⚠ **指が溝の外へ出ても離すまで付いてくる**（`optionsSliderValue` が 0〜100 に収める）。
+   */
+  private slider(cx: number, y: number, slider: OptionSlider): void {
+    // ⚠ **下地と字を先に作る。**あとから作ると**後のものが上に出る**ので、
+    //   **溝も丸も数字も、行の下地に隠れる**
+    this.push(
+      this.scene.add.rectangle(cx, y, OPTIONS_ROW_W, OPTIONS_ROW_H, ROW_LOCAL)
+        .setStrokeStyle(1.5, LINE_STRONG).setDepth(DEPTH),
+      this.scene.add.text(optionsLabelL(cx), y, slider.label, {
+        fontSize: `${OPTIONS_ROW_FONT_PX}px`, color: css(TEXT_BODY),
+      }).setOrigin(0, 0.5).setDepth(DEPTH),
+    )
+
+    const sx = optionsSliderCx(cx)
+    const left = sx - OPTIONS_SLIDER_W / 2
+
+    const track = this.scene.add.graphics().setDepth(DEPTH)
+    const knob = this.scene.add.circle(0, y, OPTIONS_SLIDER_KNOB_R, BG_WINDOW)
+      .setStrokeStyle(1.5, LINE_STRONG).setDepth(DEPTH)
+    const value = this.scene.add.text(optionsValueCx(cx), y, '', {
+      fontSize: `${OPTIONS_VALUE_FONT_PX}px`, color: css(TEXT_BODY),
+    }).setOrigin(0.5).setDepth(DEPTH)
+
+    const redraw = (v: number): void => {
+      track.clear()
+      track.fillStyle(BTN_BACK_OFF, 1)
+      track.fillRoundedRect(left, y - OPTIONS_SLIDER_TRACK_H / 2,
+        OPTIONS_SLIDER_W, OPTIONS_SLIDER_TRACK_H, OPTIONS_SLIDER_TRACK_H / 2)
+      // ⚠ **通ってきたぶんを塗る。**塗らないと、いまどのくらいかが丸の位置だけになる
+      const filled = OPTIONS_SLIDER_W * Math.min(1, Math.max(0, v / 100))
+      if (filled > 0) {
+        track.fillStyle(FILTER_ON_BG, 1)
+        track.fillRoundedRect(left, y - OPTIONS_SLIDER_TRACK_H / 2,
+          filled, OPTIONS_SLIDER_TRACK_H, OPTIONS_SLIDER_TRACK_H / 2)
+      }
+      knob.setPosition(sx + optionsSliderDx(v), y)
+      value.setText(String(v))
+    }
+    redraw(slider.value())
+
+    const hit = this.scene.add
+      .rectangle(sx, y, OPTIONS_SLIDER_W + OPTIONS_SLIDER_KNOB_R * 2, OPTIONS_ROW_H, BG_WINDOW, 0)
+      .setInteractive({ useHandCursor: true }).setDepth(DEPTH)
+    let holding = false
+    const moveTo = (pointerX: number): void => {
+      const v = optionsSliderValue(pointerX, cx)
+      slider.set(v)
+      // ⚠ **書いた値ではなく、覚えられた値を描く**（範囲の外は向こうで丸められる）
+      redraw(slider.value())
+    }
+    hit.on('pointerdown', (p: Phaser.Input.Pointer) => { holding = true; moveTo(p.x) })
+    hit.on('pointermove', (p: Phaser.Input.Pointer) => { if (holding) moveTo(p.x) })
+    // ⚠ **離すのは画面のどこでもよい**（溝の外で離しても掴んだままにしない）
+    const release = (): void => { holding = false }
+    this.scene.input.on('pointerup', release)
+    this.unhooks.push(() => { this.scene.input.off('pointerup', release) })
+    hit.on('pointerover', () => knob.setFillStyle(ROW_LOCAL))
+    hit.on('pointerout',  () => knob.setFillStyle(BG_WINDOW))
+
+    this.push(track, knob, value, hit)
   }
 
   /**

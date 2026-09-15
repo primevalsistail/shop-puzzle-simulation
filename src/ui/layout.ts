@@ -1558,6 +1558,19 @@ export const OPTIONS_TOGGLE_H = 36
 /** つまみの丸。⚠ **溝の高さより小さいこと**（縁が見えないと動きが読めない） */
 export const OPTIONS_KNOB_R = 13.5
 
+/**
+ * **0〜100 のつまみ**（#14 の音量。PO 指示 2026-09-15）。
+ * ⚠ **入／切のつまみとは別物。**溝が長く、**右に数字が出る。**
+ */
+export const OPTIONS_SLIDER_W = 240
+/** 溝の太さ。⚠ **細い。**掴むのは溝ではなく丸 */
+export const OPTIONS_SLIDER_TRACK_H = 9
+/** 掴む丸。⚠ **入／切の丸と同じ大きさ**（別の大きさを持ち込まない） */
+export const OPTIONS_SLIDER_KNOB_R = OPTIONS_KNOB_R
+/** 右に出す数字（`0`〜`100`）のぶん */
+export const OPTIONS_VALUE_W = 60
+export const OPTIONS_VALUE_FONT_PX = 21
+
 export const OPTIONS_TITLE = 'オプション'
 export const OPTIONS_CLOSE_LABEL = '閉じる'
 
@@ -1571,8 +1584,9 @@ export function optionsKnobDx(on: boolean): number {
  * 面に積むものの種類。⚠ **高さが違うので、数だけでは位置が出ない**
  *
  * - `note` は**押せない1行**（配布元の表記。#14）。**効果音（#124）もここに足す**
+ * - `slider` は**幅のある値の行**（音量。#14）。⚠ **高さは行と同じ**
  */
-export type OptionsItemKind = 'section' | 'row' | 'note'
+export type OptionsItemKind = 'section' | 'row' | 'note' | 'slider'
 
 /**
  * 面の高さと、**中身それぞれの中心 y**（面の上端からの距離）を出す。
@@ -1588,7 +1602,7 @@ export function optionsLayout(kinds: readonly OptionsItemKind[]): {
   kinds.forEach((kind, i) => {
     const h = kind === 'section' ? OPTIONS_SECTION_H
       : kind === 'note' ? OPTIONS_NOTE_H
-      : OPTIONS_ROW_H
+      : OPTIONS_ROW_H   // 'row' と 'slider'（⚠ **同じ高さ。**並ぶと段がずれて見える）
     if (i > 0) y += OPTIONS_GAP
     cys.push(y + h / 2)
     y += h
@@ -1619,6 +1633,35 @@ export function optionsToggleCx(cx: number): number {
 /** 行の字が使える幅（つまみにぶつからない上限） */
 export const OPTIONS_LABEL_MAX_W =
   OPTIONS_ROW_W - OPTIONS_ROW_PAD * 2 - OPTIONS_TOGGLE_W - 12
+
+/** 数字の中心 x。**行のいちばん右** */
+export function optionsValueCx(cx: number): number {
+  return cx + OPTIONS_ROW_W / 2 - OPTIONS_ROW_PAD - OPTIONS_VALUE_W / 2
+}
+
+/** 溝の中心 x。⚠ **数字の左**（重ねない） */
+export function optionsSliderCx(cx: number): number {
+  return optionsValueCx(cx) - OPTIONS_VALUE_W / 2 - 12 - OPTIONS_SLIDER_W / 2
+}
+
+/** 溝の中心から見た、丸の x。**0 が左端、100 が右端** */
+export function optionsSliderDx(value: number): number {
+  const t = Math.min(1, Math.max(0, value / 100))
+  return (t - 0.5) * OPTIONS_SLIDER_W
+}
+
+/**
+ * **掴んだ位置（画面の x）から値を出す**（`optionsSliderDx` の逆）。
+ * ⚠ **溝の外まで掴んだままでも 0〜100 に収める**（掴んだ指は溝から出る）。
+ */
+export function optionsSliderValue(x: number, cx: number): number {
+  const t = (x - optionsSliderCx(cx) + OPTIONS_SLIDER_W / 2) / OPTIONS_SLIDER_W
+  return Math.round(Math.min(1, Math.max(0, t)) * 100)
+}
+
+/** 幅のある値の行で、字が使える幅（⚠ **溝にぶつからない上限**） */
+export const OPTIONS_SLIDER_LABEL_MAX_W =
+  OPTIONS_ROW_W - OPTIONS_ROW_PAD * 2 - OPTIONS_SLIDER_W - OPTIONS_VALUE_W - 24
 
 
 // ─── 幕（目標達成） ───────────────────────────────────────────

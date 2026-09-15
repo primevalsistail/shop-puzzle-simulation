@@ -84,6 +84,10 @@ import {
   OPTIONS_MW, OPTIONS_ROW_W, OPTIONS_ROW_H, OPTIONS_SECTION_H, OPTIONS_GAP, OPTIONS_PAD,
   OPTIONS_TITLE_FONT_PX, OPTIONS_SECTION_FONT_PX, OPTIONS_ROW_FONT_PX,
   OPTIONS_TOGGLE_W, OPTIONS_TOGGLE_H, OPTIONS_KNOB_R, OPTIONS_LABEL_MAX_W,
+  OPTIONS_NOTE_H, OPTIONS_NOTE_FONT_PX, OPTIONS_ROW_PAD,
+  OPTIONS_SLIDER_W, OPTIONS_SLIDER_TRACK_H, OPTIONS_SLIDER_KNOB_R,
+  OPTIONS_VALUE_W, OPTIONS_VALUE_FONT_PX, OPTIONS_SLIDER_LABEL_MAX_W,
+  optionsSliderCx, optionsSliderDx, optionsSliderValue, optionsValueCx,
   OPTIONS_TITLE, OPTIONS_CLOSE_LABEL,
   optionsLayout, optionsCloseCy, optionsLabelL, optionsSectionL, optionsToggleCx, optionsKnobDx,
   ORDER_BAR_T, ORDER_BAR_L, ORDER_BAR_R, GRID_ORIGIN_Y, CELL_SIZE,
@@ -2017,15 +2021,24 @@ describe('来店客の枠は、キャラ帯の下半分に収まる', () => {
 describe('オプションの面', () => {
   const sections = optionSections()
   /** ⚠ **描く側と同じ並び**（`OptionsMenu.build()`） */
-  const kinds: OptionsItemKind[] = sections.flatMap(
-    sec => ['section' as const, ...sec.rows.map(() => 'row' as const)],
-  )
+  const kinds: OptionsItemKind[] = sections.flatMap(sec => [
+    'section' as const,
+    ...sec.rows.map(() => 'row' as const),
+    // ⚠ **描く側と同じ並び**（行 → 幅のある値 → 押せない字）。
+    //   **落とすと、面の高さを実際より低く測る**
+    ...(sec.sliders ?? []).map(() => 'slider' as const),
+    ...(sec.notes ?? []).map(() => 'note' as const),
+  ])
   const labels = sections.flatMap(sec => sec.rows.map(r => r.label))
   const { panelH, cys } = optionsLayout(kinds)
   const cx = SCREEN_W / 2
   const cy = SCREEN_H / 2
   const top = cy - panelH / 2
-  const h = (i: number) => (kinds[i] === 'section' ? OPTIONS_SECTION_H : OPTIONS_ROW_H)
+  const h = (i: number) => (
+    kinds[i] === 'section' ? OPTIONS_SECTION_H
+      : kinds[i] === 'note' ? OPTIONS_NOTE_H
+        : OPTIONS_ROW_H
+  )
 
   /** ⚠ **送りも巻き取りも無い。**ここが落ちたら、入れるかどうかを決める番 */
   it('面が画面に収まる（増やしすぎると落ちる）', () => {
@@ -2093,11 +2106,62 @@ describe('オプションの面', () => {
     expect(optionsSectionL(cx)).toBeLessThan(optionsLabelL(cx))
   })
 
+  /**
+   * **0〜100 のつまみ**（#14 の音量。PO 指示 2026-09-15）。
+   * ⚠ **溝・数字・字が、行の中で重ならないこと**
+   */
+  it('音量のつまみは行に収まる', () => {
+    const sliders = sections.flatMap(sec => sec.sliders ?? [])
+    expect(sliders.length).toBeGreaterThan(0)
+    // 溝の右に数字、数字の右は行の内側
+    expect(optionsValueCx(cx) + OPTIONS_VALUE_W / 2)
+      .toBeLessThanOrEqual(cx + OPTIONS_ROW_W / 2 - OPTIONS_ROW_PAD)
+    expect(optionsSliderCx(cx) + OPTIONS_SLIDER_W / 2)
+      .toBeLessThan(optionsValueCx(cx) - OPTIONS_VALUE_W / 2)
+    // 字は溝にぶつからない
+    for (const slider of sliders) {
+      expect(estTextWidth(slider.label, OPTIONS_ROW_FONT_PX), slider.label)
+        .toBeLessThanOrEqual(OPTIONS_SLIDER_LABEL_MAX_W)
+    }
+    expect(optionsLabelL(cx) + OPTIONS_SLIDER_LABEL_MAX_W)
+      .toBeLessThanOrEqual(optionsSliderCx(cx) - OPTIONS_SLIDER_W / 2)
+    // 丸も数字も行の高さに収まる
+    expect(OPTIONS_SLIDER_KNOB_R * 2).toBeLessThanOrEqual(OPTIONS_ROW_H)
+    expect(OPTIONS_SLIDER_TRACK_H).toBeLessThan(OPTIONS_SLIDER_KNOB_R * 2)
+    expect(estTextWidth('100', OPTIONS_VALUE_FONT_PX)).toBeLessThanOrEqual(OPTIONS_VALUE_W)
+  })
+
+  /** ⚠ **端まで行けること**と、**掴んだ位置から値が戻ること** */
+  it('つまみは 0 で左端、100 で右端', () => {
+    expect(optionsSliderDx(0)).toBe(-OPTIONS_SLIDER_W / 2)
+    expect(optionsSliderDx(100)).toBe(OPTIONS_SLIDER_W / 2)
+    expect(optionsSliderDx(50)).toBe(0)
+    for (const v of [0, 1, 37, 50, 99, 100]) {
+      expect(optionsSliderValue(optionsSliderCx(cx) + optionsSliderDx(v), cx), `${v}`).toBe(v)
+    }
+    // ⚠ **溝の外まで掴んでも 0〜100 に収まる**（指は溝から出る）
+    expect(optionsSliderValue(0, cx)).toBe(0)
+    expect(optionsSliderValue(SCREEN_W, cx)).toBe(100)
+  })
+
+  /** ⚠ **配布元の字も行の幅に収まること**（#14） */
+  it('配布元の字は面に収まる', () => {
+    for (const note of sections.flatMap(sec => sec.notes ?? [])) {
+      expect(estTextWidth(note, OPTIONS_NOTE_FONT_PX), note)
+        .toBeLessThanOrEqual(OPTIONS_ROW_W - OPTIONS_ROW_PAD * 2)
+    }
+  })
+
   /** ⚠ **項目を足したぶんだけ面が伸びること** */
   it('項目が増えると面も伸びる', () => {
     expect(optionsLayout([...kinds, 'row']).panelH - panelH)
       .toBe(OPTIONS_ROW_H + OPTIONS_GAP)
     expect(optionsLayout([...kinds, 'section']).panelH - panelH)
       .toBe(OPTIONS_SECTION_H + OPTIONS_GAP)
+    expect(optionsLayout([...kinds, 'note']).panelH - panelH)
+      .toBe(OPTIONS_NOTE_H + OPTIONS_GAP)
+    // ⚠ **幅のある値の行は、行と同じ高さ**（並ぶと段がずれて見える）
+    expect(optionsLayout([...kinds, 'slider']).panelH)
+      .toBe(optionsLayout([...kinds, 'row']).panelH)
   })
 })
