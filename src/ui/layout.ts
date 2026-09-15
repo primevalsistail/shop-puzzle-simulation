@@ -1571,7 +1571,7 @@ export const OPTIONS_KNOB_R = 13.5
  * **0〜100 の溝**（#14 の音量。PO 指示 2026-09-15）。
  * ⚠ **入／切のつまみと同じ行に並ぶ** —— **左から 字・入／切・溝・数字。**
  */
-export const OPTIONS_SLIDER_W = 240
+export const OPTIONS_SLIDER_W = 180
 /** 溝の太さ。⚠ **細い。**掴むのは溝ではなく丸 */
 export const OPTIONS_SLIDER_TRACK_H = 9
 /** 掴む丸。⚠ **入／切の丸と同じ大きさ**（別の大きさを持ち込まない） */
@@ -1654,11 +1654,18 @@ export function optionsSliderCx(cx: number): number {
 }
 
 /**
+ * **入／切と溝のあいだ**（PO 指摘 2026-09-15「**近すぎます**」）。
+ * ⚠ **行の中のほかの隙間（12）より広く取る** —— **別々に押すもの**なので、
+ *   同じ隙間だと1つの部品に見え、**入／切を押すつもりで溝を掴む。**
+ */
+export const OPTIONS_LEVEL_GAP = 36
+
+/**
  * **入／切と値が1行のときの、入／切のつまみの中心 x。**⚠ **溝の左**
  * （`optionsToggleCx` は行の右端に寄せるので、**こちらは別に要る**）。
  */
 export function optionsLevelToggleCx(cx: number): number {
-  return optionsSliderCx(cx) - OPTIONS_SLIDER_W / 2 - 12 - OPTIONS_TOGGLE_W / 2
+  return optionsSliderCx(cx) - OPTIONS_SLIDER_W / 2 - OPTIONS_LEVEL_GAP - OPTIONS_TOGGLE_W / 2
 }
 
 /** 溝の中心から見た、丸の x。**0 が左端、100 が右端** */
@@ -1679,7 +1686,7 @@ export function optionsSliderValue(x: number, cx: number): number {
 /** 入／切と値が1行のときに、字が使える幅（⚠ **入／切のつまみにぶつからない上限**） */
 export const OPTIONS_LEVEL_LABEL_MAX_W =
   OPTIONS_ROW_W - OPTIONS_ROW_PAD * 2
-  - OPTIONS_TOGGLE_W - OPTIONS_SLIDER_W - OPTIONS_VALUE_W - 36
+  - OPTIONS_TOGGLE_W - OPTIONS_SLIDER_W - OPTIONS_VALUE_W - OPTIONS_LEVEL_GAP - 24
 
 
 // ─── 幕（目標達成） ───────────────────────────────────────────

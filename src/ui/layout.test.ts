@@ -89,6 +89,7 @@ import {
   OPTIONS_SLIDER_W, OPTIONS_SLIDER_TRACK_H, OPTIONS_SLIDER_KNOB_R,
   OPTIONS_VALUE_W, OPTIONS_VALUE_FONT_PX, OPTIONS_LEVEL_LABEL_MAX_W,
   optionsSliderCx, optionsSliderDx, optionsSliderValue, optionsValueCx, optionsLevelToggleCx,
+  OPTIONS_LEVEL_GAP,
   OPTIONS_TITLE, OPTIONS_CLOSE_LABEL,
   optionsLayout, optionsCloseCy, optionsLabelL, optionsSectionL, optionsToggleCx, optionsKnobDx,
   ORDER_BAR_T, ORDER_BAR_L, ORDER_BAR_R, GRID_ORIGIN_Y, CELL_SIZE,
@@ -2127,9 +2128,11 @@ describe('オプションの面', () => {
       .toBeLessThanOrEqual(cx + OPTIONS_ROW_W / 2 - OPTIONS_ROW_PAD)
     expect(optionsSliderCx(cx) + OPTIONS_SLIDER_W / 2)
       .toBeLessThan(optionsValueCx(cx) - OPTIONS_VALUE_W / 2)
-    // ⚠ **入／切のつまみは溝の左**（PO 指示 2026-09-15「1か所にまとめたい」）
-    expect(optionsLevelToggleCx(cx) + OPTIONS_TOGGLE_W / 2)
-      .toBeLessThanOrEqual(optionsSliderCx(cx) - OPTIONS_SLIDER_W / 2)
+    // ⚠ **入／切のつまみは溝の左**（PO 指示 2026-09-15「1か所にまとめたい」）。
+    //   **くっつけない** —— **別々に押すもの**なので、隙間が要る（PO 指摘「近すぎます」）
+    expect(optionsSliderCx(cx) - OPTIONS_SLIDER_W / 2 - (optionsLevelToggleCx(cx) + OPTIONS_TOGGLE_W / 2))
+      .toBe(OPTIONS_LEVEL_GAP)
+    expect(OPTIONS_LEVEL_GAP).toBeGreaterThan(12)
     // 字は入／切にぶつからない
     for (const level of levels) {
       expect(estTextWidth(level.label, OPTIONS_ROW_FONT_PX), level.label)
@@ -2137,6 +2140,21 @@ describe('オプションの面', () => {
     }
     expect(optionsLabelL(cx) + OPTIONS_LEVEL_LABEL_MAX_W)
       .toBeLessThanOrEqual(optionsLevelToggleCx(cx) - OPTIONS_TOGGLE_W / 2)
+  })
+
+  /**
+   * ⚠ **上の行の字は、下の行の入／切の真上に来ない**（PO 指摘 2026-09-15
+   *   「**加工の右端と ONOFF 部分が近い**」）。**縦に並ぶと、離れていても近く見える。**
+   */
+  it('確認の行の字は、音量の行の入／切より左で終わる', () => {
+    const cx = SCREEN_W / 2
+    const labels = optionSections().flatMap(sec => sec.rows.map(r => r.label))
+    expect(labels.length).toBeGreaterThan(0)
+    const toggleL = optionsLevelToggleCx(cx) - OPTIONS_TOGGLE_W / 2
+    for (const label of labels) {
+      const right = optionsLabelL(cx) + estTextWidth(label, OPTIONS_ROW_FONT_PX)
+      expect(toggleL - right, label).toBeGreaterThanOrEqual(24)
+    }
     // 丸も数字も行の高さに収まる
     expect(OPTIONS_SLIDER_KNOB_R * 2).toBeLessThanOrEqual(OPTIONS_ROW_H)
     expect(OPTIONS_SLIDER_TRACK_H).toBeLessThan(OPTIONS_SLIDER_KNOB_R * 2)
