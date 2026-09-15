@@ -15,6 +15,7 @@ import { ALL_RECIPES, RECIPES_BY_OUTPUT } from './recipes.js'
 import { cellCount, craftProfit, dumpAll, ingredientCost, originReach, salePrice, tier } from './derive.js'
 import { SIGNATURE_SETS, SET_RULES, DEMAND_RULES, UNLOCK_RULES, combine } from './rules.js'
 import { evalCondition, evaluate, type GameState, type Placement } from './evaluate.js'
+import { DEMAND_TABLE } from './islands.js'
 
 const EMPTY_SALES = new Map<string, number>()
 const STATE: GameState = { 現在地: 'ハルヴェラ', 累計販売数: EMPTY_SALES }
@@ -422,5 +423,27 @@ describe('異常入力は必ず落ちる', () => {
     const result = evaluate(empty, STATE)
     expect(result.perSlot.size).toBe(0)
     expect(result.shopWide).toEqual({ 売れやすさ: 1, 値段: 1, 集客: 1 })
+  })
+})
+
+describe('島ごとの需要の釣り合い（#39）', () => {
+  /** その `向く土地` に向く品の数 */
+  const countOf = (land: string) => ALL_ITEMS.filter(i => i.suitedLand === land).length
+
+  it('品数 ×（倍率−1）が4行でそろう', () => {
+    // 4行とも同じ倍率にすると、**品数の多い土地に向く品ばかりが得**になる。
+    // 島ごとの引きの強さ＝`品数 ×（倍率−1）` をそろえて置いてある（islands.ts の注記）。
+    const pulls = DEMAND_TABLE.map(row => countOf(row.suitedLand) * (row.multiplier - 1))
+    const avg = pulls.reduce((a, b) => a + b, 0) / pulls.length
+    for (const pull of pulls) expect(Math.abs(pull - avg) / avg).toBeLessThan(0.05)
+  })
+
+  it('品数で重みを付けた平均倍率は 1.30（総量が動いていない）', () => {
+    // ⚠ **倍率を直すときは配分だけを動かす。**ここが上がると全島の稼ぎが増える
+    const counts = DEMAND_TABLE.map(row => countOf(row.suitedLand))
+    const total = counts.reduce((a, b) => a + b, 0)
+    const weighted = DEMAND_TABLE
+      .reduce((s, row, i) => s + counts[i] * row.multiplier, 0) / total
+    expect(weighted).toBeCloseTo(1.30, 2)
   })
 })

@@ -39,7 +39,14 @@ export const DAYS_PER_PORT = 10
  * 島の気候設定を変えても品は無傷で、書き換えるのはこの4行だけ。
  *
  * ⚠ **バランス調整はこの4行に集まる。**品を1つ足すときに書くのは `向く土地` の1語だけ。
- * ⚠ 倍率の値は一度置いたもので、調整していない。
+ *
+ * ⚠ **倍率は品数の偏りを打ち消すように置いてある**（#39 ／ 2026-09-15）。
+ *   向く土地ごとの品数は 温暖36 ／ 寒い24 ／ 暑い22 ／ 実り14 と 2.6倍 開いている。
+ *   4行とも同じ倍率にすると、**品数の多い土地に向く品ばかりが得**になる。
+ *   **`品数 ×（倍率−1）` が4行でそろう**ように置き、島ごとの引きの強さを合わせた。
+ *   **品数で重みを付けた平均は 1.30 で、総量は動いていない。**
+ * ⚠ **品を足したり `向く土地` を振り替えたら、この4行を置き直すこと**
+ *   （`invariants.test.ts` の「島ごとの需要の釣り合い」が落ちて気付ける）。
  */
 export interface DemandRow {
   readonly suitedLand: SuitedLand
@@ -48,10 +55,10 @@ export interface DemandRow {
 }
 
 export const DEMAND_TABLE: readonly DemandRow[] = [
-  { suitedLand: '寒い土地',   island: 'ミフユリア', multiplier: 1.3 },
-  { suitedLand: '暑い土地',   island: 'リナツィア', multiplier: 1.3 },
-  { suitedLand: '温暖な土地', island: 'ハルヴェラ', multiplier: 1.3 },
-  { suitedLand: '実りの土地', island: 'ノアキータ', multiplier: 1.3 },
+  { suitedLand: '寒い土地',   island: 'ミフユリア', multiplier: 1.30 },
+  { suitedLand: '暑い土地',   island: 'リナツィア', multiplier: 1.33 },
+  { suitedLand: '温暖な土地', island: 'ハルヴェラ', multiplier: 1.20 },
+  { suitedLand: '実りの土地', island: 'ノアキータ', multiplier: 1.51 },
 ] as const
 
 /**
