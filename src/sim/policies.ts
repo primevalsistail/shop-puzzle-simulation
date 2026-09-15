@@ -147,18 +147,45 @@ function deepRecipes(ctx: SimContext): RecipeDef[] {
  *   ① 作りたいものの材料（この島で買えるぶん）
  *   ② まだ一度も手にしたことのない品を1つずつ —— **レシピが開くのはこれ**
  *      （`RecipeUnlocks`: 材料を1つ残らず手にしたことがあること）
- *   ③ 残りは棚を埋める転売品
+ *   ③ **行商人から、まだ手にしたことのない品を1つずつ。**
+ *      ⚠ **よその島でしか採れない材料は、ここでしか「手にしたことがある」にできない。**
+ *      **1個なので割高でも安い**
+ *   ④ 棚を埋める転売品
+ *   ⑤ **行商人から、①で買えなかった材料。**⚠ **いちばん後ろ**（下記）
+ *
+ * ## ⚠ ②を足したのは 2026-09-15
+ *
+ * **それまで方針は島の商人からしか買えなかった。**素材は採れる島でしか買えず、
+ * **切らすと次にその島へ戻るまで最大40日その品が作れない**（#34）。
+ * 行商人はその罰を**「待ち時間」から「金」へ**置き換えるために作った仕組みで、
+ * **深い品ほどこれが効く**（材料が島に散っているので、1周待つと作れない日が積み上がる）。
+ *
+ * ⚠ **歯止めは何も緩めていない** —— 1日10種類まで ／ 次の寄港地の産は積まない ／
+ *   解禁は島の商人と同じ ／ 島の商人より高い。**緩めると島を巡る理由が消える**（方針6）。
+ *
+ * ## ⚠ なぜ⑤がいちばん後ろか
+ *
+ * **予算はこの列の順に消えるので、列の順がそのまま金の使い道の優先順。**
+ * ⑤を②の位置に置いて測ったら、**4方針すべてが 40〜50日遅くなった**
+ * （取り合わせ 147→201 ／ 浅い品 197→246）。
+ * **貧しいうちに1.5倍の品を60個ずつ買い込み、棚を埋める安い品が買えなくなる**
+ * （最初の80日の純増が 1日 560レンまで落ちた）。
+ *
+ * **後ろに置くと「余った金で取り寄せる」になる。**これは #34 が書いている行商人の役
+ * —— **待ち時間を金で置き換える** —— そのままで、**金が無いうちは置き換えられない**のが正しい。
+ * ⚠ **③は前のまま。**1個しか買わないので予算をほとんど食わず、**解禁はこれで進む。**
  */
 function craftBuyTargets(ctx: SimContext, recipes: readonly RecipeDef[]): BuyOrder[] {
   const out: BuyOrder[] = []
   const seen = new Set<ItemId>()
-  const push = (id: ItemId, qty: number): void => {
+  const push = (id: ItemId, qty: number, from?: '行商人'): void => {
     if (seen.has(id)) return
     seen.add(id)
-    out.push({ id, qty })
+    out.push({ id, qty, from })
   }
 
   const here = new Set(ctx.stocked.map(i => i.id))
+  const 積荷 = new Set(ctx.peddler.list().map(e => e.itemId))
   for (const recipe of recipes) {
     for (const ing of recipe.ingredients) {
       if (here.has(ing.itemId)) push(ing.itemId, ctx.stockTarget)
@@ -167,8 +194,21 @@ function craftBuyTargets(ctx: SimContext, recipes: readonly RecipeDef[]): BuyOrd
   for (const item of ctx.stocked) {
     if (!ctx.inventory.hasEverHeld(item.id)) push(item.id, 1)
   }
+  // ③ ⚠ **行商人でも解禁は進む**（解禁は島の商人と同じ U1・U2 を通す）。
+  //   **よその島でしか採れない材料は、ここでしか「手にしたことがある」にできない**
+  for (const id of 積荷) {
+    if (!ctx.inventory.hasEverHeld(id)) push(id, 1, '行商人')
+  }
   for (const item of byResellValue(ctx).slice(0, ctx.shelfKinds)) {
     push(item.id, ctx.stockTarget)
+  }
+  // ⑤ ⚠ **余った予算でだけ取り寄せる。**前に出すと全方針が 40〜50日遅くなる（上の注記）
+  for (const recipe of recipes) {
+    for (const ing of recipe.ingredients) {
+      if (!here.has(ing.itemId) && 積荷.has(ing.itemId)) {
+        push(ing.itemId, ctx.stockTarget, '行商人')
+      }
+    }
   }
   return out
 }

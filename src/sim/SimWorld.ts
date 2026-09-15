@@ -42,7 +42,7 @@ import { WorldState } from '../components/progress/WorldState.js'
 import { Upgrades, UPGRADE_KINDS } from '../components/progress/Upgrades.js'
 import type { UpgradeKind } from '../components/progress/Upgrades.js'
 import { DeliveryOrders } from '../components/progress/DeliveryOrders.js'
-import { PeddlerStock } from '../components/progress/PeddlerStock.js'
+import { PeddlerStock, peddlerPrice } from '../components/progress/PeddlerStock.js'
 import { RecipeUnlocks } from '../components/progress/RecipeUnlocks.js'
 import type { UnlockStore } from '../components/progress/RecipeUnlocks.js'
 import { EventBus } from '../services/EventBus.js'
@@ -99,6 +99,14 @@ export const DEFAULT_OPTIONS: SimOptions = {
 export interface BuyOrder {
   readonly id: ItemId
   readonly qty: number
+  /**
+   * **どこから買うか。**既定は島の商人。
+   *
+   * ⚠ **行商人を足したのは 2026-09-15。**それまで方針は**島の商人からしか買えず**、
+   *   `SimWorld` が毎日積荷を作っているのに**誰も買わなかった**
+   *   （`coverage.md`。これで「材料が揃わない」と原因を取り違えた）。
+   */
+  readonly from?: '行商人'
 }
 
 /** 方針が盤面を見るための窓。**読むだけ**（動かすのは `SimWorld`） */
@@ -115,12 +123,26 @@ export interface SimContext {
   readonly state: GameState
   /** いまこの島の商人が並べている品（`merchantListing().stocked`） */
   readonly stocked: readonly ItemDef[]
+  /**
+   * **今日の行商人の積荷**（`PeddlerStock`）。**読むだけ。**
+   *
+   * ⚠ **買うには `BuyOrder.from = '行商人'` を付ける。**値段も上限もここでは引かない
+   *   （`purchase()` が `peddlerPrice` と `take()` を通す）。
+   */
+  readonly peddler: PeddlerStock
   /** 補充目標（`SimOptions.stockTarget`） */
   readonly stockTarget: number
   /**
-   * **前の日に棚へ並べられた区画の数。**
-   * ⚠ **「何種類仕入れるか」の目安に使う。**升目から見積もらずに、
-   *   **実際に並んだ数**を使うので、置いた数を勝手に決めずに済む。
+   * **棚を埋めきるのに要る品数の見積もり。**「何種類仕入れるか」の目安に使う。
+   *
+   *   `棚の総升数 ÷ 前の日に並べた品の平均升数`
+   *
+   * ⚠ **前は「前の日に並んだ区画の数」だった。直したのは 2026-09-15**（`coverage.md`）。
+   *   **あれは自分に食いつく輪だった** —— 区画が少ない方針は少ししか仕入れず、
+   *   仕入れないから区画が増えず、**いつまでも棚が空いたまま**になる。
+   *   **実測: `深い品を作る` は 区画23 ／ 升58 で止まり、`浅い品だけ作る` は 区画51 ／ 升109。**
+   *   **棚の 130升 のうち 72升が空いていた。**空いた棚を見て買い足すのは、
+   *   遊ぶ人なら誰でもすることで、**できないのは道具の側の欠けである。**
    */
   readonly shelfKinds: number
 }
@@ -527,9 +549,11 @@ export class SimWorld {
   private closeDay(day: number, island: IslandName): void {
     const placed = this.floorGrid.getAllSlots()
     const slots = placed.length
-    this.shelfKinds = Math.max(3, slots)
     const cells = placed.reduce((sum, s) => sum + cellCount(this.registry.getItem(s.itemId)), 0)
     const size = this.floorGrid.getGridSize()
+    // ⚠ **棚の容量から見積もる。**並んだ区画の数をそのまま使わない（`shelfKinds` の注記）
+    const 平均升 = slots > 0 ? cells / slots : 2
+    this.shelfKinds = Math.max(3, Math.ceil((size.width * size.height) / Math.max(1, 平均升)))
     const money = this.economy.getMoney()
     this.records.push({
       day,
@@ -583,6 +607,7 @@ export class SimWorld {
         this.registry.getAllItems(), this.world.getState(),
         id => this.inventory.hasEverHeld(id),
       ).stocked,
+      peddler: this.peddler,
       stockTarget: this.opts.stockTarget,
       shelfKinds: this.shelfKinds,
     }
@@ -618,7 +643,11 @@ export class SimWorld {
   private purchase(targets: readonly BuyOrder[]): void {
     let budget = Math.max(0, this.economy.getMoney() - this.opts.cashFloor) * this.opts.buyRatio
     for (const order of targets) {
-      const unit = this.registry.purchasePriceOf(order.id, this.world.getIsland())
+      const 行商 = order.from === '行商人'
+      // ⚠ **行商人は島ではない**ので産地割引が乗らず、必ず島の商人より高い（`PEDDLER_MARKUP`）
+      const unit = 行商
+        ? peddlerPrice(order.id)
+        : this.registry.purchasePriceOf(order.id, this.world.getIsland())
       // ⚠ **ただの品（救済の品）は元手が要らないので、予算が尽きていても買える。**
       //   **`budget <= 0` で打ち切らない**のはこのため（打ち切ると詰みからの立ち直りが測れない）
       if (unit > 0 && budget <= 0) continue
@@ -627,8 +656,12 @@ export class SimWorld {
         this.inventory.spaceFor(order.id),
         // ⚠ **ただの品を「予算 ÷ 0」で数えない。**上限は在庫の空きのほうが持つ
         unit > 0 ? Math.floor(budget / unit) : Number.MAX_SAFE_INTEGER,
+        // ⚠ **その日その10種類しか無い**（`PEDDLER_MAX_KINDS`）。積荷を超えて買えない
+        行商 ? this.peddler.remaining(order.id) : Number.MAX_SAFE_INTEGER,
       )
       if (want <= 0) continue
+      // ⚠ **先に減らす。**払ってから足りないと分かる形にしない（`take` の注記）
+      if (行商 && !this.peddler.take(order.id, want)) continue
       if (!this.economy.spend(unit * want)) continue
       this.inventory.add(order.id, want)
       this.ledger.add(order.id, want, unit * want)
