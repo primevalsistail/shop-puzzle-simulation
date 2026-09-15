@@ -6,6 +6,8 @@ import type { RecipeUnlocks } from '../components/progress/RecipeUnlocks.js'
 import { ListPaging, KIND_BUTTONS } from './ListPaging.js'
 import { SearchBox } from './SearchBox.js'
 import { createInput, tryAddDom, setGameKeyboard, readCount } from './domInput.js'
+import { ConfirmDialog, confirmNeeded } from './ConfirmDialog.js'
+import { craftBusinessConfirmLines } from './workshop.js'
 import { demandIsland } from '../taxonomy/islands.js'
 import type { PlaceFrame } from './PlaceFrame.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
@@ -68,6 +70,8 @@ interface Row {
   recipe: RecipeDef
   max: number
   input: HTMLInputElement
+  /** 回数の欄を載せている入れ物。⚠ **確認の面を出している間は隠す**（#109）。null もありうる */
+  dom?: Phaser.GameObjects.DOMElement
   /** DOM が使えないときの数字表示（使えるときは undefined） */
   valueText?: Phaser.GameObjects.Text
   /** `作成数` — **出来高 × 回数**。1回ぶんではない */
@@ -100,6 +104,8 @@ export class CraftMenu {
   private focusId: string | null = null
   /** ⚠ **行とは別に持つ。**一緒に作り直すと打鍵のたびにカーソルが飛ぶ（#55） */
   private search: SearchBox
+  /** ⚠ **4つ目の形を作らない。**納品の `廃棄` と同じ面（#109） */
+  private confirm: ConfirmDialog
 
   constructor(
     private scene: Phaser.Scene,
@@ -112,6 +118,7 @@ export class CraftMenu {
     private onClose: () => void,
   ) {
     this.search = new SearchBox(scene)
+    this.confirm = new ConfirmDialog(scene)
     // シーンが終わるとき DOM が残らないようにする
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown())
     scene.events.once(Phaser.Scenes.Events.DESTROY, () => this.teardown())
@@ -148,6 +155,8 @@ export class CraftMenu {
   close(): void {
     if (!this.isOpen) return
     this.isOpen = false
+    // ⚠ **確認を出したまま表を離れられる**（ESC）。**残すと次に開いた画面の上に居座る**
+    this.confirm.close()
     this.teardown()
     this.search.destroy()
     this.frame.hide()
@@ -362,6 +371,7 @@ export class CraftMenu {
     // DOM が使えない設定でも**メニュー全体を道連れにしない**。
     // 使えないときは数字を表示するだけにして、段のボタンで操作できるようにする
     if (domEl) {
+      row.dom = domEl
       objs.push(domEl)
     } else {
       objs.push(
@@ -435,11 +445,53 @@ export class CraftMenu {
     this.setValue(row, Math.max(1, current + delta))
   }
 
+  /**
+   * `作る` を押した。**営業時間を削るぶんがあるときだけ、確認を通す**（#109）。
+   *
+   * ⚠ **判定は `businessMinutesFor` 1つ。**0 なら今までどおり押した場で作る
+   *   （朝と閉店後の加工に確認は出さない ——
+   *   **毎回出すと、削っていないときまで止められる**）。
+   * ⚠ **確認を出すかどうかの判定は `confirmNeeded('営業時間を削る加工')`**（#113 の受け口）。
+   */
   private craft(row: Row): void {
     const times = this.readTimes(row)
     if (times === null || !this.craftingSystem.canCraft(row.recipe.id, times)) return
-    this.craftingSystem.startCraft(row.recipe.id, times)
+    const businessMinutes = this.craftingSystem.businessMinutesFor(row.recipe.id, times)
+    if (businessMinutes === 0 || !confirmNeeded('営業時間を削る加工')) {
+      this.craftNow(row.recipe.id, times)
+      return
+    }
+    this.openConfirm(
+      craftBusinessConfirmLines(
+        this.registry.getItem(row.recipe.outputItemId).display.name, times, businessMinutes),
+      CRAFT_BTN_LABEL,
+      () => this.craftNow(row.recipe.id, times),
+    )
+  }
+
+  private craftNow(recipeId: string, times: number): void {
+    this.craftingSystem.startCraft(recipeId, times)
     this.rebuild() // 作ったあとは在庫も残り時間も変わるので、ここでは作り直してよい
+  }
+
+  /**
+   * 確認を出す。
+   *
+   * ⚠ **出している間は回数の欄と検索の欄を隠す。**`<input>` は HTML なので
+   *   **必ず canvas より上に出る** —— **depth をいくつにしても暗幕の下へ回らない**
+   *   （`domInput.ts` の注記。`PresetMenu` で同じことを踏んでいる）。
+   * ⚠ **戻すのは `rebuild()` ではなく、閉じたときの `setVisible(true)`。**
+   *   **「する」を押したときは `craftNow` が作り直すので、隠したままの行は残らない。**
+   */
+  private openConfirm(
+    lines: readonly string[], okLabel: string, run: () => void,
+  ): void {
+    for (const r of this.rows) r.dom?.setVisible(false)
+    this.search.setVisible(false)
+    this.confirm.open(lines, okLabel, run, () => {
+      for (const r of this.rows) r.dom?.setVisible(true)
+      this.search.setVisible(true)
+    })
   }
 
   /**

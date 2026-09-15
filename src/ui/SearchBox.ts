@@ -55,6 +55,14 @@ export class SearchBox {
   }
 
   /**
+   * 出す／隠す。⚠ **確認の面を出している間は隠す**（#109 ／ `PresetMenu` と同じ理由）。
+   *   **HTML は canvas より上に出るので、depth では暗幕の下へ回らない**（`domInput.ts` の注記）。
+   */
+  setVisible(visible: boolean): void {
+    this.dom?.setVisible(visible)
+  }
+
+  /**
    * 片付ける。
    *
    * ⚠ **ゲームのキー入力を必ず戻すこと。**入力中の要素を消すと `blur` が来ないことがあり、

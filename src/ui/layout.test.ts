@@ -89,6 +89,7 @@ import { MAX_QUANTITY } from '../components/economy/Inventory.js'
 import { ALL_ITEMS } from '../taxonomy/items.js'
 import { PEDDLER_MAX_PER_KIND, peddlerPrice } from '../components/progress/PeddlerStock.js'
 import { money } from './money.js'
+import { craftBusinessConfirmLines } from './workshop.js'
 import { SHIP_COST } from './goal.js'
 import {
   DELIVERY_COLS, DELIVERY_BTN_LABEL, DISCARD_BTN_LABEL, deliveryShortLabel,
@@ -1472,6 +1473,63 @@ describe('納品タブの表（#98 ／ PO 赤入れ 2026-09-13）', () => {
   it('1件も無いときの1行が枠に収まる', () => {
     expect(estTextWidth(DELIVERY_TAB_EMPTY, TAB_ROW_SUB_FONT_PX))
       .toBeLessThanOrEqual(CONTENT_R - CONTENT_L)
+  })
+})
+
+/**
+ * **加工の前に出す確認**（#109。PO コメント「ダイアログ」／ 質問票 Question 2 = A）。
+ *
+ * ⚠ **本文は `ui/workshop.ts` が組み立てる**ので、**実物の文字列**をここで測れる。
+ * ⚠ **確認を出すかどうかの判定は `CraftMenu` の1箇所**（`confirmNeeded`）。
+ *   **`businessMinutesFor` が 0 のときは呼ばない** —— 朝と閉店後の加工に確認は出さない。
+ */
+describe('加工の前に出す確認（#109）', () => {
+  /** ⚠ **回数は 1日の分数まで入りうる**（最短5分の品が、手際 MAX で1分になるため） */
+  const WORST_TIMES = 1080
+  /** ⚠ **削れるのは営業時間のぶんだけ**（10:00-20:00 ＝ 600分） */
+  const WORST_MINUTES = 600
+
+  function worstLine(): string {
+    let worst = ''
+    for (const item of ALL_ITEMS) {
+      for (const line of craftBusinessConfirmLines(
+        item.display.name, WORST_TIMES, WORST_MINUTES)) {
+        if (estTextWidth(line, MSG_TEXT_FONT_PX) > estTextWidth(worst, MSG_TEXT_FONT_PX)) {
+          worst = line
+        }
+      }
+    }
+    return worst
+  }
+
+  it('本文がいちばん長い組み合わせでも、面からはみ出さない', () => {
+    const worst = worstLine()
+    expect(estTextWidth(worst, MSG_TEXT_FONT_PX), worst).toBeLessThanOrEqual(CONFIRM_TEXT_MAX_W)
+  })
+
+  it('本文の行数が、ボタンに食い込まない範囲に収まる', () => {
+    expect(craftBusinessConfirmLines(ALL_ITEMS[0].display.name, 1, 1).length)
+      .toBeLessThanOrEqual(CONFIRM_LINES_MAX)
+  })
+
+  /** ⚠ **削らないときは確認を出さない。**毎回出すと、削っていないときまで止められる */
+  it('営業時間を削らないときは、確認を出さずに作る', () => {
+    expect(craftSource).toContain('businessMinutesFor(row.recipe.id, times)')
+    expect(craftSource).toContain('businessMinutes === 0')
+  })
+
+  /** ⚠ **#113 の受け口を素通りさせない**（`ConfirmDialog` を直に開かない） */
+  it('確認の要否は confirmNeeded() で決める', () => {
+    expect(craftSource).toContain("confirmNeeded('営業時間を削る加工')")
+  })
+
+  /**
+   * ⚠ **`<input>` は HTML なので canvas より上に出る。**
+   *   **隠さないと、回数の欄と検索の欄が面の上に居座る**（`PresetMenu` で踏んでいる）。
+   */
+  it('確認を出している間は、回数の欄と検索の欄を隠す', () => {
+    expect(craftSource).toContain('r.dom?.setVisible(false)')
+    expect(craftSource).toContain('this.search.setVisible(false)')
   })
 })
 
