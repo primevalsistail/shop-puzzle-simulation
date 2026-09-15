@@ -49,20 +49,35 @@ describe('ボタンの絵（#69）', () => {
   })
 
   /**
-   * ⚠ **`進める` と `停止` は、両方とも絵か、両方とも字か。**
-   *   **片方だけ絵にすると、押した瞬間に□が出る**（`⏸` はフォントに無い）。
+   * **#69 受入条件1 —— 操作板に絵文字が1つも残っていない（`▶` `⏸` を含む）。**
+   *
+   * ⚠ **`⏸` はフォントに無い環境がある**（実測 2026-09-15）。**字では出せない。**
+   *   いまは**ボタンの字を `進める` ／ `停止` だけにして、絵を横に置いている**ので、
+   *   **絵を取り下げても□にならない。**
    */
-  it('進めると停止は、そろって絵か、そろって字か', () => {
-    const panel = buttonPanel()
-    const hasPlayGlyph = panel.includes('▶')
-    const hasPauseGlyph = scene.includes('⏸')
-    if (ADVANCE_ICON_READY) {
-      expect(hasPlayGlyph, '進めるが字のまま').toBe(false)
-      expect(hasPauseGlyph, '停止が字のまま').toBe(false)
-    } else {
-      expect(hasPlayGlyph, '進めるだけ絵になっている').toBe(true)
-      expect(hasPauseGlyph, '停止だけ絵になっている').toBe(true)
-    }
+  it('進めると停止に絵文字を使っていない', () => {
+    expect(scene, '▶ が残っている').not.toContain('▶')
+    expect(scene, '⏸ が残っている').not.toContain('⏸')
+  })
+
+  /**
+   * ⚠ **三角と縦棒は1つのボタンの表と裏。**
+   *   **片方だけ指すと、押した瞬間に絵が消える**（無い名札を渡すことになる）。
+   */
+  it('進めると停止は、そろって絵になる', () => {
+    if (!ADVANCE_ICON_READY) return
+    expect(scene, "'advance' を指していない").toContain("'advance'")
+    expect(scene, "'pause' を指していない").toContain("'pause'")
+  })
+
+  /**
+   * ⚠ **切り替える場所は5つある。**`setText` を直に書く場所を増やすと、
+   *   **字は「停止」なのに絵は三角、という食い違いが出る。**
+   */
+  it('進めるボタンの切り替えは1箇所にまとめてある', () => {
+    expect(scene, 'advanceBtnLabel.setText を直に書いている')
+      .not.toMatch(/advanceBtnLabel\.setText\('/)
+    expect(scene.match(/this\.setAdvanceButton\(/g)!.length).toBeGreaterThan(4)
   })
 
   it('読み込むのは BootScene（場面の途中で読まない）', () => {
@@ -79,7 +94,7 @@ describe('ボタンの絵（#69）', () => {
 
   it('名札はファイル名と同じ', () => {
     expect([...ICON_KEYS]).toEqual(
-      ['save', 'load', 'preset', 'options', 'help', 'trade', 'craft', 'advance'],
+      ['save', 'load', 'preset', 'options', 'help', 'trade', 'craft', 'advance', 'pause'],
     )
   })
 })

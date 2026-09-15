@@ -37,6 +37,7 @@ import { OptionsMenu } from '../ui/OptionsMenu.js'
 import { setDomInputsVisible } from '../ui/domInput.js'
 import { CharacterStrip } from '../ui/CharacterStrip.js'
 import { PortShutter } from '../ui/PortShutter.js'
+import { ADVANCE_ICON_READY } from '../ui/icons.js'
 import type { IconKey } from '../ui/icons.js'
 import { PlaceFrame } from '../ui/PlaceFrame.js'
 import { MessageWindow } from '../ui/MessageWindow.js'
@@ -192,6 +193,8 @@ export class GameScene extends Phaser.Scene {
   private gridBackdrop!: Phaser.GameObjects.Rectangle
   private advanceBtnBg!: Phaser.GameObjects.Rectangle
   private advanceBtnLabel!: Phaser.GameObjects.Text
+  /** ⚠ **`ADVANCE_ICON_READY` が偽なら作らない**（そのときは字だけのボタン） */
+  private advanceBtnIcon?: Phaser.GameObjects.Image
   private tooltip!: Phaser.GameObjects.Text
 
   private selectedItemId: string | null = null
@@ -652,8 +655,13 @@ export class GameScene extends Phaser.Scene {
 
     this.advanceBtnBg = this.add.rectangle(acx, yAdv, PW, AH, BTN_ADVANCE)
       .setStrokeStyle(1.5, LINE_STRONG).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
-    this.advanceBtnLabel = this.add.text(acx, yAdv, '▶  進める', { fontSize: `${BTN_ADVANCE_FONT_PX}px`, color: css(BTN_TEXT) })
+    this.advanceBtnLabel = this.add.text(acx, yAdv, '', { fontSize: `${BTN_ADVANCE_FONT_PX}px`, color: css(BTN_TEXT) })
       .setOrigin(0.5).setDepth(DEPTH)
+    if (ADVANCE_ICON_READY) {
+      this.advanceBtnIcon = this.add.image(acx, yAdv, 'advance')
+        .setDisplaySize(BTN_ACTION_ICON_PX, BTN_ACTION_ICON_PX).setDepth(DEPTH)
+    }
+    this.setAdvanceButton(false)
     this.advanceBtnBg.on('pointerdown', () => this.onAdvancePressed())
     this.advanceBtnBg.on('pointerover', () => {
       if (!this.timeManager.isAdvancing()) this.advanceBtnBg.setFillStyle(BTN_ADVANCE_HOVER)
@@ -926,7 +934,7 @@ export class GameScene extends Phaser.Scene {
     })
 
     EventBus.on(GameEvents.TIME_ADVANCE_STOPPED, () => {
-      this.advanceBtnLabel.setText('▶  進める'); this.advanceBtnBg.setFillStyle(BTN_ADVANCE)
+      this.setAdvanceButton(false)
       
     })
 
@@ -1157,8 +1165,7 @@ export class GameScene extends Phaser.Scene {
   private stopAdvancing(): void {
     if (!this.timeManager.isAdvancing()) return
     this.timeManager.stopAdvancing()
-    this.advanceBtnLabel.setText('▶  進める')
-    this.advanceBtnBg.setFillStyle(BTN_ADVANCE)
+    this.setAdvanceButton(false)
   }
 
   private openCraftMenu(): void {
@@ -1701,9 +1708,28 @@ export class GameScene extends Phaser.Scene {
   private pauseAt(reason: string): void {
     if (!this.timeManager.isAdvancing()) return
     this.timeManager.stopAdvancing()
-    this.advanceBtnLabel.setText('▶  進める')
-    this.advanceBtnBg.setFillStyle(BTN_ADVANCE)
+    this.setAdvanceButton(false)
     this.updateStatus(reason)
+  }
+
+  /**
+   * **進めるボタンを、いまの状態に合わせる**（字・絵・色）。
+   *
+   * ⚠ **切り替える場所が5つある**（押した・止めた・場所へ移る・出来事で止まる・時間切れ）。
+   *   **1箇所でまとめないと、字は「停止」なのに絵は三角、という食い違いが出る。**
+   */
+  private setAdvanceButton(running: boolean): void {
+    this.advanceBtnLabel.setText(running ? '停止' : '進める')
+    this.advanceBtnBg.setFillStyle(running ? BTN_BACK : BTN_ADVANCE)
+    const cx = this.advanceBtnBg.x
+    if (!this.advanceBtnIcon) { this.advanceBtnLabel.setX(cx); return }
+    this.advanceBtnIcon.setTexture(running ? 'pause' : 'advance')
+      .setDisplaySize(BTN_ACTION_ICON_PX, BTN_ACTION_ICON_PX)
+    // ⚠ **絵と字を合わせた幅で中央に置く**（`makeAction` と同じ）。
+    //   **字だけを中央にすると、絵のぶんだけ左に寄って見える**
+    const total = BTN_ACTION_ICON_PX + BTN_ACTION_ICON_GAP + this.advanceBtnLabel.width
+    this.advanceBtnLabel.setX(cx + total / 2 - this.advanceBtnLabel.width / 2)
+    this.advanceBtnIcon.setX(cx - total / 2 + BTN_ACTION_ICON_PX / 2)
   }
 
   private onAdvancePressed(): void {
@@ -1715,7 +1741,7 @@ export class GameScene extends Phaser.Scene {
       this.timeManager.stopAdvancing()
     } else {
       this.timeManager.startAdvancing()
-      this.advanceBtnLabel.setText('⏸  停止'); this.advanceBtnBg.setFillStyle(BTN_BACK)
+      this.setAdvanceButton(true)
       
     }
   }

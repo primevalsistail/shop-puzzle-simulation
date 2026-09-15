@@ -14,11 +14,12 @@
 /**
  * 絵の名札。**ファイル名と同じ。**
  *
- * ⚠ **`pause`（`⏸ 停止`）は待ち。**`進める` は押すと `停止` に変わるので、
- *   **片方だけ絵にすると、押した瞬間に□が出る。**届くまでは両方とも字のまま。
+ * ⚠ **`advance`（三角）と `pause`（縦棒2本）は1つのボタンの表と裏。**
+ *   **高さと上端をそろえて描いてある**（どちらも 163px・上端 y=48）ので、
+ *   **片方だけ描き直すと、押すたびに絵が伸び縮みして見える。**
  */
 export const ICON_KEYS = [
-  'save', 'load', 'preset', 'options', 'help', 'trade', 'craft', 'advance',
+  'save', 'load', 'preset', 'options', 'help', 'trade', 'craft', 'advance', 'pause',
 ] as const
 export type IconKey = typeof ICON_KEYS[number]
 
@@ -31,8 +32,8 @@ export function iconPath(key: IconKey): string {
 /**
  * **`進める` ／ `停止` を絵にしてよいか。**
  *
- * ⚠ **`pause.png` が届いたら `true` にして、絵を写す。**`false` のあいだは
- *   **`▶` `⏸` の字のまま**で、**片方だけ絵になることがない。**
+ * ⚠ **2つ一緒にしか切り替わらない。**`false` にすると `▶` `⏸` の字に戻り、
+ *   **片方だけ絵になることがない**（`⏸` はフォントに無い環境があり、□ で出る）。
  *   取り下げるときもこの1行だけ（写した絵は消さない。`CUSTOMER_ART_READY` と同じ形）。
  */
-export const ADVANCE_ICON_READY = false
+export const ADVANCE_ICON_READY = true
