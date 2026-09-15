@@ -796,3 +796,54 @@ Q3=案A（キャンセルでタイトルへ）／ Q4=案A（ゲーム内のロ�
 
 **未実施**: PO による目視（#47 でまとめて見る）。"
 **Context**: Construction ／ Code Generation ／ #123
+
+---
+## Workspace Detection: セッション再開（AI-DLC 起動）
+**Timestamp**: 2026-09-15T16:00:00Z
+**User Input（原文）**: "AIDLC"
+**AI Response**: "Brownfield・再開。`aidlc-state.md` と `git log main` と OPEN issue 7件を確認した。
+`main` = `4a240b4`（`295982a` + 現在地の更新）／ 未追跡は `.agents/` `skills-lock.json` のみ。
+OPEN 7件 = #14 #82（世界観・別セッション）／ #51 #47（出荷直前・最後）／ #63 #54 #61（数値調整）。
+**「画面と仕組み」の束は #79 #113 #123 で終わっており、次は数値調整（段階4の残り）**と判断した。
+実行計画を提示し、PO の承認を待つ。"
+**Context**: Inception ／ Workspace Detection ／ 束N の開始判断
+
+---
+## Requirements: #14 BGM —— どんな曲が要るか
+**Timestamp**: 2026-09-15T16:30:00Z
+**User Input（原文）**: "https://github.com/primevalsistail/shop-puzzle-simulation/issues/14
+これと現状のプロジェクトを確認し、
+どういったBGMが欲しいかっていうのを上げてほしいです。"
+**AI Response**: "**#14 は表題だけで本文が無い。**コードを見たところ **`sound` の使用0件・`public/` に音のフォルダ無し**で、
+まるごと未着手だった。場面を棚卸しして曲の案を [questions-bgm.md](sessions/questions-bgm.md) に置き、3つ聞いた
+（曲数／用意のしかた／効果音を別 issue にしてよいか）。推奨は6曲（タイトル・島4つ・エンディング）。
+**朝夜で分けるのは勧めないと書いた** —— 1日3回切り替わり、10倍速だと1日が実時間11秒になるため。"
+**Context**: Construction ／ Requirements ／ #14
+
+---
+## Requirements: #14 PO 回答 3件
+**Timestamp**: 2026-09-15T16:45:00Z
+**User Input（原文）**: "Q1 [Answer]:C、今のところ考えているのは以下8曲
+タイトル
+朝
+昼(各島)
+夜
+エンディング
+Q2 [Answer]:B
+Q3 [Answer]:A"
+**AI Response**: "**8曲で確定**（タイトル1／朝1／昼4／夜1／エンディング1）。**フリー素材から選ぶ**（生成しない）。
+**効果音は別 issue → #124 を立てた。**
+
+- 曲の一覧・素材に要る条件・替わりかた・置き場を [bgm.md](inception/worldbuilding/bgm.md) に書いた
+- ⚠ **こちらは「朝夜で分けない」を勧めたが、PO 判断で分ける。**
+  **残る引っかかりは速さだけ**なので Question 4 に切り出した
+  （**朝は等倍24秒・3倍8秒・10倍2.4秒**。推奨A＝朝夜は等倍のときだけ）
+- **Question 5（素材のライセンス）を追加。**探す前に決めないと後で8曲すべて差し替えになる
+- こちらで決めたもの: タイトルとはじまりの場面は同じ曲／睡眠帯は曲を用意しない／
+  できごとの窓で止めない／クリア後も島の曲／昼4曲は同じ配布元から／歌ものは選ばない／
+  設定に「音楽を鳴らす」1行（つまみは作らない）／原本 `audio/` → `public/audio/` は写し／ogg＋m4a
+
+**未実施**: 素材の探索（Question 4・5 の回答待ち）。実装も未着手。"
+**Context**: Construction ／ Requirements ／ #14・#124
+
+---
