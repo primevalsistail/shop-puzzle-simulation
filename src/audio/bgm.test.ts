@@ -259,10 +259,13 @@ describe('設定への出しかた（受入条件6・7）', () => {
   /**
    * ⚠ **入／切と音量は1行**（PO 指示 2026-09-15「**1か所にまとめたい**」）。
    *   **別の行に分けない** —— 同じものの設定なので、2行あると別物に見える。
+   * ⚠ **2026-09-16（#124）から、その行が2本になった** —— 「音楽」と「効果音」。
+   *   **1つのものを2行に割ったのではなく、別々に切れる2つのものが並んでいる**
+   *   （PO 判断 Question 3「分ける」）。**1本ずつは今までどおり入／切と音量が同じ行。**
    */
-  it('音楽は「音量」1行（入／切と 0〜100 が同じ行）', () => {
+  it('音楽は「音楽」1行（入／切と 0〜100 が同じ行）', () => {
     const sound = optionSectionsForCredits().find(sec => sec.levels?.length)
-    expect(sound?.levels?.map(l => l.label)).toEqual(['音量'])
+    expect(sound?.levels?.map(l => l.label)).toEqual(['音楽', '効果音'])
     expect(sound?.rows).toEqual([])
     const volume = sound!.levels![0]
     volume.set(64)

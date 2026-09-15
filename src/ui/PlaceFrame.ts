@@ -17,6 +17,7 @@ import {
   TEXT_BODY,
   css,
 } from './palette.js'
+import { playSe } from '../audio/SePlayer.js'
 
 /** 枠の深さ。**中身は `CONTENT_DEPTH` に載せる** */
 const FRAME_DEPTH = 90
@@ -99,7 +100,7 @@ export class PlaceFrame {
     const backLabel = this.scene.add.text(CONTENT_R - BACK_BTN_W / 2, TITLE_Y, '🏠', {
       fontSize: `${PLACE_BACK_FONT_PX}px`,
     }).setOrigin(0.5).setDepth(FRAME_DEPTH)
-    backBg.on('pointerdown', () => this.requestBack())
+    backBg.on('pointerdown', () => { playSe(this.scene, 'button'); this.requestBack() })
     backBg.on('pointerover', () => backBg.setFillStyle(BTN_BACK_HOVER))
     backBg.on('pointerout', () => backBg.setFillStyle(BTN_BACK))
 
@@ -131,7 +132,8 @@ export class PlaceFrame {
       const text = this.scene.add.text(cx, TITLE_Y, label, {
         fontSize: `${TAB_FONT_PX}px`, color: css(FILTER_OFF_TEXT),
       }).setOrigin(0.5).setDepth(FRAME_DEPTH)
-      bg.on('pointerdown', () => tabs.onSelect(i))
+      // 効果音（#124）。⚠ **タブもボタンと同じ音**（`se-candidates.md`）
+      bg.on('pointerdown', () => { playSe(this.scene, 'button'); tabs.onSelect(i) })
       this.tabBgs.push(bg)
       this.tabLabels.push(text)
       this.objects.push(bg, text)

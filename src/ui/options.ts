@@ -1,5 +1,6 @@
 import { AUDIO_CREDITS } from '../audio/bgm.js'
 import { getMusicVolume, isMusicOn, setMusicOn, setMusicVolume } from '../audio/musicSettings.js'
+import { getSeVolume, isSeOn, setSeOn, setSeVolume } from '../audio/seSettings.js'
 import { CONFIRM_ACTIONS, confirmNeeded, setConfirmNeeded } from './ConfirmDialog.js'
 
 /**
@@ -67,24 +68,33 @@ export function optionSections(): readonly OptionSection[] {
       })),
     },
     {
-      // 音楽（#14）。⚠ **音量つまみは作らない**（PO 判断 2026-09-15。入／切の1行だけ）
+      // 音楽（#14）と効果音（#124）。
       title: '音',
       rows: [],
       // ⚠ **入／切と音量は1行**（PO 指示 2026-09-15「1か所にまとめたい」）。
       //   ⚠ **入／切は残す。****0 まで下げるのと、切るのは別** ——
       //   **切って入れ直したときに前の音量へ戻る**のは、入／切を別に持っているからできている
+      // ⚠ **効果音は音楽と別の行**（PO 判断 2026-09-16。質問票 Question 3 = A「分ける」）。
+      //   **切りたい理由が違う** —— **音楽は繰り返すので飽きて切る。効果音は押した手応えなので残したい。**
+      // ⚠ **行が2つになったので、名前を「音量」から「音楽」「効果音」に変えた。**
+      //   **1行のときは「音」の下の「音量」で通じたが、2行あるとどちらの音量か分からない。**
       levels: [
         {
-          label: '音量',
+          label: '音楽',
           isOn: isMusicOn, setOn: setMusicOn,
           value: getMusicVolume, set: setMusicVolume,
+        },
+        {
+          label: '効果音',
+          isOn: isSeOn, setOn: setSeOn,
+          value: getSeVolume, set: setSeVolume,
         },
       ],
     },
     {
       // ⚠ **いちばん下**（PO 判断 2026-09-15。**タイトル画面には出さない**）。
-      //   ⚠ **効果音（#124）もここに足す** —— `AUDIO_CREDITS` に1行増やすだけで出る
-      title: '音楽をお借りしたところ',
+      //   ⚠ **効果音（#124）の行はここに入り済み**（`AUDIO_CREDITS` が2行になった）
+      title: '音をお借りしたところ',
       rows: [],
       notes: AUDIO_CREDITS,
     },

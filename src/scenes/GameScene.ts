@@ -39,6 +39,7 @@ import { OptionsMenu } from '../ui/OptionsMenu.js'
 import { setDomInputsVisible } from '../ui/domInput.js'
 import { CharacterStrip } from '../ui/CharacterStrip.js'
 import { PortShutter } from '../ui/PortShutter.js'
+import { playSe } from '../audio/SePlayer.js'
 import { ADVANCE_ICON_READY } from '../ui/icons.js'
 import type { IconKey } from '../ui/icons.js'
 import { PlaceFrame } from '../ui/PlaceFrame.js'
@@ -626,7 +627,8 @@ export class GameScene extends Phaser.Scene {
       const bg = this.add.rectangle(cx, yIcon, IW, IH, BTN_BACK)
         .setStrokeStyle(1.5, LINE_STRONG).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
       this.add.image(cx, yIcon, key).setDisplaySize(BTN_ICON_ART_PX, BTN_ICON_ART_PX).setDepth(DEPTH)
-      bg.on('pointerdown', action)
+      // 効果音（#124）。⚠ **押した瞬間に鳴らす**（`action` の中で画面が替わることがあるので先）
+      bg.on('pointerdown', () => { playSe(this, 'button'); action() })
       bg.on('pointerover', () => { bg.setFillStyle(BTN_BACK_HOVER); showTip(cx, yIcon, tip) })
       bg.on('pointerout',  () => { bg.setFillStyle(BTN_BACK); hideTip() })
     })
@@ -649,7 +651,7 @@ export class GameScene extends Phaser.Scene {
       text.setX(acx + total / 2 - text.width / 2)
       this.add.image(acx - total / 2 + BTN_ACTION_ICON_PX / 2, cy, icon)
         .setDisplaySize(BTN_ACTION_ICON_PX, BTN_ACTION_ICON_PX).setDepth(DEPTH)
-      bg.on('pointerdown', action)
+      bg.on('pointerdown', () => { playSe(this, 'button'); action() })
       bg.on('pointerover', () => bg.setFillStyle(hover))
       bg.on('pointerout',  () => bg.setFillStyle(normal))
       return bg
@@ -876,6 +878,7 @@ export class GameScene extends Phaser.Scene {
   private discardToInventory(): void {
     if (!this.pendingMoveSlot) return
     const item = this.registry_.getItem(this.pendingMoveSlot.itemId)
+    playSe(this, 'discard')
     this.updateStatus(`${item.display.name}を売り場から下ろした`)
     this.refreshInventoryPanel()
     this.pendingMoveSlot = null
@@ -887,6 +890,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private startMovingSlot(slot: DisplaySlot): void {
+    playSe(this, 'grab')
     this.pendingMoveSlot = { ...slot }
     this.placementManager.removeSlot(slot.id)
     this.selectedItemId = slot.itemId
@@ -987,6 +991,8 @@ export class GameScene extends Phaser.Scene {
         this.floorRenderer.refreshSlot(slot)
         this.refreshInventoryPanel()
         this.showSalePopup(s.revenue, slot)
+        // ⚠ **10倍速では 0.5秒に1回まで間引かれる**（`se.ts` の `AUTO_GAP_MS`）
+        playSe(this, 'sold')
         const item = this.registry_.getItem(slot.itemId)
         this.messageLog.addMessage(`${item.display.name}が売れた！ +${money(s.revenue)}`, 'sale')
       }
@@ -994,6 +1000,7 @@ export class GameScene extends Phaser.Scene {
     })
 
     EventBus.on(GameEvents.CRAFTING_COMPLETED, (payload: unknown) => {
+      playSe(this, 'crafted')
       const { recipeId, times, quantity, minutes } = payload as CraftResult
       const recipe = this.registry_.getRecipe(recipeId)
       // ⚠ **払った額を後からも言う**（#53）。`recipe.durationMinutes × times` は
@@ -1044,7 +1051,12 @@ export class GameScene extends Phaser.Scene {
       if (this.purchaseMenu.isVisible()) this.purchaseMenu.close()
       // 寄港の開店（#6）。⚠ **盤面が出ているときだけ。**
       //   店を離れている間は盤面ごと消えているので、板だけが宙に出る（`setShopVisible`）
-      if (this.gridBackdrop.visible) this.portShutter.play(this.upgrades.gridSize())
+      if (this.gridBackdrop.visible) {
+        this.portShutter.play(this.upgrades.gridSize())
+        // ⚠ **板は 0.4秒で開き切るが、音は 2.1秒ある**（`se-candidates.md`）。
+        //   **開いた後も少し鳴る。**聴いて長すぎたら `port-open.mp3` を差し替える
+        playSe(this, 'port-open')
+      }
     }
 
     // ⚠ **島が変わったあとに引く。**次の寄港地は島が変わった時点で変わるので、
@@ -1083,6 +1095,7 @@ export class GameScene extends Phaser.Scene {
     if (!slot) {
       const already = !isMoving && this.placementManager.isDisplayed(this.selectedItemId)
       this.updateStatus(already ? 'もう棚に出しています' : 'ここには置けません')
+      playSe(this, 'deny')
       if (isMoving) {
         this.floorGrid.place(this.pendingMoveSlot!)
         this.floorRenderer.drawSlot(this.pendingMoveSlot!)
@@ -1091,6 +1104,7 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
+    playSe(this, 'place')
     this.clearSelection()
     this.refreshInventoryPanel()
   }
@@ -1595,6 +1609,7 @@ export class GameScene extends Phaser.Scene {
     const order = this.deliveryOrders.deliver(id)
     if (!order) return false
     const item = this.registry_.getItem(order.itemId)
+    playSe(this, 'confirm')
     this.messageLog.addMessage(orderDeliveredText(item.display.name, order), 'event')
     // ⚠ **持ち物も所持金も動く。**左パネルと HUD を追いつかせないと、納めた品が残って見える
     this.hud.updateMoney(this.economy.getMoney())
@@ -1607,6 +1622,7 @@ export class GameScene extends Phaser.Scene {
     const order = this.deliveryOrders.discard(id)
     if (!order) return
     const item = this.registry_.getItem(order.itemId)
+    playSe(this, 'discard')
     this.messageLog.addMessage(orderDiscardedText(item.display.name, order), 'event')
   }
 
@@ -1669,6 +1685,8 @@ export class GameScene extends Phaser.Scene {
    * ⚠ **買ったあとはそのまま遊べる**（決定 2026-09-15）。**幕は閉じられる。**
    */
   private buyShip(): void {
+    // ⚠ **1回しか鳴らない音**（#124）。商船は買い直せない
+    playSe(this, 'fanfare')
     // ⚠ **旗は HUD と改装タブの5行目が読む**（2026-09-15 以降はそれだけ）。
     //   **GAME OVER が無くなった**ので、「ぴったりで買って 0 になった次の分」を
     //   気にする必要はもう無い（商船の値段は目標額と同じ）

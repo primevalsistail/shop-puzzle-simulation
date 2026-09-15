@@ -83,8 +83,9 @@ export function bgmPaths(key: BgmKey): readonly string[] {
  * **配布元の表記**（bgm.md §4。**設定の面のいちばん下に出す**）。
  *
  * ⚠ **規約上は表記の義務が無い**（音楽の卵）。**それでも出す**と決めてある。
- * ⚠ **効果音（#124）もここに足す。**行を増やすだけで済む形にしてある。
+ * ⚠ **規約上はどちらも表記の義務が無い**（音楽の卵・効果音ラボ）。**それでも出す**と決めてある。
  */
 export const AUDIO_CREDITS: readonly string[] = [
   'BGM: 音楽の卵（ontama-m.com）',
+  '効果音: 効果音ラボ（soundeffect-lab.info）',
 ] as const

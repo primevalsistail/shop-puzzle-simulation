@@ -3,6 +3,7 @@ import type { EconomyManager } from '../components/economy/EconomyManager.js'
 import type { Upgrades, UpgradeKind } from '../components/progress/Upgrades.js'
 import { UPGRADE_KINDS, MAX_STAGE, effectValue } from '../components/progress/Upgrades.js'
 import { CONTENT_DEPTH } from './PlaceFrame.js'
+import { playSe } from '../audio/SePlayer.js'
 import {
   PLACE_CX, CONTENT_R, SUBTITLE_Y,
   TAB_ROW_TITLE_FONT_PX, TAB_ROW_SUB_FONT_PX, TAB_NOTE_FONT_PX,
@@ -301,6 +302,8 @@ export class UpgradeMenu {
 
   private buy(kind: UpgradeKind, cost: number): void {
     if (!this.economy.spend(cost)) return
+    // ⚠ **払えたときだけ鳴らす**（#124）。**押した音はボタン側で別に鳴っている**
+    playSe(this.scene, 'confirm')
     this.upgrades.advance(kind)
     // ⚠ **ここで盤面が描き直される。**いま店を離れているので、
     //   `FloorRenderer` が「隠れている」状態を覚えていないと棚がこの画面の上に出る

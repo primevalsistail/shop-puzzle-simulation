@@ -6,6 +6,7 @@ import {
   MSG_CHOICE_W, MSG_CHOICE_H, MSG_CHOICE_FONT_PX, MSG_CHOICE_CY, msgChoiceCx,
 } from './layout.js'
 import type { StoryChoice, StoryEventDef } from '../components/progress/StoryEvents.js'
+import { playSe } from '../audio/SePlayer.js'
 import {
   BG_WINDOW,
   BTN_BACK,
@@ -68,6 +69,7 @@ export class MessageWindow {
   show(def: StoryEventDef, onChoice: (choice: StoryChoice) => void): void {
     if (this.shown) return
     this.shown = true
+    playSe(this.scene, 'window-open')
 
     // ⚠ **暗幕は全画面。**窓の下だけでは「前に出ている」に見えない（PO 2026-09-14）。
     //   ⚠ **`setInteractive()` を外さないこと。**下の盤面を押させないのはこの面で、
@@ -127,6 +129,7 @@ export class MessageWindow {
 
   /** 片付ける。**選ばれたときだけ通る** */
   private close(): void {
+    playSe(this.scene, 'window-close')
     for (const obj of this.objects) obj.destroy()
     this.objects = []
     this.shown = false

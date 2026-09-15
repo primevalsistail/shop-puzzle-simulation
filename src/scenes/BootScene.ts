@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import { CUSTOMER_ART, CUSTOMER_ART_READY, FACE_KEYS, SHOPKEEPER_KEY, facePath, shopkeeperPath } from '../ui/faces.js'
 import { ICON_KEYS, iconPath } from '../ui/icons.js'
+import { se } from '../audio/SePlayer.js'
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -25,6 +26,10 @@ export class BootScene extends Phaser.Scene {
     // ボタンの絵（#69）。⚠ **ここで読む。**場面が始まってから読むと、
     //   **最初の何フレームかボタンの中が空になる**（顔絵と同じ理由）
     for (const key of ICON_KEYS) this.load.image(key, iconPath(key))
+    // 効果音（#124）。⚠ **12音まとめてここで読む。**
+    //   **押した瞬間に読み始めると、その1回目が鳴らない。**
+    //   ⚠ **BGM は1曲ずつ遅らせて読んでいる**が、**あちらは8曲で 15MB、こちらは12音で 0.4MB**
+    se(this).preload(this)
   }
 
   create(): void {
