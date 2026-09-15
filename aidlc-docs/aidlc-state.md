@@ -63,10 +63,10 @@
 
 ### リポジトリの状態
 
-**`main` = `94587a8`。origin と同じ。839テスト全件パス。**
-⚠ **ローカルに入り済みのブランチが4本残っている**
-（`feat/stage4-start` ／ `feat/rescue-nogameover` ／ `docs/character-art` ／ `docs/worldbuilding`）。
-⚠ **`feat/rescue-nogameover` は別の作業場で開いたままなので、勝手に消さないこと。**
+**`main` = `00edfff`。origin と同じ。841テスト全件パス。**
+⚠ **ブランチは `main` だけ。作業ブランチを切らない**（PO 指示 2026-09-15。`CLAUDE.md` に規則）。
+**2026-09-15 に、入り済みの残骸4本と `/tmp` の作業場2つを消した。**
+**何が入ったかは `git log main` だけで分かる状態にしておくこと。**
 **OPEN 9件**（段取りは [issue-grouping.md](inception/plans/issue-grouping.md)。
 **2026-09-15 に16件へ整理し直し、同日 #6 #20 #75 #113 が入って9件になった**）。
 ⚠ **「機能作成」と「バグ」は空になった。**
