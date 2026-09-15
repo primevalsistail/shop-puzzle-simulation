@@ -38,9 +38,10 @@ describe('設定に並ぶもの', () => {
   it('どの区分にも見出しと、1つ以上の中身がある', () => {
     for (const sec of optionSections()) {
       expect(sec.title.length).toBeGreaterThan(0)
-      // ⚠ **中身は行だけではない**（#14 の配布元は押せない字＝`notes`）。
+      // ⚠ **中身は行だけではない**（#14 の音量＝`levels`、配布元の押せない字＝`notes`）。
       //   **空の見出しだけを出さない**ことを縛るのがここ
-      expect(sec.rows.length + (sec.notes?.length ?? 0)).toBeGreaterThan(0)
+      const count = sec.rows.length + (sec.levels?.length ?? 0) + (sec.notes?.length ?? 0)
+      expect(count, sec.title).toBeGreaterThan(0)
     }
   })
 
@@ -88,6 +89,7 @@ describe('設定の面の作り方', () => {
   it('見出しと行を1本に並べてから測る', () => {
     expect(body).toContain("kinds.push('section')")
     expect(body).toContain("kinds.push('row')")
+    expect(body).toContain("kinds.push('level')")
     expect(body).toContain("kinds.push('note')")
     expect(body).toContain('cys[i]')
   })

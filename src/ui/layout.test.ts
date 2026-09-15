@@ -55,6 +55,7 @@ import {
   GAME_TITLE, TITLE_NAME_FONT_PX, TITLE_NAME_Y, TITLE_FACE_CY,
   TITLE_BTN_W, TITLE_BTN_H, TITLE_BTN_FONT_PX,
   TITLE_BTN_NEW_Y, TITLE_BTN_CONTINUE_Y, TITLE_BTN_NEW_LABEL, TITLE_BTN_CONTINUE_LABEL,
+  TITLE_BTN_OPTIONS_Y, TITLE_BTN_OPTIONS_LABEL,
   TRADE_TITLE, TRADE_TABS, TAB_ROW_SUB_FONT_PX,
   UPGRADE_ROW_H, UPGRADE_NAME_X, UPGRADE_SUB_MAX_W,
   UPGRADE_COLS, UPGRADE_HEAD_Y, UPGRADE_HEAD_FONT_PX, UPGRADE_ROWS_TOP,
@@ -86,8 +87,8 @@ import {
   OPTIONS_TOGGLE_W, OPTIONS_TOGGLE_H, OPTIONS_KNOB_R, OPTIONS_LABEL_MAX_W,
   OPTIONS_NOTE_H, OPTIONS_NOTE_FONT_PX, OPTIONS_ROW_PAD,
   OPTIONS_SLIDER_W, OPTIONS_SLIDER_TRACK_H, OPTIONS_SLIDER_KNOB_R,
-  OPTIONS_VALUE_W, OPTIONS_VALUE_FONT_PX, OPTIONS_SLIDER_LABEL_MAX_W,
-  optionsSliderCx, optionsSliderDx, optionsSliderValue, optionsValueCx,
+  OPTIONS_VALUE_W, OPTIONS_VALUE_FONT_PX, OPTIONS_LEVEL_LABEL_MAX_W,
+  optionsSliderCx, optionsSliderDx, optionsSliderValue, optionsValueCx, optionsLevelToggleCx,
   OPTIONS_TITLE, OPTIONS_CLOSE_LABEL,
   optionsLayout, optionsCloseCy, optionsLabelL, optionsSectionL, optionsToggleCx, optionsKnobDx,
   ORDER_BAR_T, ORDER_BAR_L, ORDER_BAR_R, GRID_ORIGIN_Y, CELL_SIZE,
@@ -1832,16 +1833,24 @@ describe('タイトル画面', () => {
   const faceB = TITLE_FACE_CY + 370 / 2
 
   /** ⚠ **顔絵は 252×370 をそのまま出す。**題名にもボタンにも掛からないこと */
-  it('題名・顔絵・ボタン2つが、上から順に重ならない', () => {
+  it('題名・顔絵・ボタン3つが、上から順に重ならない', () => {
     expect(TITLE_NAME_Y + TITLE_NAME_FONT_PX / 2).toBeLessThan(faceT)
     expect(faceB).toBeLessThan(TITLE_BTN_NEW_Y - TITLE_BTN_H / 2)
     expect(TITLE_BTN_NEW_Y + TITLE_BTN_H / 2).toBeLessThan(TITLE_BTN_CONTINUE_Y - TITLE_BTN_H / 2)
-    expect(TITLE_BTN_CONTINUE_Y + TITLE_BTN_H / 2).toBeLessThan(SCREEN_H)
+    expect(TITLE_BTN_CONTINUE_Y + TITLE_BTN_H / 2).toBeLessThan(TITLE_BTN_OPTIONS_Y - TITLE_BTN_H / 2)
+    // ⚠ **いちばん下は画面の端**（3つ目を足したときにここが効いた）
+    expect(TITLE_BTN_OPTIONS_Y + TITLE_BTN_H / 2).toBeLessThan(SCREEN_H)
+  })
+
+  /** ⚠ **3つの間は同じだけ空けること**（1つだけ離れていると別物に見える） */
+  it('ボタンの間は同じ', () => {
+    expect(TITLE_BTN_CONTINUE_Y - TITLE_BTN_NEW_Y)
+      .toBe(TITLE_BTN_OPTIONS_Y - TITLE_BTN_CONTINUE_Y)
   })
 
   it('題名とボタンの字が、それぞれの幅に収まる', () => {
     expect(estTextWidth(GAME_TITLE, TITLE_NAME_FONT_PX)).toBeLessThan(SCREEN_W - 120)
-    for (const label of [TITLE_BTN_NEW_LABEL, TITLE_BTN_CONTINUE_LABEL]) {
+    for (const label of [TITLE_BTN_NEW_LABEL, TITLE_BTN_CONTINUE_LABEL, TITLE_BTN_OPTIONS_LABEL]) {
       expect(estTextWidth(label, TITLE_BTN_FONT_PX), label).toBeLessThanOrEqual(TITLE_BTN_W - 24)
     }
   })
@@ -2026,7 +2035,7 @@ describe('オプションの面', () => {
     ...sec.rows.map(() => 'row' as const),
     // ⚠ **描く側と同じ並び**（行 → 幅のある値 → 押せない字）。
     //   **落とすと、面の高さを実際より低く測る**
-    ...(sec.sliders ?? []).map(() => 'slider' as const),
+    ...(sec.levels ?? []).map(() => 'level' as const),
     ...(sec.notes ?? []).map(() => 'note' as const),
   ])
   const labels = sections.flatMap(sec => sec.rows.map(r => r.label))
@@ -2110,21 +2119,24 @@ describe('オプションの面', () => {
    * **0〜100 のつまみ**（#14 の音量。PO 指示 2026-09-15）。
    * ⚠ **溝・数字・字が、行の中で重ならないこと**
    */
-  it('音量のつまみは行に収まる', () => {
-    const sliders = sections.flatMap(sec => sec.sliders ?? [])
-    expect(sliders.length).toBeGreaterThan(0)
+  it('音量の行に、入／切・溝・数字が収まる', () => {
+    const levels = sections.flatMap(sec => sec.levels ?? [])
+    expect(levels.length).toBeGreaterThan(0)
     // 溝の右に数字、数字の右は行の内側
     expect(optionsValueCx(cx) + OPTIONS_VALUE_W / 2)
       .toBeLessThanOrEqual(cx + OPTIONS_ROW_W / 2 - OPTIONS_ROW_PAD)
     expect(optionsSliderCx(cx) + OPTIONS_SLIDER_W / 2)
       .toBeLessThan(optionsValueCx(cx) - OPTIONS_VALUE_W / 2)
-    // 字は溝にぶつからない
-    for (const slider of sliders) {
-      expect(estTextWidth(slider.label, OPTIONS_ROW_FONT_PX), slider.label)
-        .toBeLessThanOrEqual(OPTIONS_SLIDER_LABEL_MAX_W)
-    }
-    expect(optionsLabelL(cx) + OPTIONS_SLIDER_LABEL_MAX_W)
+    // ⚠ **入／切のつまみは溝の左**（PO 指示 2026-09-15「1か所にまとめたい」）
+    expect(optionsLevelToggleCx(cx) + OPTIONS_TOGGLE_W / 2)
       .toBeLessThanOrEqual(optionsSliderCx(cx) - OPTIONS_SLIDER_W / 2)
+    // 字は入／切にぶつからない
+    for (const level of levels) {
+      expect(estTextWidth(level.label, OPTIONS_ROW_FONT_PX), level.label)
+        .toBeLessThanOrEqual(OPTIONS_LEVEL_LABEL_MAX_W)
+    }
+    expect(optionsLabelL(cx) + OPTIONS_LEVEL_LABEL_MAX_W)
+      .toBeLessThanOrEqual(optionsLevelToggleCx(cx) - OPTIONS_TOGGLE_W / 2)
     // 丸も数字も行の高さに収まる
     expect(OPTIONS_SLIDER_KNOB_R * 2).toBeLessThanOrEqual(OPTIONS_ROW_H)
     expect(OPTIONS_SLIDER_TRACK_H).toBeLessThan(OPTIONS_SLIDER_KNOB_R * 2)
@@ -2160,8 +2172,8 @@ describe('オプションの面', () => {
       .toBe(OPTIONS_SECTION_H + OPTIONS_GAP)
     expect(optionsLayout([...kinds, 'note']).panelH - panelH)
       .toBe(OPTIONS_NOTE_H + OPTIONS_GAP)
-    // ⚠ **幅のある値の行は、行と同じ高さ**（並ぶと段がずれて見える）
-    expect(optionsLayout([...kinds, 'slider']).panelH)
+    // ⚠ **入／切と値が1行のものも、行と同じ高さ**（並ぶと段がずれて見える）
+    expect(optionsLayout([...kinds, 'level']).panelH)
       .toBe(optionsLayout([...kinds, 'row']).panelH)
   })
 })

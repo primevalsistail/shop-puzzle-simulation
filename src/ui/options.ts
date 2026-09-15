@@ -16,13 +16,17 @@ export type OptionSwitch = {
 }
 
 /**
- * **幅のある値を持つ1項目**（#14 の音量。PO 指示 2026-09-15「**0〜100 で音量調節したい**」）。
+ * **入／切と、幅のある値を1行に持つ項目**（#14 の音量。PO 指示 2026-09-15）。
  *
  * ⚠ **`OptionSwitch` に旗を足して兼用しない**（`options.ts` の元からの決まり）。
- *   **入／切とは部品が違う** —— 溝の上をつまみが動き、**数字が右に出る。**
+ *   **部品が違う** —— **入／切のつまみ ＋ 溝 ＋ 右の数字**が1行に並ぶ。
+ * ⚠ **入／切と値を別の行に分けない**（PO 指示 2026-09-15「**1か所にまとめたい**」）。
+ *   **同じものの設定なので、2行あると別物に見える。**
  */
-export type OptionSlider = {
+export type OptionLevel = {
   readonly label: string
+  readonly isOn: () => boolean
+  readonly setOn: (on: boolean) => void
   /** **0〜100。**⚠ **値は持たない**（`OptionSwitch` と同じ理由で、毎回読む） */
   readonly value: () => number
   readonly set: (v: number) => void
@@ -32,8 +36,8 @@ export type OptionSlider = {
 export type OptionSection = {
   readonly title: string
   readonly rows: readonly OptionSwitch[]
-  /** **幅のある値の行**（音量）。⚠ **入／切の行の下に並ぶ** */
-  readonly sliders?: readonly OptionSlider[]
+  /** **入／切と値が1行になっているもの**（音量）。⚠ **行のあとに並ぶ** */
+  readonly levels?: readonly OptionLevel[]
   /**
    * **切り替えるものではない、ただの字**（#14 の配布元）。**行の下に並ぶ。**
    *
@@ -65,13 +69,16 @@ export function optionSections(): readonly OptionSection[] {
     {
       // 音楽（#14）。⚠ **音量つまみは作らない**（PO 判断 2026-09-15。入／切の1行だけ）
       title: '音',
-      rows: [
-        { label: '音楽を鳴らす', isOn: isMusicOn, set: setMusicOn },
-      ],
-      // ⚠ **入／切と両方置く**（PO 指示 2026-09-15）。**0 まで下げるのと、切るのは別** ——
-      //   **切って入れ直したときに前の音量へ戻る**のは、行が別にあるからできている
-      sliders: [
-        { label: '音量', value: getMusicVolume, set: setMusicVolume },
+      rows: [],
+      // ⚠ **入／切と音量は1行**（PO 指示 2026-09-15「1か所にまとめたい」）。
+      //   ⚠ **入／切は残す。****0 まで下げるのと、切るのは別** ——
+      //   **切って入れ直したときに前の音量へ戻る**のは、入／切を別に持っているからできている
+      levels: [
+        {
+          label: '音量',
+          isOn: isMusicOn, setOn: setMusicOn,
+          value: getMusicVolume, set: setMusicVolume,
+        },
       ],
     },
     {

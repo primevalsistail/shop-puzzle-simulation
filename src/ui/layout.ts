@@ -1450,7 +1450,10 @@ export const TUTORIAL_PANEL_H = 420
 
 // ─── タイトル画面（`TitleScene`） ──────────────────────────────
 /**
- * 遊び始める前の1枚（#114）。**題名・はじめる・つづきから の3つだけ。**
+ * 遊び始める前の1枚（#114）。**題名・はじめる・つづきから・オプション。**
+ *
+ * ⚠ **オプションはタイトルからも開く**（PO 指示 2026-09-15）。
+ *   **遊び始める前に音を切れること**が要る（#14 で音が入ったので、押す前に決めたい人が居る）。
  *
  * ⚠ **題名の正はここ1つ。**`index.html` の `<title>` も同じ文字にすること
  *   （あちらは HTML なので写しになる。**変えるときは両方**）。
@@ -1460,14 +1463,20 @@ export const TITLE_NAME_FONT_PX = 90
 export const TITLE_NAME_Y = 246
 /** 題名の下に置く主人公の顔絵。**252×370 をそのまま出す**ので、拡縮はしない */
 export const TITLE_FACE_CY = 585
-/** ボタン2つ。⚠ **顔絵の下端（585 + 185 = 770）より下に置くこと** */
+/**
+ * ボタン3つ。⚠ **顔絵の下端（585 + 185 = 770）より下に置くこと。**
+ * ⚠ **3つ目（オプション）を足したぶん、上へ詰めた**（2026-09-15。**下は画面の端**）。
+ */
 export const TITLE_BTN_W = 372
 export const TITLE_BTN_H = 72
 export const TITLE_BTN_FONT_PX = 33
-export const TITLE_BTN_NEW_Y = 846
-export const TITLE_BTN_CONTINUE_Y = 948
+export const TITLE_BTN_NEW_Y = 816
+export const TITLE_BTN_CONTINUE_Y = 912
+export const TITLE_BTN_OPTIONS_Y = 1008
 export const TITLE_BTN_NEW_LABEL = 'はじめる'
 export const TITLE_BTN_CONTINUE_LABEL = 'つづきから'
+/** ⚠ **ゲーム画面の ⚙️ と同じものが開く**（`OptionsMenu`）。名前も揃える */
+export const TITLE_BTN_OPTIONS_LABEL = 'オプション'
 
 // ─── はじまりの場面（`OpeningScene`） ──────────────────────────
 /**
@@ -1559,8 +1568,8 @@ export const OPTIONS_TOGGLE_H = 36
 export const OPTIONS_KNOB_R = 13.5
 
 /**
- * **0〜100 のつまみ**（#14 の音量。PO 指示 2026-09-15）。
- * ⚠ **入／切のつまみとは別物。**溝が長く、**右に数字が出る。**
+ * **0〜100 の溝**（#14 の音量。PO 指示 2026-09-15）。
+ * ⚠ **入／切のつまみと同じ行に並ぶ** —— **左から 字・入／切・溝・数字。**
  */
 export const OPTIONS_SLIDER_W = 240
 /** 溝の太さ。⚠ **細い。**掴むのは溝ではなく丸 */
@@ -1584,9 +1593,9 @@ export function optionsKnobDx(on: boolean): number {
  * 面に積むものの種類。⚠ **高さが違うので、数だけでは位置が出ない**
  *
  * - `note` は**押せない1行**（配布元の表記。#14）。**効果音（#124）もここに足す**
- * - `slider` は**幅のある値の行**（音量。#14）。⚠ **高さは行と同じ**
+ * - `level` は**入／切と幅のある値が1行になったもの**（音量。#14）。⚠ **高さは行と同じ**
  */
-export type OptionsItemKind = 'section' | 'row' | 'note' | 'slider'
+export type OptionsItemKind = 'section' | 'row' | 'note' | 'level'
 
 /**
  * 面の高さと、**中身それぞれの中心 y**（面の上端からの距離）を出す。
@@ -1602,7 +1611,7 @@ export function optionsLayout(kinds: readonly OptionsItemKind[]): {
   kinds.forEach((kind, i) => {
     const h = kind === 'section' ? OPTIONS_SECTION_H
       : kind === 'note' ? OPTIONS_NOTE_H
-      : OPTIONS_ROW_H   // 'row' と 'slider'（⚠ **同じ高さ。**並ぶと段がずれて見える）
+      : OPTIONS_ROW_H   // 'row' と 'level'（⚠ **同じ高さ。**並ぶと段がずれて見える）
     if (i > 0) y += OPTIONS_GAP
     cys.push(y + h / 2)
     y += h
@@ -1644,6 +1653,14 @@ export function optionsSliderCx(cx: number): number {
   return optionsValueCx(cx) - OPTIONS_VALUE_W / 2 - 12 - OPTIONS_SLIDER_W / 2
 }
 
+/**
+ * **入／切と値が1行のときの、入／切のつまみの中心 x。**⚠ **溝の左**
+ * （`optionsToggleCx` は行の右端に寄せるので、**こちらは別に要る**）。
+ */
+export function optionsLevelToggleCx(cx: number): number {
+  return optionsSliderCx(cx) - OPTIONS_SLIDER_W / 2 - 12 - OPTIONS_TOGGLE_W / 2
+}
+
 /** 溝の中心から見た、丸の x。**0 が左端、100 が右端** */
 export function optionsSliderDx(value: number): number {
   const t = Math.min(1, Math.max(0, value / 100))
@@ -1659,9 +1676,10 @@ export function optionsSliderValue(x: number, cx: number): number {
   return Math.round(Math.min(1, Math.max(0, t)) * 100)
 }
 
-/** 幅のある値の行で、字が使える幅（⚠ **溝にぶつからない上限**） */
-export const OPTIONS_SLIDER_LABEL_MAX_W =
-  OPTIONS_ROW_W - OPTIONS_ROW_PAD * 2 - OPTIONS_SLIDER_W - OPTIONS_VALUE_W - 24
+/** 入／切と値が1行のときに、字が使える幅（⚠ **入／切のつまみにぶつからない上限**） */
+export const OPTIONS_LEVEL_LABEL_MAX_W =
+  OPTIONS_ROW_W - OPTIONS_ROW_PAD * 2
+  - OPTIONS_TOGGLE_W - OPTIONS_SLIDER_W - OPTIONS_VALUE_W - 36
 
 
 // ─── 幕（目標達成） ───────────────────────────────────────────

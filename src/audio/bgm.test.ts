@@ -4,7 +4,6 @@ import playerSource from './BgmPlayer.ts?raw'
 import titleSource from '../scenes/TitleScene.ts?raw'
 import openingSource from '../scenes/OpeningScene.ts?raw'
 import gameSceneSource from '../scenes/GameScene.ts?raw'
-import optionsSource from '../ui/options.ts?raw'
 import { BGM_KEYS, bandOf, bgmFor, bgmPaths, AUDIO_CREDITS } from './bgm.js'
 import { ROUTE } from '../taxonomy/islands.js'
 import {
@@ -27,7 +26,6 @@ const strip = (src: string) => src
 
 const player = strip(playerSource)
 const scene = strip(gameSceneSource)
-const registry = strip(optionsSource)
 
 describe('時間帯で曲が決まる（受入条件1）', () => {
   it('6:00〜10:00 は朝', () => {
@@ -258,14 +256,22 @@ describe('場面との配線（受入条件8）', () => {
 })
 
 describe('設定への出しかた（受入条件6・7）', () => {
-  /** ⚠ **入／切と音量の両方**（PO 指示 2026-09-15「0〜100 で音量調節したい」） */
-  it('音楽は入／切と、0〜100 の音量', () => {
-    expect(registry).toContain("label: '音楽を鳴らす', isOn: isMusicOn, set: setMusicOn")
-    const sound = optionSectionsForCredits().find(sec => sec.sliders?.length)
-    expect(sound?.sliders?.map(s => s.label)).toEqual(['音量'])
-    const volume = sound!.sliders![0]
+  /**
+   * ⚠ **入／切と音量は1行**（PO 指示 2026-09-15「**1か所にまとめたい**」）。
+   *   **別の行に分けない** —— 同じものの設定なので、2行あると別物に見える。
+   */
+  it('音楽は「音量」1行（入／切と 0〜100 が同じ行）', () => {
+    const sound = optionSectionsForCredits().find(sec => sec.levels?.length)
+    expect(sound?.levels?.map(l => l.label)).toEqual(['音量'])
+    expect(sound?.rows).toEqual([])
+    const volume = sound!.levels![0]
     volume.set(64)
     expect(volume.value()).toBe(64)
+    volume.setOn(false)
+    expect(volume.isOn()).toBe(false)
+    // ⚠ **切っても値は残る**（入れ直したら前の音量へ戻る）
+    expect(volume.value()).toBe(64)
+    volume.setOn(true)
   })
 
   /** ⚠ **鳴っているものへその場で効くこと**（面を閉じるまで変わらない、にしない） */
@@ -273,6 +279,20 @@ describe('設定への出しかた（受入条件6・7）', () => {
     expect(player).toContain('private applyVolume()')
     expect(player).toContain('this.current.volume = gain')
     expect(player).toContain('f.to = gain')
+  })
+
+  /**
+   * ⚠ **タイトルからも設定を開く**（PO 指示 2026-09-15「タイトルにオプションを表示したい」）。
+   *   **別の面を作らない** —— ⚙️ と同じ `OptionsMenu` を開く。
+   *   でないと**音量の行が2箇所にでき、片方だけ古くなる。**
+   */
+  it('タイトル画面から、⚙️ と同じ設定を開く', () => {
+    const title = strip(titleSource)
+    expect(title).toContain("from '../ui/OptionsMenu.js'")
+    expect(title).toContain('new OptionsMenu(this)')
+    expect(title).toContain('this.optionsMenu.open()')
+    // ⚠ **出す字はボタン1つぶんだけ**（配布元はタイトルに出さない。下のテスト）
+    expect(title).toContain('TITLE_BTN_OPTIONS_LABEL')
   })
 
   /** ⚠ **配布元は設定の面のいちばん下**（`bgm.md` §4。タイトル画面には出さない） */

@@ -1,6 +1,6 @@
 import type Phaser from 'phaser'
 import { optionSections } from './options.js'
-import type { OptionSlider, OptionSwitch } from './options.js'
+import type { OptionLevel, OptionSwitch } from './options.js'
 import {
   CONFIRM_BTN_W, CONFIRM_BTN_H, CONFIRM_BTN_FONT_PX,
   OPTIONS_MW, OPTIONS_ROW_W, OPTIONS_ROW_H, OPTIONS_SECTION_H,
@@ -8,7 +8,7 @@ import {
   OPTIONS_TOGGLE_W, OPTIONS_TOGGLE_H, OPTIONS_KNOB_R,
   OPTIONS_SLIDER_W, OPTIONS_SLIDER_TRACK_H, OPTIONS_SLIDER_KNOB_R,
   OPTIONS_VALUE_FONT_PX,
-  optionsSliderCx, optionsSliderDx, optionsSliderValue, optionsValueCx,
+  optionsSliderCx, optionsSliderDx, optionsSliderValue, optionsValueCx, optionsLevelToggleCx,
   OPTIONS_TITLE, OPTIONS_CLOSE_LABEL,
   optionsLayout, optionsCloseCy, optionsLabelL, optionsSectionL, optionsToggleCx, optionsKnobDx,
 } from './layout.js'
@@ -89,7 +89,7 @@ export class OptionsMenu {
     const kinds: OptionsItemKind[] = []
     const draw: ({ kind: 'section'; title: string }
       | { kind: 'row'; row: OptionSwitch }
-      | { kind: 'slider'; slider: OptionSlider }
+      | { kind: 'level'; level: OptionLevel }
       | { kind: 'note'; text: string })[] = []
     for (const section of sections) {
       kinds.push('section')
@@ -98,9 +98,9 @@ export class OptionsMenu {
         kinds.push('row')
         draw.push({ kind: 'row', row })
       }
-      for (const slider of section.sliders ?? []) {
-        kinds.push('slider')
-        draw.push({ kind: 'slider', slider })
+      for (const level of section.levels ?? []) {
+        kinds.push('level')
+        draw.push({ kind: 'level', level })
       }
       for (const note of section.notes ?? []) {
         kinds.push('note')
@@ -142,8 +142,8 @@ export class OptionsMenu {
         return
       }
 
-      if (item.kind === 'slider') {
-        this.slider(cx, y, item.slider)
+      if (item.kind === 'level') {
+        this.level(cx, y, item.level)
         return
       }
 
@@ -179,20 +179,21 @@ export class OptionsMenu {
   }
 
   /**
-   * **0〜100 のつまみ**（#14 の音量。PO 指示 2026-09-15）。
+   * **入／切と 0〜100 が1行になったもの**（#14 の音量。PO 指示 2026-09-15「**1か所にまとめたい**」）。
    *
-   * ⚠ **面ごと作り直さない**（入／切とはここが違う）。**掴んで動かしている間ずっと変わる**ので、
-   *   **作り直すと掴んでいたものが消える。**丸と数字だけを動かす。
+   * ⚠ **溝は面ごと作り直さない。****掴んで動かしている間ずっと変わる**ので、
+   *   **作り直すと掴んでいたものが消える。**丸と数字だけを動かす
+   *   （**入／切を押したときだけは作り直す** —— 一度きりの操作なので途中が無い）。
    * ⚠ **掴む面は溝より広い**（`OPTIONS_ROW_H`）。**細い溝は掴みづらい。**
    * ⚠ **指が溝の外へ出ても離すまで付いてくる**（`optionsSliderValue` が 0〜100 に収める）。
    */
-  private slider(cx: number, y: number, slider: OptionSlider): void {
+  private level(cx: number, y: number, level: OptionLevel): void {
     // ⚠ **下地と字を先に作る。**あとから作ると**後のものが上に出る**ので、
     //   **溝も丸も数字も、行の下地に隠れる**
     this.push(
       this.scene.add.rectangle(cx, y, OPTIONS_ROW_W, OPTIONS_ROW_H, ROW_LOCAL)
         .setStrokeStyle(1.5, LINE_STRONG).setDepth(DEPTH),
-      this.scene.add.text(optionsLabelL(cx), y, slider.label, {
+      this.scene.add.text(optionsLabelL(cx), y, level.label, {
         fontSize: `${OPTIONS_ROW_FONT_PX}px`, color: css(TEXT_BODY),
       }).setOrigin(0, 0.5).setDepth(DEPTH),
     )
@@ -214,7 +215,8 @@ export class OptionsMenu {
         OPTIONS_SLIDER_W, OPTIONS_SLIDER_TRACK_H, OPTIONS_SLIDER_TRACK_H / 2)
       // ⚠ **通ってきたぶんを塗る。**塗らないと、いまどのくらいかが丸の位置だけになる
       const filled = OPTIONS_SLIDER_W * Math.min(1, Math.max(0, v / 100))
-      if (filled > 0) {
+      // ⚠ **切ってあるときは塗らない。**塗ると、**切ったのに効いているように見える**
+      if (filled > 0 && level.isOn()) {
         track.fillStyle(FILTER_ON_BG, 1)
         track.fillRoundedRect(left, y - OPTIONS_SLIDER_TRACK_H / 2,
           filled, OPTIONS_SLIDER_TRACK_H, OPTIONS_SLIDER_TRACK_H / 2)
@@ -222,7 +224,14 @@ export class OptionsMenu {
       knob.setPosition(sx + optionsSliderDx(v), y)
       value.setText(String(v))
     }
-    redraw(slider.value())
+    redraw(level.value())
+
+    // 入／切。⚠ **押したら面ごと作り直す**（塗りも色も、入／切そのもの）
+    const on = level.isOn()
+    this.toggle(optionsLevelToggleCx(cx), y, on, () => {
+      level.setOn(!on)
+      this.build()
+    })
 
     const hit = this.scene.add
       .rectangle(sx, y, OPTIONS_SLIDER_W + OPTIONS_SLIDER_KNOB_R * 2, OPTIONS_ROW_H, BG_WINDOW, 0)
@@ -230,9 +239,9 @@ export class OptionsMenu {
     let holding = false
     const moveTo = (pointerX: number): void => {
       const v = optionsSliderValue(pointerX, cx)
-      slider.set(v)
+      level.set(v)
       // ⚠ **書いた値ではなく、覚えられた値を描く**（範囲の外は向こうで丸められる）
-      redraw(slider.value())
+      redraw(level.value())
     }
     hit.on('pointerdown', (p: Phaser.Input.Pointer) => { holding = true; moveTo(p.x) })
     hit.on('pointermove', (p: Phaser.Input.Pointer) => { if (holding) moveTo(p.x) })

@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 import { hasAnySave, readSlotMeta } from '../components/progress/GameProgress.js'
+import { OptionsMenu } from '../ui/OptionsMenu.js'
 import { SaveLoadMenu } from '../ui/SaveLoadMenu.js'
 import { bgm } from '../audio/BgmPlayer.js'
 import {
@@ -7,6 +8,7 @@ import {
   GAME_TITLE, TITLE_NAME_FONT_PX, TITLE_NAME_Y, TITLE_FACE_CY,
   TITLE_BTN_W, TITLE_BTN_H, TITLE_BTN_FONT_PX,
   TITLE_BTN_NEW_Y, TITLE_BTN_CONTINUE_Y, TITLE_BTN_NEW_LABEL, TITLE_BTN_CONTINUE_LABEL,
+  TITLE_BTN_OPTIONS_Y, TITLE_BTN_OPTIONS_LABEL,
 } from '../ui/layout.js'
 import {
   BG_SCREEN, BTN_ADVANCE, BTN_ADVANCE_HOVER, BTN_BACK, BTN_BACK_HOVER, BTN_BACK_OFF,
@@ -16,6 +18,8 @@ import {
 /**
  * タイトル画面（#114）。**題名・はじめる・つづきから の3つだけ。**
  *
+ * ⚠ **オプションはここからも開く**（PO 指示 2026-09-15）。**ゲーム画面の ⚙️ と同じ面。**
+ *   **遊び始める前に音を切れること**が要る（#14）。
  * ⚠ **「つづきから」は、記録が1つも無ければ押せない。**押せてしまうと、
  *   **空の枠が3つ並んだロードの画面が出る**だけで、何も起きない。
  * ⚠ **「つづきから」の枠3つは、この画面の上に重ねる**（#123・PO 判断 2026-09-15）。
@@ -24,6 +28,7 @@ import {
  */
 export class TitleScene extends Phaser.Scene {
   private loadMenu!: SaveLoadMenu
+  private optionsMenu!: OptionsMenu
 
   constructor() {
     super({ key: 'TitleScene' })
@@ -62,12 +67,19 @@ export class TitleScene extends Phaser.Scene {
       (slot) => this.scene.start('GameScene', { loadSlot: slot }),
     )
 
+    // ⚠ **ゲーム画面と同じ `OptionsMenu`。**タイトル用に作り直さないこと
+    //   （**中身は `options.ts` が持っている**ので、2つあると片方だけ古くなる）
+    this.optionsMenu = new OptionsMenu(this)
+
     const canContinue = hasAnySave()
     this.makeButton(TITLE_BTN_CONTINUE_Y, TITLE_BTN_CONTINUE_LABEL,
       canContinue ? BTN_BACK : BTN_BACK_OFF, BTN_BACK_HOVER,
       // ⚠ **「キャンセル」は枠の面を閉じるだけ。**閉じればこの画面が残る
       //   ＝ タイトルへ戻る（PO 判断 2026-09-15 Q3）
       canContinue ? () => this.loadMenu.openLoad() : null)
+
+    this.makeButton(TITLE_BTN_OPTIONS_Y, TITLE_BTN_OPTIONS_LABEL, BTN_BACK, BTN_BACK_HOVER,
+      () => this.optionsMenu.open())
   }
 
   private makeButton(
