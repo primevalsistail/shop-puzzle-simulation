@@ -156,7 +156,7 @@ describe('GameProgress', () => {
   })
 
   /** ⚠ 積まないと、ロードのたびに覚えた型が消える（#27） */
-  it('マイセットがセーブに載り、読み直すと戻る', () => {
+  it('型がセーブに載り、読み直すと戻る', () => {
     const store: Record<string, string> = {}
     vi.stubGlobal('localStorage', {
       getItem: (k: string) => store[k] ?? null,

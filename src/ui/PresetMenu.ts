@@ -55,7 +55,7 @@ const BTN_W = 114
 const BTN_GAP = 10.5
 
 /**
- * マイセット（#27）。**ダイアログではなく「行く場所」**（#58）。
+ * 型（#27）。**ダイアログではなく「行く場所」**（#58）。
  *
  * ⚠ **覚えるのは「どこに何をどの向きで出しているか」だけ。**持ち物も在庫も動かさない。
  *   棚は「どこに出しているか」を表すだけで、**並べても在庫は減らない**（段2.5）。
@@ -117,7 +117,7 @@ export class PresetMenu {
   open(): void {
     if (this.isOpen) return
     this.isOpen = true
-    this.frame.show('マイセット', () => this.close())
+    this.frame.show('型', () => this.close())
     // ⚠ **入力欄はここで1度だけ置く。**`build()` から置くと打鍵ごとに作り直される
     this.placeNameInputs()
     this.build()
@@ -180,7 +180,7 @@ export class PresetMenu {
       el.maxLength = PRESET_NAME_MAX
       // ⚠ **`tryAddDom` は左上基点**（`domInput.ts` の注記）
       const dom = tryAddDom(
-        this.scene, box.textL, box.nameCy - PRESET_NAME_INPUT_H / 2, el, 'マイセットの名前',
+        this.scene, box.textL, box.nameCy - PRESET_NAME_INPUT_H / 2, el, '型の名前',
       )
       if (!dom) continue
       this.nameDoms[i] = dom.setDepth(CONTENT_DEPTH)
@@ -300,7 +300,7 @@ export class PresetMenu {
    */
   private askSave(index: number): void {
     const preset = this.presets.get(index)
-    if (!preset || !confirmNeeded('マイセットの上書き')) {
+    if (!preset || !confirmNeeded('型の上書き')) {
       this.onSave(index)
       return
     }
@@ -317,7 +317,7 @@ export class PresetMenu {
   private askDelete(index: number): void {
     const preset = this.presets.get(index)
     if (!preset) return
-    if (!confirmNeeded('マイセットの削除')) {
+    if (!confirmNeeded('型の削除')) {
       this.onDelete(index)
       return
     }

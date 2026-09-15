@@ -58,7 +58,7 @@ export class GameProgress {
     private timeManager: TimeManager,
     private world: WorldState,
     private upgrades: Upgrades,
-    /** マイセット（#27）。⚠ 積まないとロードで覚えた型が消える */
+    /** 型（#27）。⚠ 積まないとロードで覚えた型が消える */
     private presets: ShelfPresets,
     /** 納品のミッション（#28 → #98）。⚠ **必須。**任意にすると渡し忘れてもコンパイルが通り、ロードで消える */
     private orders: DeliveryOrders,

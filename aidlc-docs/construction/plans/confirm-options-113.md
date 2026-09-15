@@ -10,7 +10,7 @@
 **受け口**: [src/ui/ConfirmDialog.ts:28-54](../../../src/ui/ConfirmDialog.ts#L28-L54)
 
 ```ts
-export type ConfirmAction = '廃棄' | 'マイセットの上書き' | 'マイセットの削除' | '営業時間を削る加工'
+export type ConfirmAction = '廃棄' | '型の上書き' | '型の削除' | '営業時間を削る加工'
 const CONFIRM_ON: Record<ConfirmAction, boolean> = { … }   // 既定は全部 true
 export function confirmNeeded(action: ConfirmAction): boolean { return CONFIRM_ON[action] }
 ```
@@ -20,8 +20,8 @@ export function confirmNeeded(action: ConfirmAction): boolean { return CONFIRM_O
 | 行為 | 場所 |
 |---|---|
 | 廃棄 | [DeliveryTab.ts:216](../../../src/ui/DeliveryTab.ts#L216) |
-| マイセットの上書き | [PresetMenu.ts:303](../../../src/ui/PresetMenu.ts#L303) |
-| マイセットの削除 | [PresetMenu.ts:320](../../../src/ui/PresetMenu.ts#L320) |
+| 型の上書き | [PresetMenu.ts:303](../../../src/ui/PresetMenu.ts#L303) |
+| 型の削除 | [PresetMenu.ts:320](../../../src/ui/PresetMenu.ts#L320) |
 | 営業時間を削る加工 | [CraftMenu.ts:460](../../../src/ui/CraftMenu.ts#L460) |
 
 **開き口も既にある** —— 上段の **⚙️** ボタン（[GameScene.ts:657](../../../src/scenes/GameScene.ts#L657)）。
@@ -75,7 +75,7 @@ export function confirmNeeded(action: ConfirmAction): boolean { return CONFIRM_O
 ## ⚠ 踏むと痛いところ
 
 - **`<input>` は HTML なので、深さを上げても暗幕の下に回らない。**
-  設定を開いている間、**工房の検索欄と回数欄・マイセットの名前欄は隠す**
+  設定を開いている間、**工房の検索欄と回数欄・型の名前欄は隠す**
   （`CraftMenu` が `ConfirmDialog` を開くときに同じことをしている。
   [CraftMenu.ts:470-480](../../../src/ui/CraftMenu.ts#L470-L480) の `openConfirm`）
 - **`aidlc-docs/` を `git add aidlc-docs/` でまとめて足さない。**並行セッションがいる。名指しで足す

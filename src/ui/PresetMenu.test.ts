@@ -177,8 +177,8 @@ describe('型の上書きと削除は、確認を通す（#99）', () => {
 
   /** ⚠ **確認を出すかの判定は `confirmNeeded()` だけ**（#113 が ON/OFF を差し込む受け口） */
   it('確認の要否は confirmNeeded() で決める', () => {
-    expect(methodBody('private askSave(')).toContain("confirmNeeded('マイセットの上書き')")
-    expect(methodBody('private askDelete(')).toContain("confirmNeeded('マイセットの削除')")
+    expect(methodBody('private askSave(')).toContain("confirmNeeded('型の上書き')")
+    expect(methodBody('private askDelete(')).toContain("confirmNeeded('型の削除')")
   })
 
   /**

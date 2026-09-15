@@ -128,7 +128,7 @@ export class GameScene extends Phaser.Scene {
    *   載せると「引き直せる状態」を増やすだけになる（`ensureDay` の注記）。
    */
   private storyEvents = new StoryEventScheduler()
-  /** マイセット（#27） */
+  /** 型（#27） */
   private shelfPresets = new ShelfPresets()
 
   private floorRenderer!: FloorRenderer
@@ -142,7 +142,7 @@ export class GameScene extends Phaser.Scene {
    *
    * ⚠ **エンディングの幕は閉じられる**（#97）。**閉じるときに `false` へ戻すこと** ——
    *   戻さないと、**以降ずっと `<input>` が全部隠れたまま**になる
-   *   （仕入れの個数・工房の回数・一覧の検索・マイセットの名前が打てない）。
+   *   （仕入れの個数・工房の回数・一覧の検索・型の名前が打てない）。
    * ⚠ **ロードでも戻す**（#97 受入条件5）。**幕を閉じずにロードすると隠れたままになる。**
    * ⚠ **戻らない経路はもう無い**（2026-09-15）。**閉じる口の無い GAME OVER の幕を外した**ので、
    *   **いま立つのはエンディングの幕だけ**で、閉じれば必ず戻る。
@@ -577,7 +577,7 @@ export class GameScene extends Phaser.Scene {
    *
    * ⚠ **`isShelfBlocked()` と別物。**あちらは**時間と配置を止める**判定で、
    *   **行った先（`PlaceFrame`）も入る。**こちらは `<input>` を隠す判定なので、
-   *   **行った先とマイセットは入れない** —— **欄があるのがその2つだから。**
+   *   **行った先と型は入れない** —— **欄があるのがその2つだから。**
    * ⚠ **depth 100 より上に画面を足したら、ここに足すこと**
    *   （いまは できごと120 ／ セーブ150 ／ 設定150 ／ 幕200 ／ 案内500）。
    */
@@ -663,7 +663,7 @@ export class GameScene extends Phaser.Scene {
     const iconDefs: { emoji: string; tip: string; action: () => void }[] = [
       { emoji: '💾', tip: 'セーブ',    action: () => this.doSave() },
       { emoji: '📂', tip: 'ロード',    action: () => this.doLoad() },
-      { emoji: '🗂', tip: 'マイセット', action: () => this.openPresetMenu() },
+      { emoji: '🗂', tip: '型', action: () => this.openPresetMenu() },
       { emoji: '⚙️', tip: 'オプション', action: () => this.openOptionsMenu() },
       { emoji: '❓', tip: 'ヘルプ',    action: () => this.tutorial.show(() => this.updateStatus()) },
     ]
@@ -1412,7 +1412,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * 設定を開く（#113）。⚠ **先に時間を止める**（`マイセット` と同じ） ——
+   * 設定を開く（#113）。⚠ **先に時間を止める**（`型` と同じ） ——
    * **開いている間は `isShelfBlocked()` が「進める」を止めるだけ**で、
    * **走っている時計は止まらない。**
    */
@@ -1435,7 +1435,7 @@ export class GameScene extends Phaser.Scene {
     this.shelfPresets.save(index, slots, this.world.getIsland())
     this.presetMenu.refresh()
     this.updateStatus(
-      slots.length === 0 ? '「全部下ろす」をマイセットに覚えた' : `いまの${slots.length}区画をマイセットに覚えた`,
+      slots.length === 0 ? '「全部下ろす」を型に保存した' : `いまの${slots.length}区画を型に保存した`,
     )
   }
 
@@ -1444,7 +1444,7 @@ export class GameScene extends Phaser.Scene {
     if (!this.shelfPresets.get(index)) return
     this.shelfPresets.clear(index)
     this.presetMenu.refresh()
-    this.updateStatus('マイセットを1つ消した')
+    this.updateStatus('型を1つ削除した')
   }
 
   /**
@@ -1475,8 +1475,8 @@ export class GameScene extends Phaser.Scene {
       dropped === 0
         // ⚠ **ボタンの字と同じ語にする**（#75）。ボタンが `適用` でログが `呼び出した` だと、
         //   **押したものと返ってきたものが別に見える**
-        ? `マイセットを適用した（${placed}区画）`
-        : `マイセットを適用した（${placed}区画。${dropped}区画は盤面に入らず外した）`,
+        ? `型を適用した（${placed}区画）`
+        : `型を適用した（${placed}区画。${dropped}区画は盤面に入らず外した）`,
     )
   }
 

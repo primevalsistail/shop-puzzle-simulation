@@ -69,7 +69,7 @@ export interface SaveData {
   everHeld?: string[]
   floor: DisplaySlot[]
   /**
-   * マイセット（#27）。⚠ **無いセーブを読めるようにしておくこと**
+   * 型（#27）。⚠ **無いセーブを読めるようにしておくこと**
    * （型が入る前のセーブがすでに手元にある）
    */
   shelfPresets?: (ShelfPreset | null)[]
