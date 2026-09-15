@@ -1,3 +1,5 @@
+import { AUDIO_CREDITS } from '../audio/bgm.js'
+import { isMusicOn, setMusicOn } from '../audio/musicOn.js'
 import { CONFIRM_ACTIONS, confirmNeeded, setConfirmNeeded } from './ConfirmDialog.js'
 
 /**
@@ -17,6 +19,12 @@ export type OptionSwitch = {
 export type OptionSection = {
   readonly title: string
   readonly rows: readonly OptionSwitch[]
+  /**
+   * **切り替えるものではない、ただの字**（#14 の配布元）。**行の下に並ぶ。**
+   *
+   * ⚠ **これは入／切の3つ目の状態ではない。**押せないので、`OptionSwitch` にしない。
+   */
+  readonly notes?: readonly string[]
 }
 
 /**
@@ -38,6 +46,20 @@ export function optionSections(): readonly OptionSection[] {
         isOn: () => confirmNeeded(action),
         set: (on: boolean) => { setConfirmNeeded(action, on) },
       })),
+    },
+    {
+      // 音楽（#14）。⚠ **音量つまみは作らない**（PO 判断 2026-09-15。入／切の1行だけ）
+      title: '音',
+      rows: [
+        { label: '音楽を鳴らす', isOn: isMusicOn, set: setMusicOn },
+      ],
+    },
+    {
+      // ⚠ **いちばん下**（PO 判断 2026-09-15。**タイトル画面には出さない**）。
+      //   ⚠ **効果音（#124）もここに足す** —— `AUDIO_CREDITS` に1行増やすだけで出る
+      title: '音楽をお借りしたところ',
+      rows: [],
+      notes: AUDIO_CREDITS,
     },
   ]
 }

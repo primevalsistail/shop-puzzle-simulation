@@ -1,5 +1,7 @@
 import Phaser from 'phaser'
 import { TimeManager } from '../components/core/TimeManager.js'
+import { bgmFor } from '../audio/bgm.js'
+import { bgm } from '../audio/BgmPlayer.js'
 import { ItemRegistry } from '../components/items/ItemRegistry.js'
 import { FloorGrid } from '../components/floor/FloorGrid.js'
 import { PlacementManager } from '../components/floor/PlacementManager.js'
@@ -456,6 +458,26 @@ export class GameScene extends Phaser.Scene {
     this.craftingSystem.update(delta)
     this.syncDomInputs()
     this.syncFaceArt()
+    this.syncBgm()
+  }
+
+  /**
+   * いまの時間帯・いまの島の曲を鳴らす（#14）。
+   *
+   * ⚠ **`DayPhase`（`作業|営業|睡眠`）では決められない。**
+   *   **朝（6-10）と夜（20-24）がどちらも `作業`** なので、区分は `audio/bgm.ts` の側で出す。
+   * ⚠ **`TIME_PHASE_CHANGED` でも拾えない。**24:00→6:00 の飛びは `作業`→`作業` で、**出ない。**
+   *   → **顔絵と同じく毎フレーム見て、変わったときだけ替える**（`BgmPlayer` が同じ曲を弾く）。
+   * ⚠ **速さは見ない**（決定 2026-09-15。速くしても曲は替わらないし速くならない）。
+   */
+  private syncBgm(): void {
+    // ⚠ **幕のあいだはエンディング。**閉じれば下の行に戻り、島の曲へ帰る
+    if (this.curtainShown) {
+      bgm(this).play('ending', this)
+      return
+    }
+    const { hour } = this.timeManager.getCurrentTime()
+    bgm(this).play(bgmFor(hour, this.world.getLocation().island), this)
   }
 
   /**

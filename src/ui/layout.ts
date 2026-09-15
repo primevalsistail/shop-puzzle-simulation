@@ -1530,6 +1530,11 @@ export const OPTIONS_FOOT_H = 96
 /** 区分の見出し1行ぶん */
 export const OPTIONS_SECTION_H = 42
 export const OPTIONS_ROW_H = 60
+/**
+ * **配布元を1行出すぶん**（#14）。⚠ **行（`row`）より低い。**
+ *   **押せないし、つまみも枠も無い**ので、行と同じ高さを取ると間延びする
+ */
+export const OPTIONS_NOTE_H = 30
 /** 中身どうしの間 */
 export const OPTIONS_GAP = 12
 /** 面の左右の余白（行の幅はこのぶん内側） */
@@ -1541,6 +1546,8 @@ export const OPTIONS_ROW_PAD = 21
 export const OPTIONS_TITLE_FONT_PX = 30
 export const OPTIONS_SECTION_FONT_PX = 21
 export const OPTIONS_ROW_FONT_PX = 21
+/** 配布元の字。⚠ **行より小さい**（読ませるものではなく、出しておくもの） */
+export const OPTIONS_NOTE_FONT_PX = 18
 
 /**
  * **入／切のつまみ**（PO 指示 2026-09-15「トグル形式に」）。
@@ -1560,8 +1567,12 @@ export function optionsKnobDx(on: boolean): number {
   return on ? half : -half
 }
 
-/** 面に積むものの種類。⚠ **高さが違うので、数だけでは位置が出ない** */
-export type OptionsItemKind = 'section' | 'row'
+/**
+ * 面に積むものの種類。⚠ **高さが違うので、数だけでは位置が出ない**
+ *
+ * - `note` は**押せない1行**（配布元の表記。#14）。**効果音（#124）もここに足す**
+ */
+export type OptionsItemKind = 'section' | 'row' | 'note'
 
 /**
  * 面の高さと、**中身それぞれの中心 y**（面の上端からの距離）を出す。
@@ -1575,7 +1586,9 @@ export function optionsLayout(kinds: readonly OptionsItemKind[]): {
   const cys: number[] = []
   let y = OPTIONS_HEAD_H
   kinds.forEach((kind, i) => {
-    const h = kind === 'section' ? OPTIONS_SECTION_H : OPTIONS_ROW_H
+    const h = kind === 'section' ? OPTIONS_SECTION_H
+      : kind === 'note' ? OPTIONS_NOTE_H
+      : OPTIONS_ROW_H
     if (i > 0) y += OPTIONS_GAP
     cys.push(y + h / 2)
     y += h

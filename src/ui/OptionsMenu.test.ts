@@ -30,14 +30,17 @@ describe('設定に並ぶもの', () => {
   /** ⚠ **受入条件5。**行為を足したら設定の行も増えること */
   it('行は CONFIRM_ACTIONS から作る', () => {
     expect(registry).toContain('CONFIRM_ACTIONS.map')
-    const rows = optionSections().flatMap(sec => sec.rows)
-    expect(rows.map(r => r.label)).toEqual([...CONFIRM_ACTIONS])
+    // ⚠ **ほかの区分も並ぶ**（#14 の「音」など）ので、**この区分だけを見る**
+    const confirms = optionSections().find(sec => sec.rows.some(r => r.label === CONFIRM_ACTIONS[0]))
+    expect(confirms?.rows.map(r => r.label)).toEqual([...CONFIRM_ACTIONS])
   })
 
-  it('どの区分にも見出しと、1つ以上の項目がある', () => {
+  it('どの区分にも見出しと、1つ以上の中身がある', () => {
     for (const sec of optionSections()) {
       expect(sec.title.length).toBeGreaterThan(0)
-      expect(sec.rows.length).toBeGreaterThan(0)
+      // ⚠ **中身は行だけではない**（#14 の配布元は押せない字＝`notes`）。
+      //   **空の見出しだけを出さない**ことを縛るのがここ
+      expect(sec.rows.length + (sec.notes?.length ?? 0)).toBeGreaterThan(0)
     }
   })
 
@@ -85,6 +88,7 @@ describe('設定の面の作り方', () => {
   it('見出しと行を1本に並べてから測る', () => {
     expect(body).toContain("kinds.push('section')")
     expect(body).toContain("kinds.push('row')")
+    expect(body).toContain("kinds.push('note')")
     expect(body).toContain('cys[i]')
   })
 

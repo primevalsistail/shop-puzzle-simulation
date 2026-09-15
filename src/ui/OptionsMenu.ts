@@ -4,7 +4,7 @@ import type { OptionSwitch } from './options.js'
 import {
   CONFIRM_BTN_W, CONFIRM_BTN_H, CONFIRM_BTN_FONT_PX,
   OPTIONS_MW, OPTIONS_ROW_W, OPTIONS_ROW_H, OPTIONS_SECTION_H,
-  OPTIONS_TITLE_FONT_PX, OPTIONS_SECTION_FONT_PX, OPTIONS_ROW_FONT_PX,
+  OPTIONS_TITLE_FONT_PX, OPTIONS_SECTION_FONT_PX, OPTIONS_ROW_FONT_PX, OPTIONS_NOTE_FONT_PX,
   OPTIONS_TOGGLE_W, OPTIONS_TOGGLE_H, OPTIONS_KNOB_R,
   OPTIONS_TITLE, OPTIONS_CLOSE_LABEL,
   optionsLayout, optionsCloseCy, optionsLabelL, optionsSectionL, optionsToggleCx, optionsKnobDx,
@@ -76,13 +76,19 @@ export class OptionsMenu {
     // ⚠ **描く並びと測る並びを同じ1本から作ること**（別々に組むとずれる）
     const sections = optionSections()
     const kinds: OptionsItemKind[] = []
-    const draw: (({ kind: 'section'; title: string } | { kind: 'row'; row: OptionSwitch }))[] = []
+    const draw: ({ kind: 'section'; title: string }
+      | { kind: 'row'; row: OptionSwitch }
+      | { kind: 'note'; text: string })[] = []
     for (const section of sections) {
       kinds.push('section')
       draw.push({ kind: 'section', title: section.title })
       for (const row of section.rows) {
         kinds.push('row')
         draw.push({ kind: 'row', row })
+      }
+      for (const note of section.notes ?? []) {
+        kinds.push('note')
+        draw.push({ kind: 'note', text: note })
       }
     }
     const { panelH, cys } = optionsLayout(kinds)
@@ -116,6 +122,16 @@ export class OptionsMenu {
           // 見出しの下の細い線。**どこまでがこの区分かを出す**
           this.scene.add.rectangle(cx, y + OPTIONS_SECTION_H / 2, OPTIONS_ROW_W, 1.5, LINE_WEAK)
             .setDepth(DEPTH),
+        )
+        return
+      }
+
+      if (item.kind === 'note') {
+        // ⚠ **枠もつまみも付けない。**押せるように見えると押される
+        this.push(
+          this.scene.add.text(optionsLabelL(cx), y, item.text, {
+            fontSize: `${OPTIONS_NOTE_FONT_PX}px`, color: css(TEXT_SUB),
+          }).setOrigin(0, 0.5).setDepth(DEPTH),
         )
         return
       }

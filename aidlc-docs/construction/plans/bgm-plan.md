@@ -53,3 +53,44 @@
 5. `TitleScene` ／ `OpeningScene` ／ `GameScene` から呼ぶ
 6. `options.ts` に「音楽を鳴らす」、`layout.ts` ＋ `OptionsMenu` に配布元の行
 7. テストを書く（2・3・4・6 は node から測れる。1 も区分の関数で測れる）
+
+## 入った（2026-09-15）
+
+**受入条件 1〜9 すべて。**`npm test` は **875件 通過**（BGM ぶん 25件）。
+
+| 手順 | 入ったもの |
+|---|---|
+| 1 | `aidlc-docs/inception/worldbuilding/audio/`（原本 ogg 8本 ＋ README）／ `public/audio/`（写し ＋ `m4a`） |
+| 2 | `src/audio/bgm.ts`（曲の一覧・時刻→区分・配布元の字） |
+| — | `src/audio/musicOn.ts`（入／切。`ConfirmDialog` と同じ覚え方） |
+| 3 | `src/audio/BgmPlayer.ts` |
+| 4 | ⚠ **`BootScene` では読まない**（下） |
+| 5 | `TitleScene` ／ `OpeningScene` ／ `GameScene.syncBgm()` |
+| 6 | `options.ts` に「音」の区分、`layout.ts` に `note`、`OptionsMenu` に押せない行 |
+| 7 | `src/audio/bgm.test.ts`（25件） |
+
+### ⚠ 手順4 は変えた —— 読み込みは鳴らすときに1曲ずつ
+
+**計画では `BootScene` でまとめて読むつもりだった。****やめた。**
+**8曲で 15MB あり、先に全部読むとタイトルが出るまで待たされる。**
+**1曲 2MB で、鳴らすのは常に1曲**なので、`BgmPlayer.play()` が
+**その場の場面の `load` で1本だけ読む**（読み終わる前に別の曲へ移ったら捨てる）。
+
+### 知らないと踏むこと
+
+- ⚠ **`DayPhase`（`作業|営業|睡眠`）は BGM に使えない。**
+  **朝（6-10）と夜（20-24）がどちらも `作業`。**区分は `audio/bgm.ts` の `bandOf()` に別に持たせた
+- ⚠ **`TIME_PHASE_CHANGED` も使えない。**24:00→6:00 の飛びで `作業`→`作業` となり、**出ない。**
+  → **顔絵と同じく毎フレーム見る**（`GameScene.syncBgm()`）
+- ⚠ **淡くするのに場面の `tweens` を使わない。**場面が終わると途中で止まり、
+  **小さいまま鳴り続ける。**`game.events` の `step` で自分で進めている
+- ⚠ **`BgmPlayer` は1つだけ。**場面ごとに作ると**曲が重なって鳴る**（`bgm(scene)` が使い回す）
+- ⚠ **`Phaser.Sound.BaseSound` に `volume` は無い。**持っているのは
+  `WebAudioSound` ／ `HTML5AudioSound` の側
+
+### まだ確かめていない
+
+- ⚠ **誰も聴いていない。**8曲とも**配布元の説明と楽器と長さだけで選んだ。**
+  とくに**ミフユリア（雪）は「音数が少なく、澄んでいる」ではない**（軽やかで陽気な北欧風）。
+  **替えは「泉のほとりで」**（→ [bgm-candidates.md](../../inception/worldbuilding/bgm-candidates.md)）
+- **実際に鳴らしていない**（ブラウザで動かしての確認は未実施）

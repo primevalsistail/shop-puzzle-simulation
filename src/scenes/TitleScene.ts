@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import { hasAnySave, readSlotMeta } from '../components/progress/GameProgress.js'
 import { SaveLoadMenu } from '../ui/SaveLoadMenu.js'
+import { bgm } from '../audio/BgmPlayer.js'
 import {
   SCREEN_W, SCREEN_H,
   GAME_TITLE, TITLE_NAME_FONT_PX, TITLE_NAME_Y, TITLE_FACE_CY,
@@ -29,6 +30,11 @@ export class TitleScene extends Phaser.Scene {
   }
 
   create(): void {
+    // BGM（#14）。⚠ **ここは無音のままで正しい。**
+    //   **ブラウザは1回押すまで音を鳴らさない**ので、鳴り始めるのはボタンを押した瞬間。
+    //   **はじまりの場面も同じ曲**なので、向こうでは鳴り直さない
+    bgm(this).play('title', this)
+
     this.add.rectangle(SCREEN_W / 2, SCREEN_H / 2, SCREEN_W, SCREEN_H, BG_SCREEN)
 
     this.add.text(SCREEN_W / 2, TITLE_NAME_Y, GAME_TITLE, {

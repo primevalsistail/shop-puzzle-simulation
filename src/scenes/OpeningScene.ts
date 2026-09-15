@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { bgm } from '../audio/BgmPlayer.js'
 import { OPENING_STEPS, OPENING_LAST_LABEL, OPENING_NEXT_LABEL, OPENING_SKIP_LABEL } from '../ui/openingSteps.js'
 import {
   SCREEN_W, SCREEN_H,
@@ -29,6 +30,10 @@ export class OpeningScene extends Phaser.Scene {
   }
 
   create(): void {
+    // ⚠ **タイトルと同じ曲**（#14）。**すでに鳴っていれば何もしない**ので、
+    //   **タイトルから続けて流れる**（押した瞬間に初めて鳴る場合もここで拾う）
+    bgm(this).play('title', this)
+
     this.stepIndex = 0
     this.add.rectangle(SCREEN_W / 2, SCREEN_H / 2, SCREEN_W, SCREEN_H, BG_SCREEN)
 
