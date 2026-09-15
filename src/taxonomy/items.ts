@@ -29,45 +29,49 @@ export const ALL_ITEMS: readonly ItemDef[] = [
   // ══════ 素材（tier1）55品 ══════
 
   // ── ハルヴェラ島（春） ──
+  // ⚠ **春の若い緑と乳（たけのこ〜羊の乳の8品）は `向く土地` が `寒い土地`。**
+  //   `island-goods.md` §5 —— `産地` は**どこで採れるか**、`向く土地` は**どこで役に立つか**。
+  //   冬が長く若い緑の手に入らないミフユリアでこそ、運んだ甲斐が出る（#63）。
+  //   **産地と売れる島が一致すると、買ってその場で売るだけになる。**
   {
     id: 'takenoko', display: { name: 'たけのこ', reading: 'たけのこ' },
-    mainKind: '食料', origin: 'ハルヴェラ', luxury: '上等', suitedLand: '温暖な土地',
+    mainKind: '食料', origin: 'ハルヴェラ', luxury: '上等', suitedLand: '寒い土地',
     shape: [[1], [1], [1]], basePrice: 28,
     originReason: '掘った日に食べないと固くなる、春の芽',
   },
   {
     id: 'asparagus', display: { name: 'アスパラガス', reading: 'あすぱらがす' },
-    mainKind: '食料', origin: 'ハルヴェラ', luxury: '上等', suitedLand: '温暖な土地',
+    mainKind: '食料', origin: 'ハルヴェラ', luxury: '上等', suitedLand: '寒い土地',
     shape: [[1], [1], [1]], basePrice: 26,
     originReason: '根株から立ち上がる若い芽そのものを摘む',
   },
   {
     id: 'snap_pea', display: { name: 'さやえんどう', reading: 'さやえんどう' },
-    mainKind: '食料', origin: 'ハルヴェラ', luxury: '上等', suitedLand: '温暖な土地',
+    mainKind: '食料', origin: 'ハルヴェラ', luxury: '上等', suitedLand: '寒い土地',
     shape: [[1]], basePrice: 22,
     originReason: 'さやが柔らかい若いうちだけ摘む',
   },
   {
     id: 'broad_bean', display: { name: 'そら豆', reading: 'そらまめ' },
-    mainKind: '食料', origin: 'ハルヴェラ', luxury: '上等', suitedLand: '温暖な土地',
+    mainKind: '食料', origin: 'ハルヴェラ', luxury: '上等', suitedLand: '寒い土地',
     shape: [[1, 1]], basePrice: 24,
     originReason: '実が若く水気を含んでいる短い期間が採り時',
   },
   {
     id: 'strawberry', display: { name: 'いちご', reading: 'いちご' },
-    mainKind: '食料', origin: 'ハルヴェラ', luxury: '贅沢', suitedLand: '温暖な土地',
+    mainKind: '食料', origin: 'ハルヴェラ', luxury: '贅沢', suitedLand: '寒い土地',
     shape: [[1]], basePrice: 35,
     originReason: '花が咲いて実がつくのが春',
   },
   {
     id: 'rape_blossom', display: { name: '菜の花', reading: 'なのはな' },
-    mainKind: '食料', origin: 'ハルヴェラ', luxury: '上等', suitedLand: '温暖な土地',
+    mainKind: '食料', origin: 'ハルヴェラ', luxury: '上等', suitedLand: '寒い土地',
     shape: [[1], [1]], basePrice: 20,
     originReason: 'つぼみがほどける直前の茎ごと摘む',
   },
   {
     id: 'mugwort', display: { name: 'よもぎ', reading: 'よもぎ' },
-    mainKind: '食料', origin: 'ハルヴェラ', luxury: '上等', suitedLand: '温暖な土地',
+    mainKind: '食料', origin: 'ハルヴェラ', luxury: '上等', suitedLand: '寒い土地',
     shape: [[1]], basePrice: 18,
     originReason: '地面から出たばかりの若葉だけを摘む',
   },
@@ -91,7 +95,7 @@ export const ALL_ITEMS: readonly ItemDef[] = [
   },
   {
     id: 'sheep_milk', display: { name: '羊の乳', reading: 'ひつじのちち' },
-    mainKind: '飲みもの', origin: 'ハルヴェラ', luxury: '日用', suitedLand: '温暖な土地',
+    mainKind: '飲みもの', origin: 'ハルヴェラ', luxury: '日用', suitedLand: '寒い土地',
     shape: [[1], [1]], basePrice: 30,
     originReason: '羊毛と同じ羊から。子が生まれて乳が出はじめるのが春',
   },

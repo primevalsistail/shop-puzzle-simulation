@@ -14,8 +14,8 @@ import { ALL_ITEMS, getItem } from './items.js'
 import { ALL_RECIPES, RECIPES_BY_OUTPUT } from './recipes.js'
 import { cellCount, craftProfit, dumpAll, ingredientCost, originReach, salePrice, tier } from './derive.js'
 import { SIGNATURE_SETS, SET_RULES, DEMAND_RULES, UNLOCK_RULES, combine } from './rules.js'
-import { evalCondition, evaluate, type GameState, type Placement } from './evaluate.js'
-import { DEMAND_TABLE } from './islands.js'
+import { evalCondition, evaluate, finalModifiers, type GameState, type Placement } from './evaluate.js'
+import { DEMAND_TABLE, type IslandName } from './islands.js'
 
 const EMPTY_SALES = new Map<string, number>()
 const STATE: GameState = { 現在地: 'ハルヴェラ', 累計販売数: EMPTY_SALES }
@@ -438,12 +438,61 @@ describe('島ごとの需要の釣り合い（#39）', () => {
     for (const pull of pulls) expect(Math.abs(pull - avg) / avg).toBeLessThan(0.05)
   })
 
-  it('品数で重みを付けた平均倍率は 1.30（総量が動いていない）', () => {
+  it('品数で重みを付けた平均倍率は 1.40（層2の優先順位のための水準）', () => {
     // ⚠ **倍率を直すときは配分だけを動かす。**ここが上がると全島の稼ぎが増える
     const counts = DEMAND_TABLE.map(row => countOf(row.suitedLand))
     const total = counts.reduce((a, b) => a + b, 0)
     const weighted = DEMAND_TABLE
       .reduce((s, row, i) => s + counts[i] * row.multiplier, 0) / total
-    expect(weighted).toBeCloseTo(1.30, 2)
+    expect(weighted).toBeCloseTo(1.40, 2)
   })
+})
+
+/**
+ * 層2 の優先順位 —— **島の需要 ＞ 配置ボーナス**（PO 2026-09-15
+ * 「需要のある島 ＞ 配置ボーナス ＞ 加工時間」）。
+ *
+ * ⚠ **加工時間は最下位＝値段に効かせない。**`craftProfit` が所要分を取らないことで満たしている
+ *   （derive.ts。上の「層1に加工時間が入っていない」で見ている）。
+ *
+ * **ここが見るのは上の2つの大小。**同じ品を同じ数だけ並べて、
+ *   - **需要の差** …… 向く島で売る ÷ よその島で売る
+ *   - **配置の差** …… 隣り合わせて置く ÷ 離して置く（どちらもよその島）
+ * を出し、**需要の差のほうが大きいこと**を4つの土地すべてで見る。
+ *
+ * ⚠ **落ちたら `DEMAND_TABLE` の水準を上げる**（4行の配分ではなく水準）。
+ *   `SET_RULES` を下げて通すと、**置き方で遊ぶゲームでなくなる。**
+ */
+describe('層2の優先順位 —— 島の需要 ＞ 配置ボーナス', () => {
+  const at2 = (島: IslandName): GameState => ({ 現在地: 島, 累計販売数: new Map() })
+  const 値段平均 = (p: Placement[], state: GameState): number => {
+    const r = evaluate(p, state)
+    return p.reduce((a, x) => a + finalModifiers(r, x.slotId).値段, 0) / p.length
+  }
+  /** 横1列に並べる。`gap` 升あけると隣接しない */
+  const 列 = (ids: string[], gap: number): Placement[] => {
+    let x = 0
+    return ids.map((itemId, i) => {
+      const p = { slotId: `s${i}`, itemId, x, y: 0 }
+      x += getItem(itemId).shape[0].length + gap
+      return p
+    })
+  }
+
+  for (const row of DEMAND_TABLE) {
+    it(`${row.suitedLand} —— 需要の差 ＞ 配置の差`, () => {
+      // ⚠ **横1列に置ける品だけ**（高さ1）。回転を持たない `Placement` で隣接を作るため
+      const ids = ALL_ITEMS
+        .filter(i => i.suitedLand === row.suitedLand && i.shape.length === 1)
+        .slice(0, 6).map(i => i.id)
+      expect(ids.length, `${row.suitedLand} に高さ1の品が足りない`).toBeGreaterThanOrEqual(3)
+
+      const よそ = DEMAND_TABLE.find(r => r.island !== row.island)!.island
+      const 合う = 値段平均(列(ids, 3), at2(row.island))
+      const 合わない = 値段平均(列(ids, 3), at2(よそ))
+      const 狙う = 値段平均(列(ids, 0), at2(よそ))
+
+      expect(合う / 合わない).toBeGreaterThan(狙う / 合わない)
+    })
+  }
 })

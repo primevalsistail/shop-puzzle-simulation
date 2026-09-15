@@ -240,7 +240,7 @@ describe('同棚セット（S1・S2。#59）— 隣り合っていなくても�
   })
 
   it('S2 — 向く土地が揃わなければ効かない（`揃える` は値の一致を見る）', () => {
-    const p = 離して(['chili', 'rabbit_fur', 'strawberry'])   // 寒い・寒い・温暖
+    const p = 離して(['chili', 'rabbit_fur', 'apple'])   // 寒い・寒い・温暖
     expect(evaluate(p, at('ハルヴェラ')).firedRules).not.toContain('S2')
   })
 
