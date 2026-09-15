@@ -54,6 +54,14 @@
 ⚠ **まだ誰も聴いていない。**→ [bgm-plan.md](construction/plans/bgm-plan.md) の「まだ確かめていない」
 ⚠ **ロードの枠はタイトル画面の上で出す。`GameScene` を先に作らないこと**（作ると #123 が戻る）。
 
+⚠ **#126（はじまりと終わりの場面）・#127（案内）が動き出した**（2026-09-16・`187bfdf`）。
+**多案を出す依頼書まで書いた** → [prompt-draft-story.md](inception/worldbuilding/prompts/prompt-draft-story.md)。
+**計画は [story-126-127.md](construction/plans/story-126-127.md)。**
+⚠ **止まっているのは PO の2問**（[questions-story-126-127.md](sessions/questions-story-126-127.md) の **Q5 軸の承認 ／ Q6「段は4つまで」の検査**）。
+**答えが入ったら、サブセッション4つで案出し → レビュー4人 → PO が1案選ぶ。**
+⚠ **サブには、いま入っている場面の文面を渡さないこと**（渡すと直す作業になる）。
+⚠ **「短く」の縛りは外れた**（PO 2026-09-16）。**果たすのは①世界観 ②目的とやること ③なぜノエラか。**
+
 ⚠ **`node_modules` はセッションを跨ぐと消える。**`npm install` から始める（`package.json` は触らない）。
 
 ### そのほかに残っているもの（2026-09-15 時点・OPEN 7件）
