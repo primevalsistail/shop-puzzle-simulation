@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "find-skills": {
+      "source": "vercel-labs/skills",
+      "sourceType": "github",
+      "skillPath": "skills/find-skills/SKILL.md",
+      "computedHash": "b146008599c31057cef1c145774cea5d5afb30e8f43fa802e47a4b461419aaaf"
+    },
+    "game-story-world-character": {
+      "source": "lvtd-llc/skills",
+      "sourceType": "github",
+      "skillPath": "skills/game-story-world-character/SKILL.md",
+      "computedHash": "d63284ae37b2a834d5a87a88d76985e61bff510c67159c1d519c996b0f479ec8"
+    }
+  }
+}
