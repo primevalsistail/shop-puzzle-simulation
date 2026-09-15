@@ -77,11 +77,14 @@
 
 **`main` = `e3f19c6`。origin と同じ。799テスト全件パス。**
 ⚠ **ローカルの `feat/stage4-start` と `feat/rescue-nogameover` は入り済みで、消せる。**
-**OPEN 22件**（段取りは [issue-grouping.md](inception/plans/issue-grouping.md)。⚠ **その文書の件数 35 は古い**）。
+**OPEN 21件**（段取りは [issue-grouping.md](inception/plans/issue-grouping.md)。⚠ **その文書の件数 35 は古い**）。
 ⚠ **「機能作成」と「バグ」は空になった。**
 
-⚠ **次に何をやるかは PO 待ち** —— [questions-tuning-order.md](sessions/questions-tuning-order.md) 回答待ち
-（Q1 解く順 ／ Q2 #35 #71 を閉じてよいか）。
+⚠ **次に何をやるかは PO 待ち** —— [questions-structure-four.md](sessions/questions-structure-four.md) 回答待ち
+（Q1 目標到達の日数 ／ Q2 深い品ばかりになる ／ Q3 買った島でそのまま売れる）。
+**解く順は決着済み**（[questions-tuning-order.md](sessions/questions-tuning-order.md) Q1=A Q2=A）——
+**構造4件（#62 #63 #38 #52）を先に締め、そのあと値（#39 #45 #54 #61）を一度に測る。**
+**#35 #71 はクローズ済み**（本文の数字が実装に追い越されていた）。
 
 ⚠ **10件は「構造」と「値」に分かれる**（#61 が線を引いている）。
 **#62 #63 #38 #52 は本文じたいが「数値調整ではない」と書いている** —— 倍率では直らない。
