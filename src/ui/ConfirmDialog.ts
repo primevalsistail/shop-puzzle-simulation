@@ -28,35 +28,82 @@ import {
 const DEPTH = 130
 
 /**
- * 確認を出す行為（#113「確認ダイアログを行為ごとに ON/OFF できるようにしたい」）。
+ * 確認を出す行為（#113）。
  *
- * ⚠ **既定は全部 ON。**切り替える口はここ1つで、**#113 はこの表を設定から書き換えるだけ**になる。
- *   **設定の画面はまだ作らない**（#113 の範囲）。
- * ⚠ **行為を足すときはこの型に足す。**足さずに `ConfirmDialog` を直に開くと、
+ * ⚠ **配列が本体で、型はそこから作る。**union 型は実行時に数えられないので、
+ *   **設定の行を自動で増やすにはこの向きが要る**（`OptionsMenu` がこの配列から行を作る）。
+ * ⚠ **行為を足すときはここに足す。**足さずに `ConfirmDialog` を直に開くと、
  *   **その行為だけ ON/OFF が効かない**ものができる。
  */
-export type ConfirmAction = '廃棄' | 'マイセットの上書き' | 'マイセットの削除' | '営業時間を削る加工'
+export const CONFIRM_ACTIONS = [
+  '廃棄',
+  // #99。⚠ **型は10本あり、縮小図と名前でしか見分けられない。**
+  //   押し間違えても**元の並びは戻らない**（覚え直すには、その並びをもう一度作るしかない）
+  'マイセットの上書き',
+  'マイセットの削除',
+  // #109。⚠ **営業時間を1分も削らないときは、そもそも呼ばない**（朝と閉店後の加工に確認は出ない）。
+  //   **押した瞬間に時計が飛び、その間は客が1人も来ない** —— 止まれる場所がここしかない
+  '営業時間を削る加工',
+] as const
+
+export type ConfirmAction = typeof CONFIRM_ACTIONS[number]
+
+/**
+ * 覚えさせ方は `localStorage`（`Tutorial` と同じ形）。⚠ **読み書きは必ず `try/catch`。**
+ *
+ * ⚠ **記録するのは「出さない」ほうだけ。**ON/OFF の表をそのまま書くと、
+ *   **あとから行為を足したとき、古い記録に無い行為の既定が決まらない。**
+ *   **「入っていない ＝ 出す」**にしておけば、足した行為は黙って既定（出す）になる。
+ * ⚠ **セーブデータ（枠3つ）には混ぜない。**遊びの記録ではなく、この端末の好み。
+ */
+const CONFIRM_OFF_KEY = 'shop_puzzle_confirm_off'
 
 const CONFIRM_ON: Record<ConfirmAction, boolean> = {
   廃棄: true,
-  // #99。⚠ **型は10本あり、縮小図と名前でしか見分けられない。**
-  //   押し間違えても**元の並びは戻らない**（覚え直すには、その並びをもう一度作るしかない）
   'マイセットの上書き': true,
   'マイセットの削除': true,
-  // #109。⚠ **営業時間を1分も削らないときは、そもそも呼ばない**（朝と閉店後の加工に確認は出ない）。
-  //   **押した瞬間に時計が飛び、その間は客が1人も来ない** —— 止まれる場所がここしかない
   '営業時間を削る加工': true,
 }
+
+function loadConfirmSettings(): void {
+  try {
+    const raw = localStorage.getItem(CONFIRM_OFF_KEY)
+    if (!raw) return
+    const off: unknown = JSON.parse(raw)
+    if (!Array.isArray(off)) return
+    for (const action of CONFIRM_ACTIONS) CONFIRM_ON[action] = !off.includes(action)
+  } catch {
+    // ignore
+  }
+}
+
+function saveConfirmSettings(): void {
+  try {
+    const off = CONFIRM_ACTIONS.filter(action => !CONFIRM_ON[action])
+    localStorage.setItem(CONFIRM_OFF_KEY, JSON.stringify(off))
+  } catch {
+    // ignore
+  }
+}
+
+// ⚠ **読み込みは1度だけ。**呼ぶたびに読むと、設定の画面で変えた値が次の確認で戻る
+loadConfirmSettings()
 
 /** その行為に確認が要るか（#113）。**押す側は必ずここを通す** */
 export function confirmNeeded(action: ConfirmAction): boolean {
   return CONFIRM_ON[action]
 }
 
+/** 出す・出さないを切り替えて覚えさせる（#113。**呼ぶのは `OptionsMenu` だけ**） */
+export function setConfirmNeeded(action: ConfirmAction, on: boolean): void {
+  CONFIRM_ON[action] = on
+  saveConfirmSettings()
+}
+
 /**
  * **戻らない操作の前に出す確認**（納品の `廃棄`。PO 指示 2026-09-14「ダイアログ形式で」）。
  *
- * ⚠ **マイセットの `セーブ`（上書き）と `削除` もここを通る**（#99）。
+ * ⚠ **マイセットの `保存`（上書き）と `削除` もここを通る**（#99）。
  *   **升にボタンは1つも増えない** —— 面は全画面の暗幕の上に出るので、行の作りは変わらない。
  *
  * ⚠ **4つ目の形を作らない。**この作りのダイアログは

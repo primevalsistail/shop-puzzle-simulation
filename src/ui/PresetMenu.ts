@@ -49,7 +49,7 @@ const CELL_H = Math.floor((ROWS_BOTTOM - ROWS_TOP) / ROWS)
 const PREVIEW_W = PRESET_PREVIEW_W
 const PREVIEW_H = CELL_H - 33
 
-/** セーブ ／ ロード ／ 削除 */
+/** 保存 ／ 適用 ／ 削除 */
 const BTN_H = 36
 const BTN_W = 114
 const BTN_GAP = 10.5
@@ -78,16 +78,16 @@ const BTN_GAP = 10.5
  * ⚠ **空にしたら島名（既定値）へ戻る。**`placeholder` に既定値を出しているので、
  *   **名前を付けなければ従来どおりに見える**（ペルソナ2人が名前に反対している）。
  *
- * ⚠ **`セーブ`（上書き）と `削除` は押した場で実行しない**（#99）。**確認を通す。**
+ * ⚠ **`保存`（上書き）と `削除` は押した場で実行しない**（#99）。**確認を通す。**
  *   **升にボタンは増えない** —— `ConfirmDialog` は全画面の暗幕の上に出る面なので、
  *   **4つ目の形も作らない。**
- *   ⚠ **空の升への `セーブ` には出さない。**上書きするものが無く、**戻らない操作ではない。**
+ *   ⚠ **空の升への `保存` には出さない。**上書きするものが無く、**戻らない操作ではない。**
  *   ⚠ **確認を出すかの判定は `confirmNeeded()` だけ**（#113 の受け口）。
  */
 export class PresetMenu {
   private container: Phaser.GameObjects.Container | null = null
   private isOpen = false
-  /** `セーブ`（上書き）と `削除` の確認（#99）。⚠ **閉じるときに必ず片付ける** */
+  /** `保存`（上書き）と `削除` の確認（#99）。⚠ **閉じるときに必ず片付ける** */
   private confirm: ConfirmDialog
   /**
    * 名前の入力欄。**型1本につき1つ。**⚠ **`container` とは別に持つ**（作り直さないため）。
@@ -282,7 +282,7 @@ export class PresetMenu {
       )
     }
 
-    // ── セーブ ／ ロード ／ 削除 ──
+    // ── 保存 ／ 適用 ／ 削除 ──
     const by = cy + h / 2 - 27
     this.button(objs, textL, by, BTN_W, BTN_H, PRESET_SAVE_LABEL, BTN_ADVANCE, true,
       () => this.askSave(index))
@@ -293,7 +293,7 @@ export class PresetMenu {
   }
 
   /**
-   * `セーブ` を押した（#99）。**中身のある升なら、上書きの前に確認を通す。**
+   * `保存` を押した（#99）。**中身のある升なら、上書きの前に確認を通す。**
    *
    * ⚠ **空の升には出さない。**上書きするものが無いので**戻らない操作ではない**し、
    *   **10本を埋めていく間ずっと確認が出る**ことになる。

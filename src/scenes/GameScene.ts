@@ -33,8 +33,10 @@ import { orderIssuedText, orderDeliveredText, orderDiscardedText } from '../ui/d
 import { TradeMenu } from '../ui/TradeMenu.js'
 import { Tutorial } from '../ui/Tutorial.js'
 import { SaveLoadMenu } from '../ui/SaveLoadMenu.js'
+import { OptionsMenu } from '../ui/OptionsMenu.js'
 import { setDomInputsVisible } from '../ui/domInput.js'
 import { CharacterStrip } from '../ui/CharacterStrip.js'
+import { PortShutter } from '../ui/PortShutter.js'
 import { PlaceFrame } from '../ui/PlaceFrame.js'
 import { MessageWindow } from '../ui/MessageWindow.js'
 import {
@@ -133,6 +135,8 @@ export class GameScene extends Phaser.Scene {
   private inventoryPanel!: InventoryPanel
   private craftMenu!: CraftMenu
   private saveLoadMenu!: SaveLoadMenu
+  /** ⚙️ から開く設定（#113）。**確認を出す・出さないだけを持つ** */
+  private optionsMenu!: OptionsMenu
   /**
    * 幕（エンディング・GAME OVER）が出ているか。**`<input>` を隠す判定が読む**（`isOverlayOpen()`）。
    *
@@ -161,6 +165,8 @@ export class GameScene extends Phaser.Scene {
   private restockFocus: string | null = null
   private tutorial!: Tutorial
   private characterStrip!: CharacterStrip
+  /** 寄港したときの開店（#6）。**島が変わった朝、売り場が左右に開く** */
+  private portShutter!: PortShutter
   /**
    * いま立っている客と、**あと何分居るか**（#21）。
    * ⚠ **時計そのものではなく残り分数で持つ。**日をまたぐ・時間を飛ばす場面があるので、
@@ -256,6 +262,7 @@ export class GameScene extends Phaser.Scene {
     this.hud = new HUD(this)
     this.tutorial = new Tutorial(this)
     this.characterStrip = new CharacterStrip(this)
+    this.portShutter = new PortShutter(this)
     this.characterStrip.create()
     this.messageLog = new MessageLog(this)
     this.messageLog.create()
@@ -343,6 +350,8 @@ export class GameScene extends Phaser.Scene {
       index => this.deletePreset(index),
       () => this.updateStatus(),
     )
+
+    this.optionsMenu = new OptionsMenu(this)
 
     this.saveLoadMenu = new SaveLoadMenu(
       this,
@@ -570,11 +579,12 @@ export class GameScene extends Phaser.Scene {
    *   **行った先（`PlaceFrame`）も入る。**こちらは `<input>` を隠す判定なので、
    *   **行った先とマイセットは入れない** —— **欄があるのがその2つだから。**
    * ⚠ **depth 100 より上に画面を足したら、ここに足すこと**
-   *   （いまは できごと120 ／ セーブ150 ／ 幕200 ／ 案内500）。
+   *   （いまは できごと120 ／ セーブ150 ／ 設定150 ／ 幕200 ／ 案内500）。
    */
   private isOverlayOpen(): boolean {
     return this.messageWindow.isShown()
       || this.saveLoadMenu.isVisible()
+      || this.optionsMenu.isVisible()
       || this.tutorial.isShown()
       || this.curtainShown
   }
@@ -654,7 +664,7 @@ export class GameScene extends Phaser.Scene {
       { emoji: '💾', tip: 'セーブ',    action: () => this.doSave() },
       { emoji: '📂', tip: 'ロード',    action: () => this.doLoad() },
       { emoji: '🗂', tip: 'マイセット', action: () => this.openPresetMenu() },
-      { emoji: '⚙️', tip: 'オプション', action: () => this.updateStatus('オプション: 準備中') },
+      { emoji: '⚙️', tip: 'オプション', action: () => this.openOptionsMenu() },
       { emoji: '❓', tip: 'ヘルプ',    action: () => this.tutorial.show(() => this.updateStatus()) },
     ]
     iconDefs.forEach(({ emoji, tip, action }, i) => {
@@ -821,6 +831,7 @@ export class GameScene extends Phaser.Scene {
     // ESC: メニューを閉じる（ドラッグキャンセルは左ボタン離しで行う）
     const escKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC)
     escKey.on('down', () => {
+      if (this.optionsMenu.isVisible()) { this.optionsMenu.close(); return }
       if (this.saveLoadMenu.isVisible()) { this.saveLoadMenu.close(); return }
       // 場所ごとの出口は持たせない。店に戻る印（🏠）と同じ1つを通す（#58）
       if (this.placeFrame.isShown()) { this.placeFrame.requestBack(); return }
@@ -1066,6 +1077,9 @@ export class GameScene extends Phaser.Scene {
       if (this.tradeMenu.isVisible()) this.tradeMenu.close()
       // 行商人は「取引」の外の場所（#9・#90）なので、別に閉じる
       if (this.purchaseMenu.isVisible()) this.purchaseMenu.close()
+      // 寄港の開店（#6）。⚠ **盤面が出ているときだけ。**
+      //   店を離れている間は盤面ごと消えているので、板だけが宙に出る（`setShopVisible`）
+      if (this.gridBackdrop.visible) this.portShutter.play(this.upgrades.gridSize())
     }
 
     // ⚠ **島が変わったあとに引く。**次の寄港地は島が変わった時点で変わるので、
@@ -1169,6 +1183,7 @@ export class GameScene extends Phaser.Scene {
   private isShelfBlocked(): boolean {
     return this.placeFrame.isShown()
       || this.saveLoadMenu.isVisible()
+      || this.optionsMenu.isVisible()
       || this.messageWindow.isShown()
   }
 
@@ -1397,6 +1412,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * 設定を開く（#113）。⚠ **先に時間を止める**（`マイセット` と同じ） ——
+   * **開いている間は `isShelfBlocked()` が「進める」を止めるだけ**で、
+   * **走っている時計は止まらない。**
+   */
+  private openOptionsMenu(): void {
+    this.stopAdvancing()
+    this.optionsMenu.open()
+  }
+
+  /**
    * いまの並びを型に覚える（#27）。
    *
    * ⚠ **在庫も持ち物も動かない。**棚は「どこに何をどの向きで出しているか」を表すだけで、
@@ -1448,8 +1473,10 @@ export class GameScene extends Phaser.Scene {
     this.refreshInventoryPanel()
     this.updateStatus(
       dropped === 0
-        ? `マイセットを呼び出した（${placed}区画）`
-        : `マイセットを呼び出した（${placed}区画。${dropped}区画は盤面に入らず外した）`,
+        // ⚠ **ボタンの字と同じ語にする**（#75）。ボタンが `適用` でログが `呼び出した` だと、
+        //   **押したものと返ってきたものが別に見える**
+        ? `マイセットを適用した（${placed}区画）`
+        : `マイセットを適用した（${placed}区画。${dropped}区画は盤面に入らず外した）`,
     )
   }
 

@@ -81,6 +81,11 @@ import {
   CONFIRM_MW, CONFIRM_MH, CONFIRM_TEXT_TOP, CONFIRM_TEXT_MAX_W, CONFIRM_LINES_MAX,
   CONFIRM_BTN_W, CONFIRM_BTN_H, CONFIRM_BTN_CY, CONFIRM_BTN_FONT_PX, CONFIRM_CANCEL_LABEL,
   confirmBtnCx,
+  OPTIONS_MW, OPTIONS_ROW_W, OPTIONS_ROW_H, OPTIONS_SECTION_H, OPTIONS_GAP, OPTIONS_PAD,
+  OPTIONS_TITLE_FONT_PX, OPTIONS_SECTION_FONT_PX, OPTIONS_ROW_FONT_PX,
+  OPTIONS_TOGGLE_W, OPTIONS_TOGGLE_H, OPTIONS_KNOB_R, OPTIONS_LABEL_MAX_W,
+  OPTIONS_TITLE, OPTIONS_CLOSE_LABEL,
+  optionsLayout, optionsCloseCy, optionsLabelL, optionsSectionL, optionsToggleCx, optionsKnobDx,
   ORDER_BAR_T, ORDER_BAR_L, ORDER_BAR_R, GRID_ORIGIN_Y, CELL_SIZE,
   HUD_BAR_W, HUD_NEXT_PORT_FONT_PX, HUD_NEXT_PORT_H, nextPortLabel,
 } from './layout.js'
@@ -90,6 +95,8 @@ import { ALL_ITEMS } from '../taxonomy/items.js'
 import { PEDDLER_MAX_PER_KIND, peddlerPrice } from '../components/progress/PeddlerStock.js'
 import { money } from './money.js'
 import { craftBusinessConfirmLines } from './workshop.js'
+import { optionSections } from './options.js'
+import type { OptionsItemKind } from './layout.js'
 import { SHIP_COST } from './goal.js'
 import {
   DELIVERY_COLS, DELIVERY_BTN_LABEL, DISCARD_BTN_LABEL, deliveryShortLabel,
@@ -1875,6 +1882,27 @@ describe('遊び方の案内', () => {
       expect(step.nem.length, step.title).toBeLessThan(step.noela.length)
     }
   })
+
+  /**
+   * ⚠ **常設の字で言わないと決めた3つ**（#20・PO 2026-09-13）が、**ここに残っていること。**
+   *   画面のどこにも出ていないので、**この段を消すと3つとも誰にも伝わらなくなる。**
+   *
+   * ⚠ **`青` を戻さないこと。**issue 本文は「青＝どの島でも買える」だが、
+   *   `palette.ts` の `ROW_ANY` は生成り（`0xefeee4`）で、**青の行は画面に無い。**
+   */
+  it('行の色・40日・序盤に買うものの3つが入っている', () => {
+    const all = TUTORIAL_STEPS.map(s => `${s.title}${s.nem}${s.noela}`).join('')
+    // 行の色 —— 緑（この島の産）と、まだ買えない行
+    expect(all).toContain('緑')
+    expect(all).toContain('まだ買えない')
+    expect(all).not.toContain('青')
+    // 島を移ると色が変わること
+    expect(all).toContain('色が変わる')
+    // 40日 —— **10日だけを出して終わらない**
+    expect(all).toContain('40日')
+    // 序盤、まだ1本も作れないときに何を買うか
+    expect(all).toContain('材料を買う')
+  })
 })
 
 // ─── はじまりの場面（#6） ─────────────────────────────────────
@@ -1977,5 +2005,99 @@ describe('来店客の枠は、キャラ帯の下半分に収まる', () => {
   it('居る分数が、3枠を埋め尽くすほど長くない', () => {
     const 来る間隔 = 600 / 90
     expect(STRIP_CUSTOMER_DWELL_MIN).toBeLessThan(来る間隔 * STRIP_CUSTOMER_SLOT_MAX)
+  })
+})
+
+/**
+ * **⚙️ から開く設定の面**（#113）。
+ *
+ * ⚠ **中身は `optionSections()` が決める。**ここは**それをそのまま積んで測る** ——
+ *   **オプションを足したら、この判定が新しい中身で走る**（数を書き足す必要は無い）。
+ */
+describe('オプションの面', () => {
+  const sections = optionSections()
+  /** ⚠ **描く側と同じ並び**（`OptionsMenu.build()`） */
+  const kinds: OptionsItemKind[] = sections.flatMap(
+    sec => ['section' as const, ...sec.rows.map(() => 'row' as const)],
+  )
+  const labels = sections.flatMap(sec => sec.rows.map(r => r.label))
+  const { panelH, cys } = optionsLayout(kinds)
+  const cx = SCREEN_W / 2
+  const cy = SCREEN_H / 2
+  const top = cy - panelH / 2
+  const h = (i: number) => (kinds[i] === 'section' ? OPTIONS_SECTION_H : OPTIONS_ROW_H)
+
+  /** ⚠ **送りも巻き取りも無い。**ここが落ちたら、入れるかどうかを決める番 */
+  it('面が画面に収まる（増やしすぎると落ちる）', () => {
+    expect(OPTIONS_MW).toBeLessThanOrEqual(SCREEN_W)
+    expect(panelH).toBeLessThanOrEqual(SCREEN_H)
+  })
+
+  it('見出しが面の幅に収まる', () => {
+    expect(estTextWidth(OPTIONS_TITLE, OPTIONS_TITLE_FONT_PX, true))
+      .toBeLessThanOrEqual(OPTIONS_MW - OPTIONS_PAD * 2)
+    for (const sec of sections) {
+      expect(estTextWidth(sec.title, OPTIONS_SECTION_FONT_PX, true), sec.title)
+        .toBeLessThanOrEqual(OPTIONS_ROW_W)
+    }
+  })
+
+  it('項目の名前が、つまみにぶつからない', () => {
+    for (const label of labels) {
+      expect(estTextWidth(label, OPTIONS_ROW_FONT_PX), label)
+        .toBeLessThanOrEqual(OPTIONS_LABEL_MAX_W)
+    }
+  })
+
+  it('「閉じる」がボタンに収まる', () => {
+    expect(estTextWidth(OPTIONS_CLOSE_LABEL, CONFIRM_BTN_FONT_PX))
+      .toBeLessThanOrEqual(CONFIRM_BTN_W - 12)
+  })
+
+  it('中身が面の中に収まり、重ならない', () => {
+    expect(cys.length).toBe(kinds.length)
+    expect(top + cys[0] - h(0) / 2).toBeGreaterThanOrEqual(top)
+    for (let i = 1; i < kinds.length; i++) {
+      const gap = (cys[i] - h(i) / 2) - (cys[i - 1] + h(i - 1) / 2)
+      expect(gap, `${i}つ目`).toBe(OPTIONS_GAP)
+    }
+    expect(top + cys[kinds.length - 1] + h(kinds.length - 1) / 2)
+      .toBeLessThanOrEqual(cy + panelH / 2)
+  })
+
+  it('いちばん下の項目が「閉じる」のボタンに重ならない', () => {
+    const last = kinds.length - 1
+    expect(top + cys[last] + h(last) / 2)
+      .toBeLessThanOrEqual(optionsCloseCy(cy, panelH) - CONFIRM_BTN_H / 2)
+  })
+
+  it('つまみが行の中に収まり、字と重ならない', () => {
+    expect(optionsToggleCx(cx) + OPTIONS_TOGGLE_W / 2)
+      .toBeLessThanOrEqual(cx + OPTIONS_ROW_W / 2)
+    expect(optionsToggleCx(cx) - OPTIONS_TOGGLE_W / 2)
+      .toBeGreaterThanOrEqual(optionsLabelL(cx) + OPTIONS_LABEL_MAX_W)
+    expect(OPTIONS_TOGGLE_H).toBeLessThanOrEqual(OPTIONS_ROW_H)
+  })
+
+  /** ⚠ **入と切でつまみが動くこと。**動かないと、色だけが頼りになる */
+  it('つまみは入で右、切で左へ動き、溝からはみ出さない', () => {
+    expect(optionsKnobDx(true)).toBeGreaterThan(optionsKnobDx(false))
+    for (const on of [true, false]) {
+      expect(Math.abs(optionsKnobDx(on)) + OPTIONS_KNOB_R)
+        .toBeLessThanOrEqual(OPTIONS_TOGGLE_W / 2)
+    }
+    expect(OPTIONS_KNOB_R * 2).toBeLessThan(OPTIONS_TOGGLE_H)
+  })
+
+  it('区分の見出しは行より外側から始まる', () => {
+    expect(optionsSectionL(cx)).toBeLessThan(optionsLabelL(cx))
+  })
+
+  /** ⚠ **項目を足したぶんだけ面が伸びること** */
+  it('項目が増えると面も伸びる', () => {
+    expect(optionsLayout([...kinds, 'row']).panelH - panelH)
+      .toBe(OPTIONS_ROW_H + OPTIONS_GAP)
+    expect(optionsLayout([...kinds, 'section']).panelH - panelH)
+      .toBe(OPTIONS_SECTION_H + OPTIONS_GAP)
   })
 })

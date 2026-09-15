@@ -80,3 +80,47 @@ export function confirmNeeded(action: ConfirmAction): boolean { return CONFIRM_O
   [CraftMenu.ts:470-480](../../../src/ui/CraftMenu.ts#L470-L480) の `openConfirm`）
 - **`aidlc-docs/` を `git add aidlc-docs/` でまとめて足さない。**並行セッションがいる。名指しで足す
 - **`main` に入った時点で #113 を close する。**コメントにコミットハッシュと実装内容を書く
+
+---
+
+## 結果（2026-09-15・実装ずみ）
+
+**受入条件6つはすべて満たした。**
+
+| | 受入条件 | 結果 |
+|---|---|---|
+| 1 | `npx vitest run` が通る | ✅ **839本**（801 → +38） |
+| 2 | ⚙️ で開き、4つの行が出て切り替わる | ✅ ブラウザで確認（`/tmp/shots/o113t/01-open,03-craft-off`。**つまみが右・濃い＝出す／左・薄い＝出さない**） |
+| 3 | OFF にした行為は確認なしで実行 | ✅ 「営業時間を削る加工」を切にして加工 → **窓が出ずに完了**（`/tmp/shots/o113u/02-after.png`。記録の最終行「蕎麦粉をつくる ×33回 完了！99個入手（330分）」） |
+| 4 | 開き直しても残る | ✅ 読み直しのあとも `["営業時間を削る加工"]` のまま |
+| 5 | 行為を足すと設定の行も増える | ✅ `OptionsMenu.test.ts`（行は `options.ts` が `CONFIRM_ACTIONS.map` で作る。画面側に名前を書き写すことを禁じた） |
+| 6 | 面の中に文字が収まる | ✅ `layout.test.ts`「オプションの面」10件。**実際に並ぶものを `optionSections()` から取って測るので、足したぶんが自動で判定に入る** |
+
+### 計画から変えたところ
+
+- ⚠ **`ConfirmAction` は union 型ではなく `CONFIRM_ACTIONS` 配列を本体にした。**
+  **union 型は実行時に数えられない**ので、**そのままでは設定の行を自動で増やせない。**
+  型は `typeof CONFIRM_ACTIONS[number]` で作るので、**呼び手4箇所は1文字も変えていない。**
+- ⚠ **入／切はトグルのつまみにした**（PO 指示 2026-09-15）。「出す」「出さない」の2つのボタンを
+  並べる形をやめた。**つまみの位置と色が状態そのもの**なので、**押したら面ごと作り直す。**
+- ⚠ **設定に何が並ぶかを `src/ui/options.ts` に分けた**（PO 指示 2026-09-15
+  「今後オプションは追加される可能性がある」）。**`OptionsMenu` は並べるだけで、何があるかを知らない。**
+  **オプションを足すのは `options.ts` の1箇所**で、区分（見出し）ごとに項目を並べる。
+  **面の高さは中身から出す**ので、足したぶん縦に伸びる ——
+  **画面に収まらなくなったら `layout.test.ts` が落ちる。**
+  ⚠ **入／切でないもの**（音量のような幅のある値、3つ以上から選ぶもの）**が要るようになったら、
+  `OptionSwitch` の隣に型を足すこと。**旗を足して兼用しない。
+- ⚠ **`localStorage` に書くのは「出さない」ほうの一覧だけ。**
+  ON/OFF の表をそのまま書くと、**あとから行為を足したとき、古い記録に無い行為の既定が決まらない。**
+  **「入っていない ＝ 出す」**なら移し替えが要らない（`ConfirmDialog.test.ts` で縛った）。
+
+### 触った範囲
+
+| ファイル | 中身 |
+|---|---|
+| `src/ui/ConfirmDialog.ts` | `CONFIRM_ACTIONS` ／ `setConfirmNeeded` ／ `localStorage` の読み書き |
+| `src/ui/OptionsMenu.ts` | **新規。**⚙️ から開く面（並べて描くだけ） |
+| `src/ui/options.ts` | **新規。**設定に並ぶもの一覧（**足すのはここ**。Phaser を読まない） |
+| `src/ui/layout.ts` | `OPTIONS_*`（寸法・字の大きさ・画面に出す字）と `optionsLayout()`（中身から面の高さと位置を出す） |
+| `src/scenes/GameScene.ts` | ⚙️ の差し替え ／ `isOverlayOpen` ／ `isShelfBlocked` ／ ESC |
+| `src/ui/ConfirmDialog.test.ts` ／ `OptionsMenu.test.ts` ／ `layout.test.ts` | テスト38本 |

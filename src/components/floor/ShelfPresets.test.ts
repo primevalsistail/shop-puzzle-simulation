@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   ShelfPresets, capture, PRESET_COUNT, PRESET_NAME_MAX,
   describePreset, defaultPresetLabel, normalizePresetName,
+  PRESET_SAVE_LABEL, PRESET_LOAD_LABEL, PRESET_DELETE_LABEL,
 } from './ShelfPresets.js'
 import type { DisplaySlot } from '../../types/index.js'
 
@@ -78,6 +79,29 @@ describe('ShelfPresets', () => {
     expect(p.get(-1)).toBeNull()
     expect(p.get(PRESET_COUNT)).toBeNull()
     expect(p.toRecord().filter(Boolean)).toHaveLength(0)
+  })
+})
+
+/**
+ * 升のボタンの字（#75。PO 判断 2026-09-15）。
+ *
+ * ⚠ **ゲーム本体のセーブ・ロードと同じ語にしないこと。**
+ *   同じ画面群に `セーブ` `ロード` が二重にあると、
+ *   **「型をロードすると遊びが巻き戻る」と読まれる**（ペルソナ2人が指摘）。
+ *   ⚠ **`適用` には確認が無い**ので、読み違えて押すと**今の並びが黙って置き換わる。**
+ */
+describe('升のボタンの字（#75）', () => {
+  it('ゲーム本体のセーブ・ロードと同じ語を使わない', () => {
+    for (const label of [PRESET_SAVE_LABEL, PRESET_LOAD_LABEL, PRESET_DELETE_LABEL]) {
+      expect(label, label).not.toBe('セーブ')
+      expect(label, label).not.toBe('ロード')
+    }
+  })
+
+  /** ⚠ **3つが同じ字だと、確認の「する」側でどれを押したか分からなくなる**（#99） */
+  it('3つとも別の字', () => {
+    const labels = [PRESET_SAVE_LABEL, PRESET_LOAD_LABEL, PRESET_DELETE_LABEL]
+    expect(new Set(labels).size).toBe(labels.length)
   })
 })
 
@@ -191,7 +215,7 @@ describe('describePreset — 升に出す1行（#67）', () => {
   /**
    * ⚠ **「全部下ろす」も落とした**（PO 指示 2026-09-13）。**出すのは島名だけ。**
    *   何も出していない型は**縮小図が升だけの空の盤面**になるので、そこで分かる。
-   *   ⚠ **型を覚えていない升（`空`）とは、ボタンの生き死にで見分ける**（`ロード`・`削除` が死ぬ）。
+   *   ⚠ **型を覚えていない升（`空`）とは、ボタンの生き死にで見分ける**（`適用`・`削除` が死ぬ）。
    */
   it('何も出していない型も島名だけ', () => {
     const p = new ShelfPresets()

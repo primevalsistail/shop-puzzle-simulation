@@ -215,14 +215,18 @@ export function defaultPresetLabel(preset: ShelfPreset | null): string {
  *   2箇所に書くと**押したボタンと確認のボタンで字が食い違う。**
  *   ⚠ **`ConfirmDialog` の約束**が「押したボタンと同じ語を渡すこと」である。
  */
-export const PRESET_SAVE_LABEL = 'セーブ'
-export const PRESET_LOAD_LABEL = 'ロード'
+// ⚠ **`セーブ` `ロード` に戻さないこと**（#75。PO 判断 2026-09-15）。
+//   **ゲーム本体のセーブ・ロードと同じ語**になり、
+//   **「型をロードすると遊びが巻き戻る」と読まれる**（ペルソナ2人が指摘）。
+//   ⚠ **`適用` は「いまの盤面に当てる」。**`呼び出し` と違い、**今の並びが置き換わることまで言う。**
+export const PRESET_SAVE_LABEL = '保存'
+export const PRESET_LOAD_LABEL = '適用'
 export const PRESET_DELETE_LABEL = '削除'
 
 /**
  * **上書きの確認の本文**（#99）。
  *
- * ⚠ **中身のある升だけ。**空の升へのセーブに確認は出さない（**戻らない操作ではない**）。
+ * ⚠ **中身のある升だけ。**空の升への `保存` に確認は出さない（**戻らない操作ではない**）。
  * ⚠ **2行に分ける。**名前は最長 `PRESET_NAME_MAX`(20) 文字で、
  *   **1行にまとめると面（`CONFIRM_TEXT_MAX_W`）を超える**（`ui/delivery.ts` と同じ理由）。
  * ⚠ **どの型かは1行目で言う。**型は10本あり、**縮小図と名前でしか見分けられない。**

@@ -1496,6 +1496,103 @@ export const SAVELOAD_INFO_FONT_PX = 18
 /** 確認の面の見出し1行。⚠ **記録の中身は出さない**（PO 指示 2026-09-14） */
 export const SAVELOAD_CONFIRM_FONT_PX = 24
 
+// ─── オプション ───────────────────────────────────────────────
+/**
+ * **⚙️ から開く設定の面**（`OptionsMenu`。#113）。
+ *
+ * ⚠ **形は `SaveLoadMenu` と同じ** —— **全画面の暗幕 ＋ 画面中央の不透明な面**。
+ *   **5つ目の形を作らない**（`MessageWindow` の注記）。
+ * ⚠ **高さは中身から出す**（`optionsLayout`）。**直値で置かないこと** ——
+ *   **項目を足したとき、増えたぶんがボタンに重なったまま気付けない。**
+ * ⚠ **送り（ページ）も巻き取り（スクロール）も無い。**面が伸びて画面に収まらなくなったら
+ *   `layout.test.ts` が落ちる。**そのときに送りを入れるかを決める。**
+ */
+export const OPTIONS_MW = 720
+/** 見出し（`オプション`）が入るぶん。面の上端から1つ目の中身の上端まで */
+export const OPTIONS_HEAD_H = 84
+/** 「閉じる」のボタンが入るぶん。最後の中身の下端から面の下端まで */
+export const OPTIONS_FOOT_H = 96
+/** 区分の見出し1行ぶん */
+export const OPTIONS_SECTION_H = 42
+export const OPTIONS_ROW_H = 60
+/** 中身どうしの間 */
+export const OPTIONS_GAP = 12
+/** 面の左右の余白（行の幅はこのぶん内側） */
+export const OPTIONS_PAD = 30
+export const OPTIONS_ROW_W = OPTIONS_MW - OPTIONS_PAD * 2
+/** 行の中の左右の余白（字とつまみが端に張り付かないぶん） */
+export const OPTIONS_ROW_PAD = 21
+
+export const OPTIONS_TITLE_FONT_PX = 30
+export const OPTIONS_SECTION_FONT_PX = 21
+export const OPTIONS_ROW_FONT_PX = 21
+
+/**
+ * **入／切のつまみ**（PO 指示 2026-09-15「トグル形式に」）。
+ * ⚠ **字は出さない。**溝の中をつまみが**左（切）／右（入）**へ動き、色が変わる。
+ */
+export const OPTIONS_TOGGLE_W = 84
+export const OPTIONS_TOGGLE_H = 36
+/** つまみの丸。⚠ **溝の高さより小さいこと**（縁が見えないと動きが読めない） */
+export const OPTIONS_KNOB_R = 13.5
+
+export const OPTIONS_TITLE = 'オプション'
+export const OPTIONS_CLOSE_LABEL = '閉じる'
+
+/** つまみの中心 x（溝の中心 `x` から見て）。**切は左、入は右** */
+export function optionsKnobDx(on: boolean): number {
+  const half = OPTIONS_TOGGLE_W / 2 - OPTIONS_TOGGLE_H / 2
+  return on ? half : -half
+}
+
+/** 面に積むものの種類。⚠ **高さが違うので、数だけでは位置が出ない** */
+export type OptionsItemKind = 'section' | 'row'
+
+/**
+ * 面の高さと、**中身それぞれの中心 y**（面の上端からの距離）を出す。
+ *
+ * ⚠ **`optionSections()` の中身をそのまま積んだ並びを渡すこと。**
+ *   画面側で足し引きすると、**描く位置と測る位置がずれる。**
+ */
+export function optionsLayout(kinds: readonly OptionsItemKind[]): {
+  panelH: number; cys: readonly number[]
+} {
+  const cys: number[] = []
+  let y = OPTIONS_HEAD_H
+  kinds.forEach((kind, i) => {
+    const h = kind === 'section' ? OPTIONS_SECTION_H : OPTIONS_ROW_H
+    if (i > 0) y += OPTIONS_GAP
+    cys.push(y + h / 2)
+    y += h
+  })
+  return { panelH: y + OPTIONS_FOOT_H, cys }
+}
+
+/** 「閉じる」の中心 y（`cy` は面の中心） */
+export function optionsCloseCy(cy: number, panelH: number): number {
+  return cy + panelH / 2 - 45
+}
+
+/** 行の字の左端（`cx` は面の中心） */
+export function optionsLabelL(cx: number): number {
+  return cx - OPTIONS_ROW_W / 2 + OPTIONS_ROW_PAD
+}
+
+/** 区分の見出しの左端。⚠ **行より外側**（くくっているものだと分かるように） */
+export function optionsSectionL(cx: number): number {
+  return cx - OPTIONS_ROW_W / 2
+}
+
+/** つまみの中心 x。**行の右端に寄せる** */
+export function optionsToggleCx(cx: number): number {
+  return cx + OPTIONS_ROW_W / 2 - OPTIONS_ROW_PAD - OPTIONS_TOGGLE_W / 2
+}
+
+/** 行の字が使える幅（つまみにぶつからない上限） */
+export const OPTIONS_LABEL_MAX_W =
+  OPTIONS_ROW_W - OPTIONS_ROW_PAD * 2 - OPTIONS_TOGGLE_W - 12
+
+
 // ─── 幕（目標達成） ───────────────────────────────────────────
 /**
  * **画面ぜんぶを覆う幕**（`GameScene.showGoalComplete()`）。
