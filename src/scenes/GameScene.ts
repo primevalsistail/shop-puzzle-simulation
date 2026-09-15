@@ -205,16 +205,20 @@ export class GameScene extends Phaser.Scene {
    */
 
   /**
-   * タイトル画面から渡ってくるもの（#114）。
-   * **`fresh`** ＝ はじめる ／ **`openLoad`** ＝ つづきから。
+   * タイトル画面から渡ってくるもの（#114 ／ #123）。
+   * **`fresh`** ＝ はじめる ／ **`loadSlot`** ＝ つづきからで選ばれた枠の番号。
+   *
+   * ⚠ **枠を選ぶのはタイトル側**（`TitleScene`）。**ここへは選び終わった番号だけが来る。**
+   *   以前は `openLoad` を受けて**この場面を組み上げてから**枠を出していたが、
+   *   **選ぶ前に1日目の画面が見えていた**（#123）。**戻さないこと。**
    */
-  private startMode: { fresh?: boolean; openLoad?: boolean } = {}
+  private startMode: { fresh?: boolean; loadSlot?: number } = {}
 
   constructor() {
     super({ key: 'GameScene' })
   }
 
-  init(data: { fresh?: boolean; openLoad?: boolean } = {}): void {
+  init(data: { fresh?: boolean; loadSlot?: number } = {}): void {
     this.startMode = data
   }
 
@@ -360,86 +364,7 @@ export class GameScene extends Phaser.Scene {
         this.progress.save(slot)
         this.updateStatus(`スロット ${slot + 1}に保存しました`)
       },
-      (slot) => {
-        const data = this.progress.load(slot)
-        if (!data) return
-
-        // 時間を止める
-        if (this.timeManager.isAdvancing()) this.timeManager.stopAdvancing()
-
-        // フロアを全クリア（表示 + データ）
-        for (const existing of this.floorGrid.getAllSlots()) {
-          this.floorRenderer.clearSlot(existing.id)
-        }
-        this.floorGrid.clear()
-
-        // フロアスロットを復元
-        for (const slot of data.floor) {
-          this.floorGrid.place(slot)
-          this.floorRenderer.drawSlot(slot)
-        }
-
-        // ⚠ **クリア後の状態を戻す**（#80 ／ #94）。**`true` も `false` もそのまま反映する。**
-        //   降ろす口が無かったころは、**クリア済みのセーブを読んだあとにクリア前のセーブを読むと
-        //   `∞ endless` が居座った**（旗が立ちっぱなしなので、目標へ届いても幕が出ない）。
-        // ⚠ **所持金を戻すより先に置くこと**（#93）。旗は**判定が読むもの**なので、
-        //   **復元の途中で判定が走っても正しい側に倒れる**位置に置く。
-        //   （引き金は `TIME_MINUTE_PASSED` なので、いまは `economy.restore()` では判定は走らない。
-        //   ⚠ **引き金を所持金側へ戻すと、この順序でないとエンドレスのセーブを読んだ瞬間に幕が出る。**）
-        const endless = data.isEndlessMode === true
-        this.gameService.setEndlessMode(endless)
-        this.progress.setEndlessMode(endless)
-        // ⚠ **幕を戻す**（#97 受入条件5）。**エンディングの幕を閉じずにロードすると、
-        //   `<input>` が全部隠れたままになる**（`isOverlayOpen()` が読んでいる）。
-        //   ⚠ **`endless` と同じ値にしないこと。**幕は**いま出ているか**であって、
-        //   **商船を買ったかではない。**読んだ直後は、どちらのセーブでも幕は出ていない
-        this.curtainShown = false
-
-        // 経済・インベントリ・時間を復元
-        this.economy.restore(data.money, data.totalRevenue)
-        this.inventory.setInitialStock(data.inventory)
-        this.inventory.restoreEverHeld(data.everHeld ?? Object.keys(data.inventory))
-        this.world.restore(data.soldCounts ?? {})
-        this.world.setDay(data.currentTime.day)  // 現在地は日付から決まる（#2）
-        this.upgrades.restore(data.upgrades ?? {})
-        this.shelfPresets.restore(data.shelfPresets)
-        // ⚠ **引いた日ごと戻す**（#98）。戻さずに引き直せると、
-        //   **欲しい依頼が出るまでロードし直せる**（行商人の積荷と同じ事故）
-        this.deliveryOrders.restore(data.orders, data.orderDay ?? 0)
-        // ⚠ **積荷ごと戻す。**戻さずに引き直すと、**欲しい品が出るまでロードし直せる**
-        //   （10種類・各10個という上限が意味を失う。`PeddlerStock` の注記）
-        this.peddler.restore(data.peddler)
-        this.progress.restoreUnlockedRecipes(data.unlockedRecipes ?? [])
-        // ⚠ **自由航行の航路を戻す**（#7）。**無いセーブは空で来る**（クリア前 ／ #7 より前）。
-        //   空なら日付からの導出へ戻り、**クリア済みなのに空**なら今日の島から始める。
-        //   戻さないと、**選んだ島がロードで順どおりの島へ巻き戻る。**
-        // ⚠ **こちらは前から両方向ある**（#94 で確かめた）。`restoreVoyage(null)` が
-        //   `chosenIsland` を消すので、**クリア前のセーブを読めば日付からの導出へ戻る**
-        //   （`WorldState.test.ts`「航路の無いセーブを読むと、自由航行そのものが解ける」）。
-        this.world.restoreVoyage(data.voyage ?? null)
-        if (endless && !this.world.isFreeSailing()) this.world.beginFreeSailing()
-        this.applyShelfSize()
-        this.timeManager.setTime(data.currentTime)
-        // 解禁が無かった頃のセーブは空で来る。材料の揃っているぶんまでここで追いつく（#48・#111）
-        this.checkRecipeUnlocks()
-
-        // HUD・パネルを更新
-        this.hud.updateMoney(data.money)
-        this.hud.updateTime(data.currentTime.day, data.currentTime.hour, data.currentTime.minute)
-        this.hud.updateLocation(this.world.getLocation())
-        this.refreshNextPort()
-        // ⚠ **引いた日が無かった頃のセーブは 0 で来る。**その日ぶんをここで引く。
-        //   同じ日を引いたあとのセーブなら `rollDaily` は何もしない（1日1回。#98）
-        this.rollMission(data.currentTime.day)
-        // ⚠ **行商人が無かった頃のセーブは日が 0 で来る。**その日ぶんをここで引く。
-        //   同じ日の積荷が入っていれば `refresh` は何もしない（1日1回。`PeddlerStock`）
-        this.visitPeddler(data.currentTime.day)
-        // ⚠ **その日ぶんのできごとも引き直す。**引かないと、**別の日のセーブを読んだあと
-        //   その日が終わるまで何も起きない**（控えは前の日のままになる）
-        this.storyEvents.ensureDay(data.currentTime.day)
-        this.refreshInventoryPanel()
-        this.updateStatus(`スロット ${slot + 1}からロードしました`)
-      },
+      (slot) => this.applyLoad(slot),
     )
 
     this.inventory.setInitialStock(INITIAL_STOCK)
@@ -511,11 +436,11 @@ export class GameScene extends Phaser.Scene {
       raiseStoryEvent: (id: string) => this.raiseStoryEvent(id),
     })
 
-    // ⚠ **「つづきから」は、いつものロードの画面をそのまま開く**（#114）。
-    //   **枠は3つある**ので、どれを読むかはここで選ばせる。
-    //   ⚠ **案内より先に出す。**読み込む人は遊び方を知っている
-    if (this.startMode.openLoad) {
-      this.doLoad()
+    // ⚠ **「つづきから」は、タイトルで選ばれた枠をここで読み込む**（#123）。
+    //   **この場面はまだ一度も描かれていない**ので、読み込んだ状態が最初の絵になる。
+    //   ⚠ **案内は出さない。**読み込む人は遊び方を知っている
+    if (this.startMode.loadSlot !== undefined) {
+      this.applyLoad(this.startMode.loadSlot)
     } else if (this.tutorial.shouldShow()) {
       this.tutorial.show(() => this.updateStatus())
     }
@@ -1478,6 +1403,95 @@ export class GameScene extends Phaser.Scene {
         ? `型を適用した（${placed}区画）`
         : `型を適用した（${placed}区画。${dropped}区画は盤面に入らず外した）`,
     )
+  }
+
+  /**
+   * 記録を1つ読み込んで、いまの場面へ反映する（#123 で切り出した）。
+   *
+   * ⚠ **呼び口は2つ。**⚙️ → ロード（遊んでいる途中）と、
+   *   **タイトルの「つづきから」から `create()` の末尾**（#123）。
+   * ⚠ **`create()` の中から呼ぶときは、必ず一番最後。**`hud` も盤面も揃ってからでないと
+   *   ここが触るものが無い。**同じフレームのうちに済むので、1日目の画面は描かれない。**
+   */
+  private applyLoad(slot: number): void {
+    const data = this.progress.load(slot)
+    if (!data) return
+
+    // 時間を止める
+    if (this.timeManager.isAdvancing()) this.timeManager.stopAdvancing()
+
+    // フロアを全クリア（表示 + データ）
+    for (const existing of this.floorGrid.getAllSlots()) {
+      this.floorRenderer.clearSlot(existing.id)
+    }
+    this.floorGrid.clear()
+
+    // フロアスロットを復元
+    for (const slot of data.floor) {
+      this.floorGrid.place(slot)
+      this.floorRenderer.drawSlot(slot)
+    }
+
+    // ⚠ **クリア後の状態を戻す**（#80 ／ #94）。**`true` も `false` もそのまま反映する。**
+    //   降ろす口が無かったころは、**クリア済みのセーブを読んだあとにクリア前のセーブを読むと
+    //   `∞ endless` が居座った**（旗が立ちっぱなしなので、目標へ届いても幕が出ない）。
+    // ⚠ **所持金を戻すより先に置くこと**（#93）。旗は**判定が読むもの**なので、
+    //   **復元の途中で判定が走っても正しい側に倒れる**位置に置く。
+    //   （引き金は `TIME_MINUTE_PASSED` なので、いまは `economy.restore()` では判定は走らない。
+    //   ⚠ **引き金を所持金側へ戻すと、この順序でないとエンドレスのセーブを読んだ瞬間に幕が出る。**）
+    const endless = data.isEndlessMode === true
+    this.gameService.setEndlessMode(endless)
+    this.progress.setEndlessMode(endless)
+    // ⚠ **幕を戻す**（#97 受入条件5）。**エンディングの幕を閉じずにロードすると、
+    //   `<input>` が全部隠れたままになる**（`isOverlayOpen()` が読んでいる）。
+    //   ⚠ **`endless` と同じ値にしないこと。**幕は**いま出ているか**であって、
+    //   **商船を買ったかではない。**読んだ直後は、どちらのセーブでも幕は出ていない
+    this.curtainShown = false
+
+    // 経済・インベントリ・時間を復元
+    this.economy.restore(data.money, data.totalRevenue)
+    this.inventory.setInitialStock(data.inventory)
+    this.inventory.restoreEverHeld(data.everHeld ?? Object.keys(data.inventory))
+    this.world.restore(data.soldCounts ?? {})
+    this.world.setDay(data.currentTime.day)  // 現在地は日付から決まる（#2）
+    this.upgrades.restore(data.upgrades ?? {})
+    this.shelfPresets.restore(data.shelfPresets)
+    // ⚠ **引いた日ごと戻す**（#98）。戻さずに引き直せると、
+    //   **欲しい依頼が出るまでロードし直せる**（行商人の積荷と同じ事故）
+    this.deliveryOrders.restore(data.orders, data.orderDay ?? 0)
+    // ⚠ **積荷ごと戻す。**戻さずに引き直すと、**欲しい品が出るまでロードし直せる**
+    //   （10種類・各10個という上限が意味を失う。`PeddlerStock` の注記）
+    this.peddler.restore(data.peddler)
+    this.progress.restoreUnlockedRecipes(data.unlockedRecipes ?? [])
+    // ⚠ **自由航行の航路を戻す**（#7）。**無いセーブは空で来る**（クリア前 ／ #7 より前）。
+    //   空なら日付からの導出へ戻り、**クリア済みなのに空**なら今日の島から始める。
+    //   戻さないと、**選んだ島がロードで順どおりの島へ巻き戻る。**
+    // ⚠ **こちらは前から両方向ある**（#94 で確かめた）。`restoreVoyage(null)` が
+    //   `chosenIsland` を消すので、**クリア前のセーブを読めば日付からの導出へ戻る**
+    //   （`WorldState.test.ts`「航路の無いセーブを読むと、自由航行そのものが解ける」）。
+    this.world.restoreVoyage(data.voyage ?? null)
+    if (endless && !this.world.isFreeSailing()) this.world.beginFreeSailing()
+    this.applyShelfSize()
+    this.timeManager.setTime(data.currentTime)
+    // 解禁が無かった頃のセーブは空で来る。材料の揃っているぶんまでここで追いつく（#48・#111）
+    this.checkRecipeUnlocks()
+
+    // HUD・パネルを更新
+    this.hud.updateMoney(data.money)
+    this.hud.updateTime(data.currentTime.day, data.currentTime.hour, data.currentTime.minute)
+    this.hud.updateLocation(this.world.getLocation())
+    this.refreshNextPort()
+    // ⚠ **引いた日が無かった頃のセーブは 0 で来る。**その日ぶんをここで引く。
+    //   同じ日を引いたあとのセーブなら `rollDaily` は何もしない（1日1回。#98）
+    this.rollMission(data.currentTime.day)
+    // ⚠ **行商人が無かった頃のセーブは日が 0 で来る。**その日ぶんをここで引く。
+    //   同じ日の積荷が入っていれば `refresh` は何もしない（1日1回。`PeddlerStock`）
+    this.visitPeddler(data.currentTime.day)
+    // ⚠ **その日ぶんのできごとも引き直す。**引かないと、**別の日のセーブを読んだあと
+    //   その日が終わるまで何も起きない**（控えは前の日のままになる）
+    this.storyEvents.ensureDay(data.currentTime.day)
+    this.refreshInventoryPanel()
+    this.updateStatus(`スロット ${slot + 1}からロードしました`)
   }
 
   private doSave(): void { this.saveLoadMenu.openSave() }

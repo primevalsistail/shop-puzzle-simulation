@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { GameProgress } from './GameProgress.js'
+import { GameProgress, hasAnySave, readSlotMeta } from './GameProgress.js'
 import { EconomyManager } from '../economy/EconomyManager.js'
 import { Inventory } from '../economy/Inventory.js'
 import { ItemRegistry } from '../items/ItemRegistry.js'
@@ -219,6 +219,29 @@ describe('GameProgress', () => {
     expect(restored.getStage('棚')).toBe(2)
     expect(restored.getStage('手際')).toBe(1)
     expect(restored.gridSize()).toEqual({ width: 8, height: 7 })
+    vi.unstubAllGlobals()
+  })
+
+  it('枠の見出しは GameProgress を作らずに読める（タイトル画面がロードの枠を出すのに使う。#123）', () => {
+    // ⚠ **タイトル画面には所持金も盤面もまだ無い。**一式を組み立てずに読めないと、
+    //   **枠を出すためだけに `GameScene` を作る**ことになる（それが #123 の原因だった）
+    const store: Record<string, string> = {}
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store[k] ?? null,
+      setItem: (k: string, v: string) => { store[k] = v },
+    })
+    expect(hasAnySave()).toBe(false)
+    expect(readSlotMeta(1)).toBeNull()
+
+    const eco = new EconomyManager()
+    const inv = new Inventory()
+    const reg = new ItemRegistry(ALL_ITEMS)
+    const grid = new FloorGrid({ width: 6, height: 5 }, reg)
+    new GameProgress(eco, inv, grid, makeTimeManagerMock(), new WorldState(), new Upgrades(), new ShelfPresets(), new DeliveryOrders(inv, eco), new PeddlerStock()).save(1)
+
+    expect(hasAnySave()).toBe(true)
+    expect(readSlotMeta(1)?.day).toBe(1)
+    expect(readSlotMeta(0)).toBeNull()
     vi.unstubAllGlobals()
   })
 })

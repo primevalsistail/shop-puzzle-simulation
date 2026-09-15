@@ -33,6 +33,33 @@ export function hasAnySave(): boolean {
   }
 }
 
+/**
+ * **枠1つの見出し（Day・売上・保存日時）を、`GameProgress` を作らずに読む**（#123）。
+ *
+ * ⚠ **タイトル画面がロードの枠を出すのに使う。**あそこには所持金も盤面もまだ無いので、
+ *   **一式を組み立てずに読めるものが要る**（`hasAnySave()` と同じ理由）。
+ * ⚠ **鍵の作り方をここ以外に書かない。**
+ */
+export function readSlot(slot: number): SaveData | null {
+  try {
+    const raw = localStorage.getItem(slotKey(slot))
+    if (!raw) return null
+    return JSON.parse(raw) as SaveData
+  } catch {
+    return null
+  }
+}
+
+export function readSlotMeta(slot: number): SlotMeta | null {
+  const data = readSlot(slot)
+  if (!data) return null
+  return {
+    savedAt: data.savedAt ?? 0,
+    totalRevenue: data.totalRevenue,
+    day: data.currentTime.day,
+  }
+}
+
 export class GameProgress {
   /**
    * 解禁済みのレシピ。**クラフトメニューはここにあるものだけを並べる**（#48 ／ 段4-3）。
@@ -95,25 +122,9 @@ export class GameProgress {
     }
   }
 
-  load(slot = 0): SaveData | null {
-    try {
-      const raw = localStorage.getItem(slotKey(slot))
-      if (!raw) return null
-      return JSON.parse(raw) as SaveData
-    } catch {
-      return null
-    }
-  }
+  load(slot = 0): SaveData | null { return readSlot(slot) }
 
-  getSlotMeta(slot: number): SlotMeta | null {
-    const data = this.load(slot)
-    if (!data) return null
-    return {
-      savedAt: data.savedAt ?? 0,
-      totalRevenue: data.totalRevenue,
-      day: data.currentTime.day,
-    }
-  }
+  getSlotMeta(slot: number): SlotMeta | null { return readSlotMeta(slot) }
 
   hasSave(slot = 0): boolean {
     try {
