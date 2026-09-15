@@ -37,6 +37,7 @@ import { OptionsMenu } from '../ui/OptionsMenu.js'
 import { setDomInputsVisible } from '../ui/domInput.js'
 import { CharacterStrip } from '../ui/CharacterStrip.js'
 import { PortShutter } from '../ui/PortShutter.js'
+import type { IconKey } from '../ui/icons.js'
 import { PlaceFrame } from '../ui/PlaceFrame.js'
 import { MessageWindow } from '../ui/MessageWindow.js'
 import {
@@ -45,7 +46,8 @@ import {
   BTN_Y_ADVANCE, BTN_Y_SPEED, BTN_Y_CRAFT, BTN_Y_TRADE, BTN_Y_ICON,
   TRADE_TITLE,
   CHAR_ART_CX, CHAR_ART_CY, CHAR_ART_W, CHAR_ART_H, craftTimeLabel, recipeUnlockedText,
-  BTN_ACTION_FONT_PX, BTN_ADVANCE_FONT_PX, BTN_ICON_FONT_PX, BTN_TOOLTIP_FONT_PX,
+  BTN_ACTION_FONT_PX, BTN_ADVANCE_FONT_PX, BTN_ICON_ART_PX, BTN_TOOLTIP_FONT_PX,
+  BTN_ACTION_ICON_PX, BTN_ACTION_ICON_GAP,
   BTN_SPEED_FONT_PX, SALE_POPUP_FONT_PX,
   GOAL_TITLE_FONT_PX, GOAL_LINE_FONT_PX, GOAL_BTN_FONT_PX, GOAL_CLOSE_LABEL,
   STRIP_CUSTOMER_SLOT_MAX, STRIP_CUSTOMER_DWELL_MIN,
@@ -585,18 +587,20 @@ export class GameScene extends Phaser.Scene {
     const hideTip = () => this.tooltip.setVisible(false)
 
     // ── Icon buttons ─────────────────────────────────
-    const iconDefs: { emoji: string; tip: string; action: () => void }[] = [
-      { emoji: '💾', tip: 'セーブ',    action: () => this.doSave() },
-      { emoji: '📂', tip: 'ロード',    action: () => this.doLoad() },
-      { emoji: '🗂', tip: '型', action: () => this.openPresetMenu() },
-      { emoji: '⚙️', tip: 'オプション', action: () => this.openOptionsMenu() },
-      { emoji: '❓', tip: 'ヘルプ',    action: () => this.tutorial.show(() => this.updateStatus()) },
+    // ⚠ **絵文字に戻さないこと**（#69）。**フォントに無い環境では □ で出る**（実測 2026-09-15）。
+    //   絵の名札と置き場は `ui/icons.ts`
+    const iconDefs: { key: IconKey; tip: string; action: () => void }[] = [
+      { key: 'save',    tip: 'セーブ',    action: () => this.doSave() },
+      { key: 'load',    tip: 'ロード',    action: () => this.doLoad() },
+      { key: 'preset',  tip: '型',        action: () => this.openPresetMenu() },
+      { key: 'options', tip: 'オプション', action: () => this.openOptionsMenu() },
+      { key: 'help',    tip: 'ヘルプ',    action: () => this.tutorial.show(() => this.updateStatus()) },
     ]
-    iconDefs.forEach(({ emoji, tip, action }, i) => {
+    iconDefs.forEach(({ key, tip, action }, i) => {
       const cx = L + IW / 2 + i * (IW + iconGap)
       const bg = this.add.rectangle(cx, yIcon, IW, IH, BTN_BACK)
         .setStrokeStyle(1.5, LINE_STRONG).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
-      this.add.text(cx, yIcon, emoji, { fontSize: `${BTN_ICON_FONT_PX}px` }).setOrigin(0.5).setDepth(DEPTH)
+      this.add.image(cx, yIcon, key).setDisplaySize(BTN_ICON_ART_PX, BTN_ICON_ART_PX).setDepth(DEPTH)
       bg.on('pointerdown', action)
       bg.on('pointerover', () => { bg.setFillStyle(BTN_BACK_HOVER); showTip(cx, yIcon, tip) })
       bg.on('pointerout',  () => { bg.setFillStyle(BTN_BACK); hideTip() })
@@ -606,14 +610,20 @@ export class GameScene extends Phaser.Scene {
     const acx = L + PW / 2  // center x for all action buttons
 
     const makeAction = (
-      cy: number, label: string, icon: string,
+      cy: number, label: string, icon: IconKey,
       normal: number, hover: number,
       action: () => void,
     ) => {
       const bg = this.add.rectangle(acx, cy, PW, AH, normal)
         .setStrokeStyle(1.5, LINE_STRONG).setInteractive({ useHandCursor: true }).setDepth(DEPTH)
-      this.add.text(acx, cy, `${icon}  ${label}`, { fontSize: `${BTN_ACTION_FONT_PX}px`, color: css(BTN_TEXT) })
+      // ⚠ **絵と字を合わせた幅で中央に置く**（#69）。字だけを中央にすると、
+      //   **絵のぶんだけ左に寄って見える。**寸法は `layout.ts` が持つ
+      const text = this.add.text(0, cy, label, { fontSize: `${BTN_ACTION_FONT_PX}px`, color: css(BTN_TEXT) })
         .setOrigin(0.5).setDepth(DEPTH)
+      const total = BTN_ACTION_ICON_PX + BTN_ACTION_ICON_GAP + text.width
+      text.setX(acx + total / 2 - text.width / 2)
+      this.add.image(acx - total / 2 + BTN_ACTION_ICON_PX / 2, cy, icon)
+        .setDisplaySize(BTN_ACTION_ICON_PX, BTN_ACTION_ICON_PX).setDepth(DEPTH)
       bg.on('pointerdown', action)
       bg.on('pointerover', () => bg.setFillStyle(hover))
       bg.on('pointerout',  () => bg.setFillStyle(normal))
@@ -623,11 +633,11 @@ export class GameScene extends Phaser.Scene {
     // ⚠ **行った先の見出しと同じ名にすること**（`PlaceFrame.show(TRADE_TITLE)`）。
     //   同じ場所を2つの名で呼ばない（`クラフト`→`工房` と同じ直し。束M）。
     //   ⚠ **`改装` と `商人のところ` はここにもう無い**（#96）。どちらも「取引」の中のタブ
-    makeAction(yTrade, TRADE_TITLE, '🛒', BTN_TRADE, BTN_TRADE_HOVER, () => this.openTrade())
+    makeAction(yTrade, TRADE_TITLE, 'trade', BTN_TRADE, BTN_TRADE_HOVER, () => this.openTrade())
     // ⚠ **行商人はここに並べない**（#90）。**向こうから来る**ので、
     //   いつでも押せるボタンとして置くと「そこに在る店」になり、来訪という形が消える。
     //   開くのはできごとの窓の「見る」だけ（`resolveStoryChoice`）
-    makeAction(yCraft, '工房', '🔨', BTN_CRAFT, BTN_CRAFT_HOVER, () => this.openCraftMenu())
+    makeAction(yCraft, '工房', 'craft', BTN_CRAFT, BTN_CRAFT_HOVER, () => this.openCraftMenu())
 
     // 速度切り替え。⚠ 飛ばすのではなく速くする（飛ばすと売れた実感が消える）。
     //   **「進める」ボタンの上に独立した行として置く。**ボタンの中に入れると文字が重なる

@@ -1,0 +1,47 @@
+{
+  "tool": "built-in image_gen",
+  "assets": [
+    {
+      "name": "save",
+      "path": "/mnt/c/Users/senoo_s/.codex/generated_images/01a0a344-cacc-7e40-b80c-0239a7002bf5/exec-f75a8b77-6b64-4820-9cae-998873e2302d.png",
+      "prompt": "Use case illustration-story. Create one hand-drawn picture-book game button icon. Bold organically uneven dark #493d38 outlines, SOLID flat opaque muted tan and cream fills, no gradients, no shading, no texture. Strict straight front view, no depth. One large isolated silhouette centered, 16px padding, 256x256 PNG. True alpha transparent background; no checkerboard. Readable at 36px. Subject: SAVE game icon, a cream paper sheet held inside a closed reddish brown ledger cover, with a broad ochre bookmark. Cover has a large cream rectangular label filling its center. All object interiors fully opaque. No shadows, no holes. Actual transparent exterior. Filename save.png.",
+      "edit": "Edit only this icon's label: replace the word SAVE with two thick horizontal brown handwriting strokes, no letters. Preserve all other shapes, colors and real transparent background. Flatten colors without shading. Output PNG."
+    },
+    {
+      "name": "load",
+      "path": "/mnt/c/Users/senoo_s/.codex/generated_images/01a0a344-cacc-7e40-b80c-0239a7002bf5/exec-eaa4a7d8-adad-46c1-b879-9a6affeb4e77.png",
+      "prompt": "Use case illustration-story. Create one hand-drawn picture-book game button icon. Bold organically uneven dark #493d38 outlines, SOLID flat opaque muted tan and cream fills, no gradients, no shading, no texture. Strict straight front view, no depth. One large isolated silhouette centered, 16px padding, 256x256 PNG. True alpha transparent background; no checkerboard. Readable at 36px. Subject: a single OPEN ledger with two wide cream pages and brown binding, for loading saved game state. No text, no small decorations. Filename load.png."
+    },
+    {
+      "name": "preset",
+      "path": "/mnt/c/Users/senoo_s/.codex/generated_images/01a0a344-cacc-7e40-b80c-0239a7002bf5/exec-bd48b068-bacd-458e-bb62-69f0661c5c84.png",
+      "prompt": "Use case illustration-story. Create one hand-drawn picture-book game button icon. Bold organically uneven dark #493d38 outlines, SOLID flat opaque muted tan and cream fills, no gradients, no shading, no texture. Strict straight front view, no depth. One large isolated silhouette centered, 16px padding, 256x256 PNG. True alpha transparent background; no checkerboard. Readable at 36px. Subject: one square wooden layout board divided into a bold 2 by 2 grid of four SOLID opaque pale tan compartments, for saved shop layout presets. No holes in the board, no perspective, no text. Filename preset.png."
+    },
+    {
+      "name": "options",
+      "path": "/mnt/c/Users/senoo_s/.codex/generated_images/01a0a344-cacc-7e40-b80c-0239a7002bf5/exec-8ceb7752-81fd-4e20-acf7-0e589ff8ab8e.png",
+      "prompt": "Use case illustration-story. Create one hand-drawn picture-book game button icon. Bold organically uneven dark #493d38 outlines, SOLID flat opaque muted tan and cream fills, no gradients, no shading, no texture. Strict straight front view, no depth. One large isolated silhouette centered, 16px padding, 256x256 PNG. True alpha transparent background; no checkerboard. Readable at 36px. Subject: one eight-toothed gear with a large circular central opening, muted desaturated gray-green solid fill, for settings. No other objects. Filename options.png."
+    },
+    {
+      "name": "help",
+      "path": "/mnt/c/Users/senoo_s/.codex/generated_images/01a0a344-cacc-7e40-b80c-0239a7002bf5/exec-616558fc-aa51-41e7-bfb4-972ead779452.png",
+      "prompt": "Use case illustration-story. Create one hand-drawn picture-book game button icon. Bold organically uneven dark #493d38 outlines, SOLID flat opaque muted tan and cream fills, no gradients, no shading, no texture. Strict straight front view, no depth. One large isolated silhouette centered, 16px padding, 256x256 PNG. True alpha transparent background; no checkerboard. Readable at 36px. Subject: one bold hand-drawn question mark ? with large dot, solid dark brown throughout, for help. No surrounding circle, no book, no other objects. Filename help.png."
+    },
+    {
+      "name": "trade",
+      "path": "/mnt/c/Users/senoo_s/.codex/generated_images/01a0a344-cacc-7e40-b80c-0239a7002bf5/exec-16119a82-af88-440c-bf61-a9fdbf20ee6b.png",
+      "prompt": "Use case illustration-story. Create one hand-drawn picture-book game button icon. Bold organically uneven dark #493d38 outlines, SOLID flat opaque muted tan and cream fills, no gradients, no shading, no texture. Strict straight front view, no depth. One large isolated silhouette centered, 16px padding, 256x256 PNG. True alpha transparent background; no checkerboard. Readable at 36px. Subject: a single empty shopping basket with one broad arch handle and a solid ochre trapezoid body with only two bold weave lines. For trade action. No contents or other objects. Filename trade.png."
+    },
+    {
+      "name": "craft",
+      "path": "/mnt/c/Users/senoo_s/.codex/generated_images/01a0a344-cacc-7e40-b80c-0239a7002bf5/exec-487c2393-77ca-4df0-9cdb-60a6e067265e.png",
+      "prompt": "Use case illustration-story. Create one hand-drawn picture-book game button icon. Bold organically uneven dark #493d38 outlines, SOLID flat opaque muted tan and cream fills, no gradients, no shading, no texture. Strict straight front view, no depth. One large isolated silhouette centered, 16px padding, 256x256 PNG. True alpha transparent background; no checkerboard. Readable at 36px. One wooden mallet icon shaped like T. The horizontal head is pale ivory cream with a dark brown outline and ONE thick horizontal dark brown line across its center representing wood grain. Short ochre handle. No text. Background alpha transparent with absolutely no checkerboard. Filename craft.png.",
+      "edit": "Repair this wooden mallet icon: fill the entire head with completely OPAQUE uniform pale cream wood color. Remove the dark translucent smudge at its center. Keep thick brown outline, T silhouette and transparent exterior. No new objects, no text. Flat picture-book drawing. PNG."
+    },
+    {
+      "name": "advance",
+      "path": "/mnt/c/Users/senoo_s/.codex/generated_images/01a0a344-cacc-7e40-b80c-0239a7002bf5/exec-c00a950e-310d-46a2-859b-b149a3a395b1.png",
+      "prompt": "Create a picture-book UI icon: a single right-facing triangular outline. Three thick solid dark brown strokes join into one closed triangular frame with a fully transparent empty center. No fill inside triangle. Thick organically hand-drawn edges. Flat uniform color #493d38. NO gradients NO shading NO texture NO additional marks. Actual transparent background, never checkerboard. Square PNG, centered. This is the advance-time button."
+    }
+  ]
+}

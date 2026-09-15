@@ -1,0 +1,26 @@
+{
+  "load": {
+    "growth_radius_px": 3,
+    "dark_pixels_alpha_at_least_240": 11009,
+    "alpha_and_silhouette_unchanged": true,
+    "ink": "#493d38"
+  },
+  "options": {
+    "growth_radius_px": 3,
+    "dark_pixels_alpha_at_least_240": 10614,
+    "alpha_and_silhouette_unchanged": true,
+    "ink": "#493d38"
+  },
+  "trade": {
+    "growth_radius_px": 1,
+    "dark_pixels_alpha_at_least_240": 10393,
+    "alpha_and_silhouette_unchanged": true,
+    "ink": "#493d38"
+  },
+  "craft": {
+    "growth_radius_px": 3,
+    "dark_pixels_alpha_at_least_240": 10308,
+    "alpha_and_silhouette_unchanged": true,
+    "ink": "#493d38"
+  }
+}

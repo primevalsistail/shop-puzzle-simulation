@@ -967,8 +967,23 @@ export const BTN_ACTION_FONT_PX = 25.5
  *   いちばん押すボタンなので、**ここだけ動かすことがある**（#116）。
  */
 export const BTN_ADVANCE_FONT_PX = 25.5
-/** 上段のアイコンのボタン（💾 📂 🗂 ⚙️ ❓）の絵文字 */
-export const BTN_ICON_FONT_PX = 24
+/**
+ * 上段のアイコンのボタンに出す**絵の大きさ**（#69）。
+ *
+ * ⚠ **`BTN_ICON_W`(49.5) × `BTN_ICON_H`(57) の枠の中。**枠いっぱいにすると
+ *   **隣のボタンと絵がくっついて見える**ので、まわりに余白を残す。
+ * ⚠ **原本は 256px。**ここで縮めるので、**細い線は消える**
+ *   —— 絵の側の条件は `handoff-button-icons.md`。
+ */
+export const BTN_ICON_ART_PX = 36
+/**
+ * 行動ボタン（`取引` `工房`）の中の絵と、絵と字のあいだ。
+ *
+ * ⚠ **絵と字を合わせた幅でボタンの中央に置く**（`GameScene`）。
+ *   字だけを中央に置くと、**絵のぶんだけ左に寄って見える。**
+ */
+export const BTN_ACTION_ICON_PX = 30
+export const BTN_ACTION_ICON_GAP = 12
 /** アイコンのボタンに触れたときに出る吹き出しの字 */
 export const BTN_TOOLTIP_FONT_PX = 18
 /** `速さ ×N` の行。⚠ **「進める」の中に入れない**（字が重なる） */

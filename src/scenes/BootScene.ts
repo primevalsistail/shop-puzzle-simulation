@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 import { CUSTOMER_ART, CUSTOMER_ART_READY, FACE_KEYS, SHOPKEEPER_KEY, facePath, shopkeeperPath } from '../ui/faces.js'
+import { ICON_KEYS, iconPath } from '../ui/icons.js'
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -21,6 +22,9 @@ export class BootScene extends Phaser.Scene {
     if (CUSTOMER_ART_READY) {
       for (const art of CUSTOMER_ART) this.load.image(art.key, art.path)
     }
+    // ボタンの絵（#69）。⚠ **ここで読む。**場面が始まってから読むと、
+    //   **最初の何フレームかボタンの中が空になる**（顔絵と同じ理由）
+    for (const key of ICON_KEYS) this.load.image(key, iconPath(key))
   }
 
   create(): void {

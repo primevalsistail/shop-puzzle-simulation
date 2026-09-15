@@ -1,0 +1,28 @@
+{
+  "load": {
+    "ink_pixels": 5994,
+    "alpha_unchanged": true,
+    "other_pixels_unchanged": true
+  },
+  "options": {
+    "ink_pixels": 8196,
+    "alpha_unchanged": true,
+    "other_pixels_unchanged": true
+  },
+  "trade": {
+    "ink_pixels": 9942,
+    "alpha_unchanged": true,
+    "other_pixels_unchanged": true
+  },
+  "craft": {
+    "ink_pixels": 7556,
+    "alpha_unchanged": true,
+    "other_pixels_unchanged": true
+  },
+  "advance": {
+    "outer_bounds_unchanged": true,
+    "exterior_transparency_unchanged": true,
+    "fill": "#493d38"
+  },
+  "save_help_unchanged": true
+}
